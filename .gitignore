@@ -1,19 +1,9 @@
+# Ignore all hidden files
+.*
+!.gitignore
+
 # OS files
-.DS_Store
 Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Local/private
-.env
-.env.local
-
-# Trellis private files (developer identity is per-machine)
-.trellis/.developer
-.trellis/.current-task
-.trellis/workspace/*/journal-*.md
 
 # Draft & temp
 draft/
@@ -23,7 +13,6 @@ AGENTS.md
 # Python
 __pycache__/
 *.pyc
-.venv/
 *.egg-info/
 
 # Node
@@ -34,5 +23,5 @@ dist/
 # History
 .history/
 
-#assests
+# assets
 assests/papers

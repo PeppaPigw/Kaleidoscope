@@ -1,0 +1,81 @@
+{
+  "id": "p0-backend-foundation",
+  "name": "p0-backend-foundation",
+  "title": "P0: Backend Foundation + Data Ingestion + Search",
+  "description": "Implement the P0 features from FeasibilityAnalysis.md: §1 Data Ingestion, §2 Full-text Processing, §3 Search & Retrieval, §14 Data Models. Includes project scaffolding, Docker Compose infrastructure, ORM models, API clients, ingestion pipeline, GROBID parsing, hybrid search, and FastAPI API routers.",
+  "status": "in-progress",
+  "dev_type": "backend",
+  "scope": "P0",
+  "priority": "P0",
+  "creator": "quixotica11y",
+  "assignee": "quixotica11y",
+  "createdAt": "2026-03-20",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 1,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "write-tests",
+      "status": "pending",
+      "note": "Unit tests for ingestion, parsing, search, API (target ≥80% coverage)"
+    },
+    {
+      "phase": 2,
+      "action": "integration-test",
+      "status": "pending",
+      "note": "End-to-end test with Docker services: import paper → enrich → search"
+    },
+    {
+      "phase": 3,
+      "action": "finish",
+      "status": "pending"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [
+    {"name": "project-skeleton", "status": "done", "note": "pyproject.toml, config.py, exceptions.py, dependencies.py"},
+    {"name": "data-models", "status": "done", "note": "Paper, Author, Venue, RSSFeed, PaperReference, PaperVersion + Alembic migration"},
+    {"name": "docker-compose", "status": "done", "note": "7 services: PostgreSQL, Redis, Meilisearch, Qdrant, Neo4j, MinIO, GROBID"},
+    {"name": "api-clients", "status": "done", "note": "CrossRef, OpenAlex, Semantic Scholar, Unpaywall, arXiv"},
+    {"name": "ingestion-pipeline", "status": "done", "note": "RSS poller, deduplicator, metadata enricher, PDF downloader"},
+    {"name": "grobid-parsing", "status": "done", "note": "GROBID client with TEI XML parsing"},
+    {"name": "search-services", "status": "done", "note": "Keyword (Meilisearch) + Vector (Qdrant) + Hybrid (RRF)"},
+    {"name": "celery-tasks", "status": "done", "note": "5 tasks: poll, ingest, acquire, parse, index"},
+    {"name": "api-routers", "status": "done", "note": "Papers, Search, Feeds routers + health checks"},
+    {"name": "seed-data", "status": "done", "note": "62 RSS feeds from source.md"},
+    {"name": "unit-tests", "status": "pending", "note": "Target ≥80% coverage"}
+  ],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/main.py",
+    "backend/app/config.py",
+    "backend/app/models/paper.py",
+    "backend/app/services/ingestion/rss_poller.py",
+    "backend/app/services/ingestion/deduplicator.py",
+    "backend/app/services/ingestion/metadata_enricher.py",
+    "backend/app/services/ingestion/pdf_downloader.py",
+    "backend/app/services/parsing/grobid_client.py",
+    "backend/app/services/search/hybrid_search.py",
+    "backend/app/api/v1/papers.py",
+    "backend/app/api/v1/search.py",
+    "backend/app/api/v1/feeds.py",
+    "backend/app/tasks/ingest_tasks.py",
+    "backend/docker/docker-compose.yml"
+  ],
+  "notes": "Phase 0 foundation + Phase 1 core features implemented on 2026-03-20. All Docker services verified healthy. API running on port 8003 (8000 occupied by grok2api). Next: unit tests, then integration testing.",
+  "meta": {
+    "files_created": 56,
+    "rss_feeds_seeded": 62,
+    "docker_services": 7,
+    "api_endpoints": 12,
+    "celery_tasks": 5,
+    "api_clients": 5,
+    "conda_env": "Russell",
+    "api_port": 8003
+  }
+}

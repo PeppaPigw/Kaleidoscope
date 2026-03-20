@@ -1,6 +1,7 @@
 # Ignore all hidden files
 .*
 !.gitignore
+!.trellis
 
 # OS files
 Thumbs.db
@@ -14,6 +15,14 @@ AGENTS.md
 __pycache__/
 *.pyc
 *.egg-info/
+*.pyo
+.venv/
+venv/
+backend/.env
+
+# IDE
+.vscode/
+.idea/
 
 # Node
 node_modules/
@@ -23,5 +32,4 @@ dist/
 # History
 .history/
 
-# assets
-assests/papers
+

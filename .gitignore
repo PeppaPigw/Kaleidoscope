@@ -1,0 +1,35 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local/private
+.env
+.env.local
+
+# Trellis private files (developer identity is per-machine)
+.trellis/.developer
+.trellis/.current-task
+.trellis/workspace/*/journal-*.md
+
+# Draft & temp
+draft/
+Memo/
+AGENTS.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+dist/
+
+# History
+.history/

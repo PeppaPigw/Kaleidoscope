@@ -18,7 +18,7 @@ class DedupResult:
         self,
         is_duplicate: bool,
         existing_paper_id: str | None = None,
-        match_type: str | None = None,  # "doi", "title", None
+        match_type: str | None = None,  # "doi", "arxiv_id", "title", "soft_deleted", None
         similarity_score: float | None = None,
     ):
         self.is_duplicate = is_duplicate
@@ -32,9 +32,10 @@ class DeduplicatorService:
     Deduplicate papers before insertion.
 
     Strategy:
-    1. DOI exact match (highest confidence)
-    2. arXiv ID exact match
-    3. Title fuzzy match (token-sort ratio >= 0.90)
+    1. DOI exact match (active papers)
+    2. DOI exact match (soft-deleted papers → signals restore)
+    3. arXiv ID exact match
+    4. Title fuzzy match (token-sort ratio >= 0.90)
     """
 
     def __init__(self, db: AsyncSession):
@@ -49,9 +50,16 @@ class DeduplicatorService:
         """
         Check if a paper already exists in the database.
 
-        Checks in order: DOI → arXiv ID → title fuzzy match.
+        Checks in order:
+        1. DOI exact match (active)
+        2. DOI exact match (soft-deleted) → returns "soft_deleted" match type
+        3. arXiv ID exact match
+        4. Title fuzzy match
+
+        The caller should handle "soft_deleted" matches differently
+        (e.g., restore the record instead of creating a new one).
         """
-        # 1. DOI exact match
+        # 1. DOI exact match — active records
         if doi:
             normalized_doi = normalize_doi(doi)
             if normalized_doi:
@@ -71,8 +79,29 @@ class DeduplicatorService:
                         similarity_score=1.0,
                     )
 
-        # 2. arXiv ID exact match
+                # 2. DOI exact match — soft-deleted records
+                # This prevents unique constraint violation when re-importing
+                # a previously deleted paper. Caller should restore the record.
+                result = await self.db.execute(
+                    select(Paper.id).where(
+                        Paper.doi == normalized_doi,
+                        Paper.deleted_at.is_not(None),
+                    )
+                )
+                soft_deleted = result.scalar_one_or_none()
+                if soft_deleted:
+                    logger.info("dedup_doi_soft_deleted", doi=normalized_doi,
+                                existing_id=str(soft_deleted))
+                    return DedupResult(
+                        is_duplicate=True,
+                        existing_paper_id=str(soft_deleted),
+                        match_type="soft_deleted",
+                        similarity_score=1.0,
+                    )
+
+        # 3. arXiv ID exact match
         if arxiv_id:
+            # Check active
             result = await self.db.execute(
                 select(Paper.id).where(
                     Paper.arxiv_id == arxiv_id,
@@ -89,7 +118,25 @@ class DeduplicatorService:
                     similarity_score=1.0,
                 )
 
-        # 3. Title fuzzy match
+            # Check soft-deleted arXiv
+            result = await self.db.execute(
+                select(Paper.id).where(
+                    Paper.arxiv_id == arxiv_id,
+                    Paper.deleted_at.is_not(None),
+                )
+            )
+            soft_deleted = result.scalar_one_or_none()
+            if soft_deleted:
+                logger.info("dedup_arxiv_soft_deleted", arxiv_id=arxiv_id,
+                            existing_id=str(soft_deleted))
+                return DedupResult(
+                    is_duplicate=True,
+                    existing_paper_id=str(soft_deleted),
+                    match_type="soft_deleted",
+                    similarity_score=1.0,
+                )
+
+        # 4. Title fuzzy match (active records only)
         if title:
             normalized = normalize_title(title)
             if len(normalized) > 10:  # Skip very short titles to avoid false matches

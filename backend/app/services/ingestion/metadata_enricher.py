@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timezone
 
+import httpx
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,15 +10,24 @@ from app.clients.crossref import CrossRefClient
 from app.clients.openalex import OpenAlexClient
 from app.clients.semantic_scholar import SemanticScholarClient
 from app.models.paper import Paper
+from app.utils.doi import normalize_doi, normalize_arxiv_id
 
 logger = structlog.get_logger(__name__)
+
+# PubMed E-utilities base URL (free, no key required for <3 req/s)
+PUBMED_EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
 
 class MetadataEnricherService:
     """
     Enrich paper metadata via cascading API queries.
 
-    Order: CrossRef → OpenAlex → Semantic Scholar
+    Supports multiple entry points:
+    - DOI paper: CrossRef → OpenAlex → Semantic Scholar
+    - arXiv paper: Semantic Scholar → OpenAlex (via arXiv ID)
+    - PMID paper: PubMed → CrossRef (if DOI found) → S2
+    - Title-only paper: CrossRef search → resolve DOI → full cascade
+
     Each source fills in missing fields without overwriting existing data.
     """
 
@@ -37,11 +47,37 @@ class MetadataEnricherService:
         """
         Enrich a paper with metadata from external APIs.
 
-        Attempts each source in order. Only fills fields that are currently empty.
+        Routes to the appropriate enrichment path based on available identifiers.
         """
-        log = logger.bind(paper_id=str(paper.id), doi=paper.doi)
+        log = logger.bind(paper_id=str(paper.id), doi=paper.doi,
+                          arxiv_id=paper.arxiv_id, pmid=paper.pmid)
 
-        # --- CrossRef ---
+        # ── PMID path: resolve via PubMed first ─────────────────
+        if paper.pmid and not paper.doi:
+            try:
+                doi = await self._resolve_pmid_to_doi(paper.pmid)
+                if doi:
+                    paper.doi = doi
+                    log.info("pmid_resolved_to_doi", doi=doi)
+                else:
+                    # Still try to get metadata from PubMed directly
+                    await self._enrich_from_pubmed(paper)
+            except Exception as e:
+                log.warning("pmid_resolution_failed", error=str(e))
+
+        # ── Title-only path: search CrossRef for DOI ─────────────
+        if not paper.doi and not paper.arxiv_id and paper.title:
+            try:
+                resolved_doi = await self._resolve_title_to_doi(paper.title)
+                if resolved_doi:
+                    paper.doi = resolved_doi
+                    log.info("title_resolved_to_doi", doi=resolved_doi)
+            except Exception as e:
+                log.warning("title_resolution_failed", error=str(e))
+
+        # ── Standard enrichment cascade ──────────────────────────
+
+        # --- CrossRef (requires DOI) ---
         if paper.doi:
             try:
                 cr_data = await self.crossref.get_work(paper.doi)
@@ -51,7 +87,7 @@ class MetadataEnricherService:
             except Exception as e:
                 log.warning("crossref_enrichment_failed", error=str(e))
 
-        # --- OpenAlex ---
+        # --- OpenAlex (DOI or arXiv) ---
         if paper.doi:
             try:
                 oa_data = await self.openalex.get_work_by_doi(paper.doi)
@@ -61,8 +97,8 @@ class MetadataEnricherService:
             except Exception as e:
                 log.warning("openalex_enrichment_failed", error=str(e))
 
-        # --- Semantic Scholar ---
-        s2_query = f"DOI:{paper.doi}" if paper.doi else (f"arXiv:{paper.arxiv_id}" if paper.arxiv_id else None)
+        # --- Semantic Scholar (DOI, arXiv, PMID, or title) ---
+        s2_query = self._build_s2_query(paper)
         if s2_query:
             try:
                 s2_data = await self.s2.get_paper(s2_query)
@@ -74,6 +110,140 @@ class MetadataEnricherService:
 
         paper.ingestion_status = "enriched"
         return paper
+
+    # ─── Identifier resolution ───────────────────────────────────
+
+    async def _resolve_pmid_to_doi(self, pmid: str) -> str | None:
+        """
+        Resolve a PubMed ID to DOI using NCBI E-utilities.
+
+        Uses efetch with rettype=xml to get the <ArticleId IdType="doi"> element.
+        Free API: 3 requests/second without API key, 10/s with key.
+        """
+        url = f"{PUBMED_EFETCH_URL}/efetch.fcgi"
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, params={
+                "db": "pubmed",
+                "id": pmid,
+                "rettype": "xml",
+                "retmode": "xml",
+            })
+            if resp.status_code != 200:
+                return None
+
+            # Extract DOI from XML response
+            import re
+            doi_match = re.search(
+                r'<ArticleId\s+IdType="doi">([^<]+)</ArticleId>',
+                resp.text
+            )
+            if doi_match:
+                return normalize_doi(doi_match.group(1))
+
+        return None
+
+    async def _enrich_from_pubmed(self, paper: Paper) -> None:
+        """
+        Fetch basic metadata directly from PubMed when no DOI can be resolved.
+
+        Populates title, abstract, published_at from PubMed XML.
+        """
+        url = f"{PUBMED_EFETCH_URL}/efetch.fcgi"
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(url, params={
+                    "db": "pubmed",
+                    "id": paper.pmid,
+                    "rettype": "xml",
+                    "retmode": "xml",
+                })
+                if resp.status_code != 200:
+                    return
+
+                import re
+
+                # Title
+                if not paper.title or paper.title == paper.pmid:
+                    title_match = re.search(
+                        r'<ArticleTitle>(.+?)</ArticleTitle>',
+                        resp.text, re.DOTALL
+                    )
+                    if title_match:
+                        paper.title = title_match.group(1).strip()
+
+                # Abstract
+                if not paper.abstract:
+                    abs_match = re.search(
+                        r'<AbstractText[^>]*>(.+?)</AbstractText>',
+                        resp.text, re.DOTALL
+                    )
+                    if abs_match:
+                        paper.abstract = abs_match.group(1).strip()
+
+                # Published date
+                if not paper.published_at:
+                    year_match = re.search(r'<PubDate>.*?<Year>(\d{4})</Year>', resp.text, re.DOTALL)
+                    month_match = re.search(r'<PubDate>.*?<Month>(\d{1,2})</Month>', resp.text, re.DOTALL)
+                    if year_match:
+                        try:
+                            paper.published_at = date(
+                                int(year_match.group(1)),
+                                int(month_match.group(1)) if month_match else 1,
+                                1,
+                            )
+                        except ValueError:
+                            pass
+
+                logger.info("enriched_from_pubmed", pmid=paper.pmid)
+
+        except Exception as e:
+            logger.warning("pubmed_enrichment_failed", pmid=paper.pmid, error=str(e))
+
+    async def _resolve_title_to_doi(self, title: str) -> str | None:
+        """
+        Search CrossRef by title to find the most likely DOI.
+
+        Uses CrossRef's /works?query= endpoint. Only returns a DOI if the
+        top result's title is a close match (>85% similarity).
+        """
+        from app.utils.text import titles_are_similar
+
+        results = await self.crossref.search_works(title, rows=3)
+        if not results:
+            return None
+
+        for result in results:
+            result_titles = result.get("title", [])
+            if not result_titles:
+                continue
+            result_title = result_titles[0]
+            if titles_are_similar(title, result_title, threshold=0.85):
+                doi = result.get("DOI")
+                if doi:
+                    return normalize_doi(doi)
+
+        return None
+
+    # ─── S2 query builder ────────────────────────────────────────
+
+    @staticmethod
+    def _build_s2_query(paper: Paper) -> str | None:
+        """
+        Build the Semantic Scholar query for a paper.
+
+        Priority: DOI → arXiv → PMID → None
+        Always normalizes arXiv IDs to prevent arXiv:arXiv:... duplication.
+        """
+        if paper.doi:
+            return f"DOI:{paper.doi}"
+        if paper.arxiv_id:
+            clean_id = normalize_arxiv_id(paper.arxiv_id)
+            return f"arXiv:{clean_id}"
+        if paper.pmid:
+            return f"PMID:{paper.pmid}"
+        return None
+
+    # ─── Metadata applicators ────────────────────────────────────
 
     def _apply_crossref(self, paper: Paper, data: dict) -> None:
         """Apply CrossRef metadata to paper (only fills empty fields)."""
@@ -194,6 +364,18 @@ class MetadataEnricherService:
         if not paper.arxiv_id:
             ext_ids = data.get("externalIds", {})
             if ext_ids.get("ArXiv"):
-                paper.arxiv_id = ext_ids["ArXiv"]
+                paper.arxiv_id = normalize_arxiv_id(ext_ids["ArXiv"])
+
+        # Backfill DOI if discovered via S2
+        if not paper.doi:
+            ext_ids = data.get("externalIds", {})
+            if ext_ids.get("DOI"):
+                paper.doi = normalize_doi(ext_ids["DOI"])
+
+        # Backfill PMID if discovered via S2
+        if not paper.pmid:
+            ext_ids = data.get("externalIds", {})
+            if ext_ids.get("PubMed"):
+                paper.pmid = ext_ids["PubMed"]
 
         paper.citation_count_updated_at = datetime.now(timezone.utc)

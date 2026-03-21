@@ -28,32 +28,33 @@ backend/
 │   │   ├── paper.py               # ✅ Paper, PaperVersion, PaperReference
 │   │   ├── author.py              # ✅ Author, PaperAuthor, Institution
 │   │   ├── venue.py               # ✅ Venue (journals/conferences with rankings)
-│   │   └── feed.py                # ✅ RSSFeed (ETag/Last-Modified tracking)
-│   │   # Future (P1+):
+│   │   ├── feed.py                # ✅ RSSFeed (ETag/Last-Modified tracking)
+│   │   └── collection.py          # ✅ Collection, CollectionPaper, Tag, PaperTag (P1)
+│   │   # Future (P2+):
 │   │   # ├── dataset.py           # Dataset, Method, Metric
 │   │   # ├── claim.py             # Claim, Evidence
-│   │   # ├── collection.py        # Collection, Tag, ReadingStatus
 │   │   # └── user.py              # User, Role, Permission
 │   │
 │   ├── schemas/                   # ✅ Pydantic request/response schemas
 │   │   ├── __init__.py
 │   │   ├── paper.py               # ✅ Import/response/list schemas
 │   │   ├── search.py              # ✅ Search request/response/hit
-│   │   └── feed.py                # ✅ RSS feed CRUD schemas
-│   │   # Future: collection.py, author.py, graph.py
+│   │   ├── feed.py                # ✅ RSS feed CRUD schemas
+│   │   └── collection.py          # ✅ Collection/Tag/ReadingStatus/Export schemas (P1)
 │   │
 │   ├── api/                       # ✅ FastAPI routers (thin layer)
 │   │   ├── __init__.py
 │   │   └── v1/
 │   │       ├── __init__.py
-│   │       ├── papers.py          # ✅ /api/v1/papers (import, list, detail, delete)
+│   │       ├── papers.py          # ✅ /api/v1/papers (import, list, detail, delete, tags, export, reading-status)
 │   │       ├── search.py          # ✅ /api/v1/search (keyword/semantic/hybrid)
-│   │       └── feeds.py           # ✅ /api/v1/feeds (CRUD + poll trigger)
-│   │       # Future:
-│   │       # ├── collections.py   # /api/v1/collections
-│   │       # ├── graph.py         # /api/v1/graph
-│   │       # ├── authors.py       # /api/v1/authors
-│   │       # └── agent.py         # /api/v1/agent (MCP-compatible)
+│   │       ├── feeds.py           # ✅ /api/v1/feeds (CRUD + poll trigger)
+│   │       ├── collections.py     # ✅ /api/v1/collections (CRUD, papers, smart, export) (P1)
+│   │       ├── tags.py            # ✅ /api/v1/tags (CRUD) (P1)
+│   │       ├── graph.py           # ✅ /api/v1/graph (citations, co-citation, coupling, similar, neighborhood) (P1)
+│   │       ├── intelligence.py    # ✅ /api/v1/intelligence (summarize, extract, ask) (P1)
+│   │       └── agent.py           # ✅ /api/v1/agent (MCP tools, call, batch) (P1)
+│   │       # Future: authors.py
 │   │
 │   ├── services/                  # Business logic (core layer)
 │   │   ├── __init__.py
@@ -61,8 +62,8 @@ backend/
 │   │   │   ├── __init__.py
 │   │   │   ├── rss_poller.py      # ✅ RSS feed polling (ETag/Last-Modified)
 │   │   │   ├── deduplicator.py    # ✅ DOI/arXiv/title-based dedup (≥90%)
-│   │   │   ├── metadata_enricher.py # ✅ CrossRef→OpenAlex→S2 cascade
-│   │   │   └── pdf_downloader.py  # ✅ 6-step PDF acquisition cascade
+│   │   │   ├── metadata_enricher.py # ✅ CrossRef→OpenAlex→S2 cascade + PMID/title resolution
+│   │   │   └── pdf_downloader.py  # ✅ 6-step PDF acquisition cascade + content persistence
 │   │   ├── parsing/               # ✅ Document parsing
 │   │   │   ├── __init__.py
 │   │   │   └── grobid_client.py   # ✅ GROBID TEI XML parsing
@@ -73,16 +74,27 @@ backend/
 │   │   │   ├── vector_search.py   # ✅ Qdrant SPECTER2 vector search
 │   │   │   └── hybrid_search.py   # ✅ RRF fusion (k=60)
 │   │   │   # Future: graph_search.py
-│   │   ├── extraction/            # 🔲 LLM-powered extraction (P1)
-│   │   │   └── __init__.py
-│   │   └── graph/                 # 🔲 Graph operations (P1)
-│   │       └── __init__.py
-│   │   # Future: recommendation.py, collection_service.py, export_service.py
+│   │   ├── extraction/            # ✅ LLM-powered extraction (P1)
+│   │   │   ├── __init__.py
+│   │   │   ├── prompts.py         # ✅ All prompt templates (summary/extract/QA)
+│   │   │   ├── chunker.py         # ✅ Text chunking (section/paragraph modes)
+│   │   │   ├── summarizer.py      # ✅ Multi-level summarization
+│   │   │   ├── extractor.py       # ✅ Structured field extraction (highlights/methods)
+│   │   │   └── qa_engine.py       # ✅ RAG QA engine (single/multi-doc)
+│   │   ├── graph/                 # ✅ Graph operations (P1)
+│   │   │   ├── __init__.py
+│   │   │   └── citation_graph.py  # ✅ Citation graph + recommendation (RRF fusion)
+│   │   ├── agent/                 # ✅ Agent services (P1)
+│   │   │   ├── __init__.py
+│   │   │   └── mcp_server.py      # ✅ 13 MCP tools + dispatcher
+│   │   ├── collection_service.py  # ✅ Collection/Tag CRUD + smart collections (P1)
+│   │   └── export_service.py      # ✅ BibTeX/RIS/CSL-JSON export (P1)
 │   │
 │   ├── tasks/                     # ✅ Celery async tasks
 │   │   ├── __init__.py
-│   │   └── ingest_tasks.py        # ✅ poll_rss_feeds, ingest_paper, acquire_pdf,
-│   │                              #    parse_pdf_task, index_paper_task
+│   │   ├── ingest_tasks.py        # ✅ poll_rss_feeds, ingest_paper, acquire_fulltext,
+│   │                              #    parse_fulltext_task, index_paper_task
+│   │   └── graph_tasks.py         # ✅ sync_paper_to_graph, sync_batch (P1)
 │   │   # Future: extract_tasks.py, notification_tasks.py
 │   │
 │   ├── clients/                   # ✅ External API clients
@@ -91,12 +103,14 @@ backend/
 │   │   ├── openalex.py            # ✅ Works/authors/citations
 │   │   ├── semantic_scholar.py    # ✅ Papers/citations/OA PDF
 │   │   ├── unpaywall.py           # ✅ OA PDF discovery
-│   │   └── arxiv.py               # ✅ Atom XML parsing + PDF URL
-│   │   # Future: papers_with_code.py, llm_client.py
+│   │   ├── arxiv.py               # ✅ Atom XML parsing + PDF URL
+│   │   └── llm_client.py          # ✅ OpenAI-compatible LLM client (P1)
+│   │   # Future: papers_with_code.py
 │   │
-│   ├── graph_db/                  # 🔲 Neo4j operations (P1)
-│   │   └── __init__.py
-│   │   # Future: driver.py, queries.py, sync.py
+│   ├── graph_db/                  # ✅ Neo4j operations (P1)
+│   │   ├── __init__.py
+│   │   ├── driver.py              # ✅ Async driver wrapper + index management
+│   │   └── queries.py             # ✅ Cypher query templates
 │   │
 │   └── utils/                     # ✅ Shared utilities
 │       ├── __init__.py

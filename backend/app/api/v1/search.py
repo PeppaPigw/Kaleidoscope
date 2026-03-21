@@ -4,18 +4,10 @@ import structlog
 from fastapi import APIRouter, Query
 
 from app.schemas.search import SearchHit, SearchResponse
-from app.services.search.keyword_search import KeywordSearchService
-from app.services.search.vector_search import VectorSearchService
-from app.services.search.hybrid_search import HybridSearchService
+from app.services.search.instances import hybrid_service as _hybrid_service
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/search", tags=["search"])
-
-# Service instances (singleton for the app lifecycle)
-_keyword_service = KeywordSearchService()
-_vector_service = VectorSearchService()
-_hybrid_service = HybridSearchService(_keyword_service, _vector_service)
-
 
 @router.get("", response_model=SearchResponse)
 async def search_papers(

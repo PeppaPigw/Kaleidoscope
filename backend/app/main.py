@@ -87,10 +87,20 @@ def create_app() -> FastAPI:
     from app.api.v1.papers import router as papers_router
     from app.api.v1.search import router as search_router
     from app.api.v1.feeds import router as feeds_router
+    from app.api.v1.collections import router as collections_router
+    from app.api.v1.tags import router as tags_router
+    from app.api.v1.graph import router as graph_router
+    from app.api.v1.intelligence import router as intelligence_router
+    from app.api.v1.agent import router as agent_router
 
     app.include_router(papers_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(feeds_router, prefix="/api/v1")
+    app.include_router(collections_router, prefix="/api/v1")
+    app.include_router(tags_router, prefix="/api/v1")
+    app.include_router(graph_router, prefix="/api/v1")
+    app.include_router(intelligence_router, prefix="/api/v1")
+    app.include_router(agent_router, prefix="/api/v1")
 
     # --- Health Check ---
 

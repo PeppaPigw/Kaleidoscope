@@ -1,4 +1,10 @@
-"""Celery tasks for paper ingestion pipeline."""
+"""Celery tasks for paper ingestion pipeline.
+
+Task chain: ingest_paper → acquire_fulltext → parse_fulltext → index_paper
+
+Each task commits its state to the DB BEFORE queuing the next task,
+ensuring the downstream task always sees the updated row.
+"""
 
 import asyncio
 
@@ -69,12 +75,14 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
     Full ingestion pipeline for a single paper.
 
     Steps:
-    1. Deduplication check
-    2. Create paper record
-    3. Metadata enrichment
-    4. PDF acquisition
-    5. Queue parsing (if PDF acquired)
-    6. Queue indexing
+    1. Normalize identifier (DOI, arXiv, PMID, URL → DOI, title → CrossRef search)
+    2. Deduplication check (including soft-deleted records)
+    3. Create paper record
+    4. Metadata enrichment
+    5. Commit, then queue acquire_fulltext (which chains → parse → index)
+
+    Note: Only acquire_fulltext is queued here. Parsing and indexing are
+    chained downstream after each preceding step commits its results.
     """
     log = logger.bind(identifier=identifier, id_type=id_type, task_id=self.request.id)
     log.info("ingest_paper_start")
@@ -88,25 +96,82 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
         from app.clients.openalex import OpenAlexClient
         from app.clients.semantic_scholar import SemanticScholarClient
         from app.config import settings
-        from app.utils.doi import normalize_doi, extract_arxiv_id
+        from app.utils.doi import (
+            normalize_doi, extract_arxiv_id, extract_pmid,
+            normalize_arxiv_id, extract_doi_from_url,
+        )
 
         async with async_session_factory() as session:
-            # 1. Dedup
-            dedup = DeduplicatorService(session)
-            doi = normalize_doi(identifier) if id_type == "doi" else None
-            arxiv_id = identifier if id_type == "arxiv" else extract_arxiv_id(identifier)
+            # ── 1. Normalize identifier ──────────────────────────
+            doi = None
+            arxiv_id = None
+            pmid = None
 
+            if id_type == "doi":
+                doi = normalize_doi(identifier)
+            elif id_type == "arxiv":
+                arxiv_id = normalize_arxiv_id(
+                    extract_arxiv_id(identifier) or identifier
+                )
+            elif id_type == "pmid":
+                pmid = extract_pmid(identifier)
+                if not pmid:
+                    log.warning("invalid_pmid", raw=identifier)
+                    return {"status": "error", "message": f"Invalid PMID: {identifier}"}
+            elif id_type == "url":
+                # Try DOI extraction from publisher URL
+                doi = extract_doi_from_url(identifier)
+                if not doi:
+                    # Try plain DOI normalization (handles doi.org URLs)
+                    doi = normalize_doi(identifier)
+                if not doi:
+                    arxiv_id = extract_arxiv_id(identifier)
+                    if arxiv_id:
+                        arxiv_id = normalize_arxiv_id(arxiv_id)
+                if not doi and not arxiv_id:
+                    log.warning("url_no_identifier_found", url=identifier)
+                    # Continue anyway — enricher's title search may resolve it
+            elif id_type == "title":
+                # Title-only import: enricher will search CrossRef
+                pass
+            else:
+                # Default: try DOI first, then arXiv
+                doi = normalize_doi(identifier)
+                if not doi:
+                    arxiv_id = extract_arxiv_id(identifier)
+                    if arxiv_id:
+                        arxiv_id = normalize_arxiv_id(arxiv_id)
+
+            # ── 2. Dedup (including soft-deleted) ────────────────
+            dedup = DeduplicatorService(session)
             dedup_result = await dedup.check_duplicate(
                 doi=doi, arxiv_id=arxiv_id, title=title
             )
             if dedup_result.is_duplicate:
-                log.info("paper_is_duplicate", existing_id=dedup_result.existing_paper_id)
-                return {"status": "duplicate", "existing_id": dedup_result.existing_paper_id}
+                if dedup_result.match_type == "soft_deleted":
+                    # Restore the soft-deleted paper
+                    log.info("restoring_soft_deleted_paper",
+                             existing_id=dedup_result.existing_paper_id)
+                    from sqlalchemy import update
+                    await session.execute(
+                        update(Paper)
+                        .where(Paper.id == dedup_result.existing_paper_id)
+                        .values(deleted_at=None, ingestion_status="discovered")
+                    )
+                    await session.commit()
+                    paper_id = dedup_result.existing_paper_id
+                    # Re-process: commit done, now safe to queue
+                    acquire_fulltext.delay(paper_id)
+                    return {"status": "restored", "paper_id": paper_id}
+                else:
+                    log.info("paper_is_duplicate", existing_id=dedup_result.existing_paper_id)
+                    return {"status": "duplicate", "existing_id": dedup_result.existing_paper_id}
 
-            # 2. Create paper
+            # ── 3. Create paper ──────────────────────────────────
             paper = Paper(
                 doi=doi,
                 arxiv_id=arxiv_id,
+                pmid=pmid,
                 title=title or identifier,
                 abstract=abstract or None,
                 ingestion_status="discovered",
@@ -115,7 +180,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
             await session.flush()  # Get the ID
             paper_id = str(paper.id)
 
-            # 3. Enrich metadata
+            # ── 4. Enrich metadata ───────────────────────────────
             try:
                 crossref = CrossRefClient(mailto=settings.unpaywall_email)
                 openalex = OpenAlexClient(mailto=settings.unpaywall_email)
@@ -131,13 +196,12 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
                 log.warning("enrichment_failed", error=str(e))
                 paper.ingestion_status = "discovered"  # Continue anyway
 
+            # ── 5. Commit FIRST, then queue downstream ───────────
             await session.commit()
 
-            # 4. PDF acquisition (queued separately)
-            acquire_pdf.delay(paper_id)
-
-            # 5. Index for search (queued separately)
-            index_paper_task.delay(paper_id)
+            # Only acquire_fulltext is queued here.
+            # It will chain: acquire → parse → index
+            acquire_fulltext.delay(paper_id)
 
             log.info("ingest_paper_complete", paper_id=paper_id)
             return {"status": "created", "paper_id": paper_id}
@@ -150,10 +214,16 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
-def acquire_pdf(self, paper_id: str):
-    """Acquire PDF for a paper through priority cascade."""
+def acquire_fulltext(self, paper_id: str):
+    """
+    Acquire full-text for a paper through priority cascade.
+
+    On success: commits pdf_path + has_full_text, then queues parse_fulltext_task.
+    On failure: commits metadata-only status, then queues index_paper_task
+                (so at least metadata gets indexed).
+    """
     log = logger.bind(paper_id=paper_id, task_id=self.request.id)
-    log.info("acquire_pdf_start")
+    log.info("acquire_fulltext_start")
 
     async def _acquire():
         from app.dependencies import async_session_factory
@@ -183,43 +253,70 @@ def acquire_pdf(self, paper_id: str):
             acq_result = await downloader.acquire_pdf(paper)
 
             if acq_result.success:
-                paper.pdf_path = acq_result.pdf_path
+                paper.pdf_path = acq_result.storage_path
                 paper.has_full_text = True
                 paper.ingestion_status = "pdf_acquired"
-                # Queue GROBID parsing
-                parse_pdf_task.delay(paper_id)
+                # Store content_type for parse task to branch on
+                paper.raw_metadata = paper.raw_metadata or {}
+                paper.raw_metadata["fulltext_content_type"] = acq_result.content_type
+                paper.raw_metadata["fulltext_source"] = acq_result.source
             else:
                 paper.ingestion_status = "enriched"  # metadata-only
                 paper.ingestion_error = acq_result.error
 
+            # ── Commit FIRST, then queue next task ───────────────
             await session.commit()
 
             await arxiv.close()
             await unpaywall.close()
             await s2.close()
 
+            if acq_result.success:
+                # Chain: parse will queue index after it finishes
+                parse_fulltext_task.delay(paper_id, acq_result.content_type)
+            else:
+                # No full-text, but still index metadata
+                index_paper_task.delay(paper_id)
+
             return {
                 "status": "acquired" if acq_result.success else "not_available",
                 "source": acq_result.source,
+                "content_type": acq_result.content_type if acq_result.success else None,
             }
 
     try:
         return _run_async(_acquire())
     except Exception as exc:
-        log.error("acquire_pdf_failed", error=str(exc))
+        log.error("acquire_fulltext_failed", error=str(exc))
         self.retry(exc=exc, countdown=2 ** self.request.retries * 30)
 
 
+# Keep old name as alias
+acquire_pdf = acquire_fulltext
+
+
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=60)
-def parse_pdf_task(self, paper_id: str):
-    """Parse acquired PDF with GROBID."""
-    log = logger.bind(paper_id=paper_id, task_id=self.request.id)
-    log.info("parse_pdf_start")
+def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
+    """
+    Parse acquired full-text based on its content type.
+
+    Routes:
+    - PDF  → GROBID API → structured TEI XML
+    - TeX  → ArxivClient.extract_text_from_latex() → plain text with sections
+    - XML  → Direct use (Elsevier/Springer already structured)
+
+    After parsing completes and commits, queues index_paper_task so the
+    search index reflects the parsed content (title, abstract, keywords).
+    """
+    log = logger.bind(paper_id=paper_id, content_type=content_type, task_id=self.request.id)
+    log.info("parse_fulltext_start")
 
     async def _parse():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.parsing.grobid_client import GROBIDClient
+        from app.services.ingestion.pdf_downloader import PDFDownloaderService
+        from app.clients.arxiv import ArxivClient
 
         from sqlalchemy import select
 
@@ -229,32 +326,153 @@ def parse_pdf_task(self, paper_id: str):
             )
             paper = result.scalar_one_or_none()
             if not paper or not paper.pdf_path:
-                log.error("paper_or_pdf_not_found")
+                log.error("paper_or_content_not_found")
                 return {"status": "error"}
 
-            grobid = GROBIDClient()
+            # Load persisted content
+            content = PDFDownloaderService.load_content(paper.pdf_path)
+            if content is None:
+                log.error("content_not_on_disk", path=paper.pdf_path)
+                paper.ingestion_error = f"Content file not found: {paper.pdf_path}"
+                paper.ingestion_status = "parse_failed"
+                await session.commit()
+                return {"status": "error", "message": "Content not found on disk"}
 
-            # NOTE: In production, read PDF from MinIO
-            # For now, skip actual parsing if no file exists locally
-            if not await grobid.is_alive():
-                log.warning("grobid_not_available")
-                return {"status": "grobid_unavailable"}
+            try:
+                if content_type == "pdf":
+                    # ── PDF → GROBID ─────────────────────────────
+                    grobid = GROBIDClient()
+                    if not await grobid.is_alive():
+                        log.warning("grobid_not_available")
+                        paper.ingestion_error = "GROBID service unavailable"
+                        paper.ingestion_status = "parse_failed"
+                        await session.commit()
+                        # Still index metadata even if parse fails
+                        index_paper_task.delay(paper_id)
+                        return {"status": "grobid_unavailable"}
 
-            paper.ingestion_status = "parsed"
-            await session.commit()
+                    grobid_result = await grobid.parse_pdf(content, paper_id=paper_id)
+                    paper.grobid_tei = grobid_result.tei_xml
+                    # Update metadata from GROBID if better than existing
+                    if grobid_result.title and (not paper.title or paper.title == paper.doi):
+                        paper.title = grobid_result.title
+                    if grobid_result.abstract and not paper.abstract:
+                        paper.abstract = grobid_result.abstract
+                    if grobid_result.keywords:
+                        paper.keywords = grobid_result.keywords
+                    # Store sections in raw_metadata for downstream use
+                    paper.raw_metadata = paper.raw_metadata or {}
+                    paper.raw_metadata["parsed_sections"] = grobid_result.sections
+                    paper.raw_metadata["parsed_references"] = grobid_result.references
+                    paper.parser_version = "grobid"
+                    log.info("grobid_parse_complete",
+                             sections=len(grobid_result.sections),
+                             references=len(grobid_result.references))
 
-            return {"status": "parsed"}
+                elif content_type == "tex":
+                    # ── LaTeX → plain text extraction ────────────
+                    tex_source = content.decode("utf-8", errors="replace")
+                    extracted_text = ArxivClient.extract_text_from_latex(tex_source)
+                    paper.raw_metadata = paper.raw_metadata or {}
+                    paper.raw_metadata["extracted_fulltext"] = extracted_text[:100000]  # Cap size
+                    paper.raw_metadata["tex_source_length"] = len(tex_source)
+                    paper.parser_version = "latex_extract"
+                    log.info("latex_parse_complete", text_length=len(extracted_text))
+
+                elif content_type == "xml":
+                    # ── TDM XML → stored as-is (already structured) ──
+                    xml_text = content.decode("utf-8", errors="replace")
+                    paper.grobid_tei = xml_text  # Reuse grobid_tei column for structured XML
+                    paper.raw_metadata = paper.raw_metadata or {}
+                    paper.raw_metadata["xml_source"] = "tdm_api"
+                    paper.parser_version = "tdm_xml"
+                    log.info("xml_parse_complete", xml_length=len(xml_text))
+
+                else:
+                    log.warning("unknown_content_type", content_type=content_type)
+                    paper.ingestion_status = "parse_failed"
+                    paper.ingestion_error = f"Unknown content type: {content_type}"
+                    await session.commit()
+                    index_paper_task.delay(paper_id)
+                    return {"status": "error", "message": f"Unknown content type: {content_type}"}
+
+                paper.ingestion_status = "parsed"
+
+                # ── Materialize PaperReference rows from parsed data ──
+                # Idempotent: delete existing refs before re-inserting
+                from app.models.paper import PaperReference
+                from sqlalchemy import delete as sa_delete
+
+                await session.execute(
+                    sa_delete(PaperReference).where(
+                        PaperReference.citing_paper_id == paper.id
+                    )
+                )
+
+                parsed_refs = (paper.raw_metadata or {}).get("parsed_references", [])
+                for ref in parsed_refs:
+                    paper_ref = PaperReference(
+                        citing_paper_id=paper.id,
+                        cited_paper_id=None,  # Resolved later by reference linker
+                        raw_title=ref.get("title"),
+                        raw_authors=", ".join(ref.get("authors", [])),
+                        raw_year=ref.get("year"),
+                        raw_doi=ref.get("doi"),
+                        raw_string=ref.get("raw_string"),
+                        position=ref.get("position"),
+                    )
+                    session.add(paper_ref)
+
+                if parsed_refs:
+                    log.info("references_materialized", count=len(parsed_refs))
+
+                # ── Commit FIRST, then queue index ───────────────
+                await session.commit()
+
+                # Now index with the freshly parsed data
+                index_paper_task.delay(paper_id)
+
+                # Queue graph sync if references were materialized
+                if parsed_refs:
+                    try:
+                        from app.tasks.graph_tasks import sync_paper_to_graph
+                        sync_paper_to_graph.delay(paper_id)
+                        log.info("graph_sync_queued", paper_id=paper_id)
+                    except Exception as e:
+                        log.warning("graph_sync_queue_failed", error=str(e))
+
+                return {"status": "parsed", "parser": paper.parser_version}
+
+            except Exception as e:
+                log.error("parse_failed", error=str(e))
+                paper.ingestion_status = "parse_failed"
+                paper.ingestion_error = str(e)[:500]
+                await session.commit()
+                # Still index metadata
+                index_paper_task.delay(paper_id)
+                return {"status": "error", "message": str(e)}
 
     try:
         return _run_async(_parse())
     except Exception as exc:
-        log.error("parse_pdf_failed", error=str(exc))
+        log.error("parse_fulltext_failed", error=str(exc))
         self.retry(exc=exc, countdown=60)
+
+
+# Keep old name as alias for backward compat
+parse_pdf_task = parse_fulltext_task
 
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=30)
 def index_paper_task(self, paper_id: str):
-    """Index paper in Meilisearch and Qdrant."""
+    """
+    Index paper in Meilisearch and Qdrant.
+
+    Always runs as the LAST step in the chain, so it has access to
+    all metadata, parsed content, and enriched fields.
+
+    Tracks per-engine success and sets differentiated status.
+    """
     log = logger.bind(paper_id=paper_id, task_id=self.request.id)
     log.info("index_paper_start")
 
@@ -275,6 +493,9 @@ def index_paper_task(self, paper_id: str):
                 log.error("paper_not_found")
                 return {"status": "error"}
 
+            meili_ok = False
+            qdrant_ok = False
+
             # Index in Meilisearch
             try:
                 kw_service = KeywordSearchService()
@@ -291,6 +512,7 @@ def index_paper_task(self, paper_id: str):
                     "has_full_text": paper.has_full_text,
                     "citation_count": paper.citation_count or 0,
                 })
+                meili_ok = True
             except Exception as e:
                 log.warning("meilisearch_index_failed", error=str(e))
 
@@ -303,14 +525,29 @@ def index_paper_task(self, paper_id: str):
                     abstract=paper.abstract,
                     year=paper.published_at.year if paper.published_at else None,
                 )
+                qdrant_ok = True
             except Exception as e:
                 log.warning("qdrant_index_failed", error=str(e))
 
-            paper.ingestion_status = "indexed"
+            # ── Set status based on actual results ───────────────
+            if meili_ok and qdrant_ok:
+                paper.ingestion_status = "indexed"
+            elif meili_ok or qdrant_ok:
+                paper.ingestion_status = "index_partial"
+                paper.ingestion_error = (
+                    f"Partial index: meili={'ok' if meili_ok else 'FAIL'}, "
+                    f"qdrant={'ok' if qdrant_ok else 'FAIL'}"
+                )
+                log.warning("index_partial", meili=meili_ok, qdrant=qdrant_ok)
+            else:
+                paper.ingestion_status = "index_failed"
+                paper.ingestion_error = "Both Meilisearch and Qdrant indexing failed"
+                log.error("index_both_failed")
+
             await session.commit()
 
-            log.info("index_paper_complete")
-            return {"status": "indexed"}
+            log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
+            return {"status": paper.ingestion_status, "meili": meili_ok, "qdrant": qdrant_ok}
 
     try:
         return _run_async(_index())

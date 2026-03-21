@@ -36,3 +36,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+def get_current_user_id() -> str:
+    """
+    FastAPI dependency: return the current user's ID.
+
+    Currently returns the sentinel DEFAULT_USER_ID for single-user mode.
+    When auth is added, replace this with JWT/session extraction.
+    This is the SINGLE injection point for user identity across all APIs.
+    """
+    from app.models.collection import DEFAULT_USER_ID
+    return DEFAULT_USER_ID

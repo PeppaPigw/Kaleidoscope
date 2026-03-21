@@ -3,6 +3,8 @@
 import uuid
 from datetime import date, datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -13,7 +15,7 @@ class PaperImportRequest(BaseModel):
     """Import a single paper by identifier."""
 
     identifier: str = Field(..., description="DOI, arXiv ID, PMID, or URL")
-    identifier_type: str = Field(
+    identifier_type: Literal["doi", "arxiv", "pmid", "url", "title"] = Field(
         ..., description="Type of identifier: doi, arxiv, pmid, url, title"
     )
 

@@ -105,7 +105,7 @@ Kaleidoscope is a **literature-centric knowledge platform** that aggregates, str
 - [x] Configuration management (pydantic-settings + .env)
 - [x] Exception hierarchy & error handling
 
-### Phase 1 — Core (P0 Features) 🔄 In Progress
+### Phase 1 — Core (P0 Features) ✅ Complete (2026-03-21)
 - [x] Multi-source paper ingestion (#1-8): RSS poller, deduplicator, metadata enricher
 - [x] PDF download & parsing (#9-16): 6-step cascade + GROBID client
 - [x] Keyword + semantic search (#17-20): Meilisearch + Qdrant + RRF hybrid
@@ -114,14 +114,24 @@ Kaleidoscope is a **literature-centric knowledge platform** that aggregates, str
 - [x] Celery async tasks: poll, ingest, acquire PDF, parse, index
 - [x] FastAPI API routers: papers, search, feeds + health checks
 - [x] 62 RSS feed seed data
-- [ ] Basic reading view (#33-36) — frontend, deferred to P1
+- [x] Full-text content persistence (PDF, TeX, XML)
+- [x] GROBID parsing integration (content-type routing)
+- [x] End-to-end PMID, URL, title imports
+- [x] Commit-before-queue race condition fix
+- [x] Sequential task chain: ingest → acquire → parse → index
+- [ ] Basic reading view (#33-36) — frontend, deferred to P2
 - [ ] Unit tests (≥ 80% coverage target)
 
-### Phase 2 — Experience (P1 Features)
-- [ ] Collections, tags, reading status (#49-56)
-- [ ] LLM-powered summaries & QA (#37-40)
-- [ ] Citation graph & recommendations (#65-72)
-- [ ] Agent API / MCP Server (#97-104)
+### Phase 2 — Experience (P1 Features) 🔄 In Progress (2026-03-21)
+- [x] Collections, tags, reading status (#49-56) — models, schemas, service, API
+- [x] LLM-powered summaries & QA (#37-40) — client, chunker, summarizer, extractor, QA engine
+- [x] Citation graph & recommendations (#65-72) — Neo4j driver, queries, graph service, recommendation
+- [x] Agent API / MCP Server (#97-104) — 13 tools, dispatcher, API endpoints
+- [x] Citation export (BibTeX, RIS, CSL-JSON)
+- [x] Smart collections (saved filter queries)
+- [ ] Database migration for P1 models
+- [ ] Integration testing with live services
+- [ ] Frontend integration
 
 ### Phase 3 — Intelligence (P2 Features)
 - [ ] Advanced filtering (#25-32)
@@ -134,3 +144,4 @@ Kaleidoscope is a **literature-centric knowledge platform** that aggregates, str
 - [ ] Cross-paper reasoning (#165-176)
 - [ ] Figure/table intelligence (#153-164)
 - [ ] Personal knowledge (#213-224)
+

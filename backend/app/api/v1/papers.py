@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user_id
 from app.models.paper import Paper
 from app.schemas.paper import (
     BatchImportResult,
@@ -18,6 +18,7 @@ from app.schemas.paper import (
     PaperListResponse,
     PaperResponse,
 )
+from app.schemas.collection import ReadingStatusUpdate
 from app.tasks.ingest_tasks import ingest_paper
 
 logger = structlog.get_logger(__name__)
@@ -196,3 +197,108 @@ async def delete_paper(
 
     paper.deleted_at = datetime.now(timezone.utc)
     return {"status": "deleted", "paper_id": str(paper_id)}
+
+
+# ─── Reading Status (P1) ─────────────────────────────────────────
+
+@router.patch("/{paper_id}/reading-status")
+async def update_reading_status(
+    paper_id: uuid.UUID,
+    body: ReadingStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update per-user reading status for a paper."""
+    from app.services.collection_service import ReadingStatusService
+
+    # Verify paper exists
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    svc = ReadingStatusService(db, user_id)
+    status = await svc.set_status(str(paper_id), body.status)
+    await db.commit()
+    return {"paper_id": str(paper_id), "reading_status": status}
+
+
+# ─── Tags (P1) ───────────────────────────────────────────────────
+
+@router.post("/{paper_id}/tags/{tag_id}", status_code=201)
+async def add_tag_to_paper(
+    paper_id: uuid.UUID,
+    tag_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Add a tag to a paper."""
+    from app.services.collection_service import TagService
+
+    svc = TagService(db, user_id)
+    added = await svc.add_tag_to_paper(str(paper_id), str(tag_id))
+    if not added:
+        raise HTTPException(status_code=409, detail="Tag already applied")
+    await db.commit()
+    return {"paper_id": str(paper_id), "tag_id": str(tag_id), "status": "added"}
+
+
+@router.delete("/{paper_id}/tags/{tag_id}", status_code=204)
+async def remove_tag_from_paper(
+    paper_id: uuid.UUID,
+    tag_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Remove a tag from a paper."""
+    from app.services.collection_service import TagService
+
+    svc = TagService(db, user_id)
+    if not await svc.remove_tag_from_paper(str(paper_id), str(tag_id)):
+        raise HTTPException(status_code=404, detail="Tag not found on paper")
+    await db.commit()
+
+
+@router.get("/{paper_id}/tags")
+async def get_paper_tags(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """List all tags on a paper (user-scoped)."""
+    from app.services.collection_service import TagService
+
+    svc = TagService(db, user_id)
+    tags = await svc.get_paper_tags(str(paper_id))
+    return [
+        {"id": str(t.id), "name": t.name, "color": t.color}
+        for t in tags
+    ]
+
+
+# ─── Export (P1) ──────────────────────────────────────────────────
+
+@router.get("/{paper_id}/export")
+async def export_paper_citation(
+    paper_id: uuid.UUID,
+    format: str = Query("bibtex", description="bibtex, ris, or csl_json"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export citation for a single paper."""
+    from app.services.export_service import ExportService
+
+    svc = ExportService(db)
+    content = await svc.export_papers([str(paper_id)], format=format)
+
+    from fastapi.responses import Response
+    content_types = {
+        "bibtex": "application/x-bibtex",
+        "ris": "application/x-research-info-systems",
+        "csl_json": "application/json",
+    }
+    return Response(
+        content=content,
+        media_type=content_types.get(format, "text/plain"),
+    )
+

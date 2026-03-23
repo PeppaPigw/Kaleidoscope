@@ -344,6 +344,9 @@ class FilteredQueryService:
             cond = PaperAuthor.author_id.in_(filters["author_ids"])
             query = query.where(cond)
             count_query = count_query.where(cond)
+            # Deduplicate: a paper co-authored by multiple matched authors
+            # would appear multiple times without DISTINCT
+            query = query.distinct()
 
         # --- Sorting ---
         sort_col = {
@@ -359,6 +362,11 @@ class FilteredQueryService:
             query = query.order_by(sort_col.desc().nullslast())
 
         # --- Count + paginate ---
+        # Use distinct count when author JOINs may multiply rows
+        if filters.get("author_ids"):
+            count_query = select(func.count(Paper.id.distinct())).select_from(
+                count_query.correlate(Paper).subquery()
+            )
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 

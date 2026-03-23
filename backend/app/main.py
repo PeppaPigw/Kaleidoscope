@@ -92,6 +92,17 @@ def create_app() -> FastAPI:
     from app.api.v1.graph import router as graph_router
     from app.api.v1.intelligence import router as intelligence_router
     from app.api.v1.agent import router as agent_router
+    from app.api.v1.filters import router as filters_router
+    from app.api.v1.local_pdf import router as local_pdf_router
+    from app.api.v1.analysis import router as analysis_router
+    from app.api.v1.trends import router as trends_router
+    from app.api.v1.writing import router as writing_router
+    from app.api.v1.alerts import router as alerts_router
+    # P3 routers
+    from app.api.v1.claims import router as claims_router
+    from app.api.v1.cross_paper import router as cross_paper_router
+    from app.api.v1.figures import router as figures_router
+    from app.api.v1.knowledge import router as knowledge_router
 
     app.include_router(papers_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
@@ -101,6 +112,20 @@ def create_app() -> FastAPI:
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(filters_router, prefix="/api/v1")
+    app.include_router(local_pdf_router, prefix="/api/v1")
+    app.include_router(analysis_router, prefix="/api/v1")
+    app.include_router(trends_router, prefix="/api/v1")
+    app.include_router(writing_router, prefix="/api/v1")
+    app.include_router(alerts_router, prefix="/api/v1")
+    # P3 routers
+    app.include_router(claims_router, prefix="/api/v1")
+    app.include_router(cross_paper_router, prefix="/api/v1")
+    app.include_router(figures_router, prefix="/api/v1")
+    app.include_router(knowledge_router, prefix="/api/v1")
+    # Content/MinerU router
+    from app.api.v1.content import router as content_router
+    app.include_router(content_router, prefix="/api/v1")
 
     # --- Health Check ---
 

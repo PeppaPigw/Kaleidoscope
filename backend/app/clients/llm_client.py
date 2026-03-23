@@ -24,10 +24,16 @@ class LLMClient:
     def __init__(
         self,
         api_key: str | None = None,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str | None = None,
     ):
         self.api_key = api_key or settings.openai_api_key
-        self.base_url = base_url.rstrip("/")
+        raw_url = (base_url or settings.open_base_url).rstrip("/")
+        # .env may contain "…/v1/chat/completions"; strip to base
+        for suffix in ("/chat/completions", "/completions", "/embeddings"):
+            if raw_url.endswith(suffix):
+                raw_url = raw_url[: -len(suffix)]
+                break
+        self.base_url = raw_url
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:

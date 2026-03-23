@@ -137,11 +137,16 @@ class TextChunker:
         Assemble the best available full-text from a paper's various sources.
 
         Priority:
+        0. Full-text markdown (from MinerU — stored as paper.full_text_markdown)
         1. Parsed sections (from GROBID — stored as {heading, paragraphs: [str]})
         2. Extracted fulltext (from LaTeX)
         3. TEI XML → plain text strip
         4. Abstract only
         """
+        # 0. Full-text markdown (MinerU output — already clean markdown)
+        if getattr(paper, 'full_text_markdown', None):
+            return paper.full_text_markdown
+
         raw = paper.raw_metadata or {}
 
         # 1. Parsed sections — GROBID stores {heading, number, paragraphs}

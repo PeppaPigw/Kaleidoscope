@@ -1,74 +1,130 @@
 # Component Guidelines
 
-> Component patterns and composition rules for Kaleidoscope frontend.
+> Component patterns and composition rules for Kaleidoscope frontend (Vue 3 / Nuxt 3).
 
 ---
 
-## Component Library
+## Design System — `Ks` Components
 
-Use **shadcn/ui** as the base component library. Install components on demand:
+All Kaleidoscope design system components live in `components/ks/` and are prefixed with `Ks`. They are built on **Reka UI** headless primitives for accessibility, with fully custom editorial styling.
 
-```bash
-npx shadcn-ui@latest add button dialog card input
+### Editorial Components
+
+```vue
+<!-- components/ks/KsDropCap.vue -->
+<template>
+  <p class="ks-drop-cap"><slot /></p>
+</template>
+
+<style>
+.ks-drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 6vw, 5rem);
+  line-height: .8;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: .08em .14em 0 0;
+}
+</style>
 ```
 
-Customize via `components/ui/` — these are owned by the project, not a node_module.
+```vue
+<!-- components/ks/KsPullQuote.vue -->
+<template>
+  <blockquote class="ks-pull-quote">
+    <slot />
+    <cite v-if="$slots.cite" class="ks-pull-quote__cite"><slot name="cite" /></cite>
+  </blockquote>
+</template>
+```
+
+### Reka UI Integration
+
+```vue
+<!-- components/ks/KsButton.vue -->
+<script setup lang="ts">
+import { Button } from 'reka-ui'
+
+interface Props {
+  variant?: 'primary' | 'secondary' | 'ghost'
+  size?: 'sm' | 'md' | 'lg'
+}
+
+withDefaults(defineProps<Props>(), {
+  variant: 'primary',
+  size: 'md',
+})
+</script>
+
+<template>
+  <Button
+    :class="[
+      'ks-btn',
+      `ks-btn--${variant}`,
+      `ks-btn--${size}`,
+    ]"
+  >
+    <slot />
+  </Button>
+</template>
+
+<style>
+.ks-btn { height: 40px; padding: 0 16px; border-radius: 0; font-family: var(--font-sans); font-weight: 500; }
+.ks-btn--primary { background: var(--color-primary); color: var(--color-bg); }
+.ks-btn--secondary { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
+.ks-btn--ghost { background: transparent; color: var(--color-secondary); }
+</style>
+```
 
 ---
 
 ## Component Patterns
 
-### Server vs Client Components
-
-```tsx
-// ✅ Default: Server Components for data-heavy pages
-// app/papers/page.tsx (Server Component)
-export default async function PapersPage() {
-  const papers = await fetchPapers();  // Server-side fetch
-  return <PaperList papers={papers} />;
-}
-
-// ✅ Client Components only when needed (interactivity, hooks)
-// components/search/search-bar.tsx
-"use client";
-export function SearchBar() {
-  const [query, setQuery] = useState("");
-  ...
-}
-```
-
 ### Composition Over Props
 
-```tsx
-// ✅ Good — composable
-<PaperCard paper={paper}>
-  <PaperCard.Metadata />
-  <PaperCard.Summary level="abstract" />
-  <PaperCard.Actions onSave={handleSave} />
-</PaperCard>
+```vue
+<!-- ✅ Good — composable slots -->
+<KsEvidenceCard :evidence="evidence">
+  <template #meta>{{ evidence.source }}</template>
+  <template #quote>{{ evidence.text }}</template>
+  <template #actions>
+    <KsButton variant="ghost" @click="sendToDraft">Quote to Draft</KsButton>
+  </template>
+</KsEvidenceCard>
 
-// ❌ Bad — too many props
-<PaperCard
-  paper={paper}
-  showMetadata={true}
-  summaryLevel="abstract"
-  onSave={handleSave}
-  showActions={true}
+<!-- ❌ Bad — too many props -->
+<KsEvidenceCard
+  :evidence="evidence"
+  :show-meta="true"
+  :show-actions="true"
+  :action-label="'Quote to Draft'"
+  @action="sendToDraft"
 />
 ```
 
-### Loading & Error States
+### Loading, Error & Empty States
 
-Every data-dependent component must handle 3 states:
+Every data-dependent component must handle 4 states:
 
-```tsx
-function PaperDetail({ id }: { id: string }) {
-  const { data, isLoading, error } = usePaper(id);
-  
-  if (isLoading) return <PaperDetailSkeleton />;
-  if (error) return <ErrorAlert message={error.message} />;
-  return <PaperDetailView paper={data} />;
-}
+```vue
+<script setup lang="ts">
+const { data: paper, status, error } = useFetch(`/api/v1/papers/${paperId}`)
+</script>
+
+<template>
+  <!-- Loading: warm skeleton -->
+  <KsSkeleton v-if="status === 'pending'" class="h-64" />
+
+  <!-- Error: editorial error message -->
+  <KsErrorAlert v-else-if="error" :message="error.message" />
+
+  <!-- Empty: helpful guidance -->
+  <KsEmptyState v-else-if="!paper" message="This paper hasn't been indexed yet." />
+
+  <!-- Success: actual content -->
+  <PaperDetailView v-else :paper="paper" />
+</template>
 ```
 
 ---
@@ -77,34 +133,116 @@ function PaperDetail({ id }: { id: string }) {
 
 ### Citation Graph (Cytoscape.js)
 
-```tsx
-// components/graph/citation-graph.tsx
-"use client";
-import CytoscapeComponent from "react-cytoscapejs";
+```vue
+<!-- components/graph/CitationGraph.vue -->
+<script setup lang="ts">
+const cyRef = ref<HTMLElement>()
 
-export function CitationGraph({ paperId }: { paperId: string }) {
-  const { data } = useCitationGraph(paperId);
-  return (
-    <CytoscapeComponent
-      elements={data.elements}
-      layout={{ name: "cose" }}
-      style={{ width: "100%", height: "600px" }}
-    />
-  );
-}
+onMounted(async () => {
+  const cytoscape = (await import('cytoscape')).default
+  const cy = cytoscape({
+    container: cyRef.value,
+    elements: props.elements,
+    layout: { name: 'cose' },
+    style: [
+      { selector: 'node', style: { 'background-color': '#0D7377', 'label': 'data(label)' } },
+      { selector: 'edge', style: { 'line-color': '#E8E5E0', 'curve-style': 'bezier' } },
+    ],
+  })
+})
+</script>
+
+<template>
+  <div ref="cyRef" class="w-full h-[600px]" />
+</template>
+```
+
+### Theme River (D3.js)
+
+```vue
+<!-- components/graph/ThemeRiver.vue -->
+<script setup lang="ts">
+import * as d3 from 'd3'
+
+const svgRef = ref<SVGSVGElement>()
+
+onMounted(() => {
+  const svg = d3.select(svgRef.value)
+  // D3 stream graph implementation
+})
+</script>
+
+<template>
+  <svg ref="svgRef" class="w-full" :viewBox="`0 0 ${width} ${height}`" />
+</template>
 ```
 
 ### Trend Charts (ECharts)
 
-```tsx
-// components/charts/trend-chart.tsx  
-"use client";
-import ReactECharts from "echarts-for-react";
+```vue
+<!-- components/charts/TrendChart.vue -->
+<script setup lang="ts">
+import VChart from 'vue-echarts'
+import { use } from 'echarts/core'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 
-export function TrendChart({ data }: { data: TrendData }) {
-  const option = buildTrendOption(data);
-  return <ReactECharts option={option} style={{ height: 400 }} />;
-}
+use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
+
+const option = computed(() => buildTrendOption(props.data))
+</script>
+
+<template>
+  <VChart :option="option" :style="{ height: '400px' }" autoresize />
+</template>
+```
+
+---
+
+## Writing Studio (Tiptap)
+
+```vue
+<!-- components/writing/DraftCanvas.vue -->
+<script setup lang="ts">
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    // Custom extensions for evidence cards, citations, etc.
+  ],
+  content: props.initialContent,
+  editorProps: {
+    attributes: {
+      class: 'ks-draft-canvas font-serif text-base leading-relaxed',
+    },
+  },
+})
+</script>
+
+<template>
+  <div class="ks-writing-container">
+    <EditorContent :editor="editor" />
+  </div>
+</template>
+```
+
+---
+
+## Client-Only Components
+
+Heavy visualization libraries must be lazy-loaded (client-only):
+
+```vue
+<!-- In page or parent component -->
+<ClientOnly>
+  <CitationGraph :elements="graphData" />
+  <template #fallback>
+    <KsSkeleton class="h-[600px]" />
+  </template>
+</ClientOnly>
 ```
 
 ---
@@ -113,6 +251,9 @@ export function TrendChart({ data }: { data: TrendData }) {
 
 1. **One component per file** — no multi-component files
 2. **Feature-grouped** — `components/paper/`, not `components/cards/`
-3. **Props interface at top** — always define and export props type
-4. **No inline styles** — use Tailwind classes only
+3. **Props interface at top** — always define typed props with `defineProps<T>()`
+4. **No inline styles** — use Tailwind classes + design system CSS
 5. **Skeleton for every loading state** — no spinners for content areas
+6. **`Ks` prefix for design system** — all shared UI components start with `Ks`
+7. **Client-only for heavy libs** — Cytoscape, D3, ECharts, PDF.js via `<ClientOnly>`
+8. **Emits typed** — always use `defineEmits<T>()`

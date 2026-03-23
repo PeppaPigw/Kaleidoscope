@@ -34,6 +34,8 @@ post_create:
   - cd backend && pip install -e ".[dev]"
   - cd backend && alembic upgrade head
   - cd backend && python -m app.seed_feeds
+  # Frontend setup
+  - cd frontend && pnpm install --frozen-lockfile
 
 #-------------------------------------------------------------------------------
 # Check Agent Verification (Ralph Loop)
@@ -45,4 +47,7 @@ post_create:
 verify:
   - cd backend && ruff check .
   - cd backend && mypy app/ --ignore-missing-imports
+  - cd frontend && pnpm lint
+  - cd frontend && pnpm type-check
   # - cd backend && pytest tests/ -v --cov=app --cov-fail-under=80
+  # - cd frontend && pnpm test

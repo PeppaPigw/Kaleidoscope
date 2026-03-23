@@ -275,8 +275,34 @@ def acquire_fulltext(self, paper_id: str):
                 # Chain: parse will queue index after it finishes
                 parse_fulltext_task.delay(paper_id, acq_result.content_type)
             else:
-                # No full-text, but still index metadata
-                index_paper_task.delay(paper_id)
+                # No full-text via traditional path — try MinerU if we have a URL
+                mineru_url = None
+                mineru_is_html = False
+
+                if paper.remote_urls:
+                    stored = next(
+                        (u for u in paper.remote_urls if u.get("url")),
+                        None,
+                    )
+                    if stored:
+                        mineru_url = stored["url"]
+                        mineru_is_html = stored.get("type") == "html"
+                elif paper.arxiv_id:
+                    # Canonical arXiv PDF URL
+                    aid = paper.arxiv_id.replace("arxiv:", "")
+                    mineru_url = f"https://arxiv.org/pdf/{aid}.pdf"
+                    mineru_is_html = False
+                elif paper.doi:
+                    # DOI resolves to a landing page (HTML)
+                    mineru_url = f"https://doi.org/{paper.doi}"
+                    mineru_is_html = True
+
+                if mineru_url:
+                    log.info("fallback_to_mineru", url=mineru_url[:80], is_html=mineru_is_html)
+                    parse_via_mineru.delay(paper_id, mineru_url, is_html=mineru_is_html)
+                else:
+                    # No URL, just index metadata
+                    index_paper_task.delay(paper_id)
 
             return {
                 "status": "acquired" if acq_result.success else "not_available",
@@ -426,6 +452,44 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                 if parsed_refs:
                     log.info("references_materialized", count=len(parsed_refs))
 
+                # ── Resolve cited_paper_id by matching DOI/title ──
+                # This is the "reference linker" step that connects edges
+                unresolved = await session.execute(
+                    select(PaperReference).where(
+                        PaperReference.citing_paper_id == paper.id,
+                        PaperReference.cited_paper_id.is_(None),
+                    )
+                )
+                resolved_count = 0
+                for ref in unresolved.scalars().all():
+                    cited = None
+                    # 1) Match by DOI (exact, fast)
+                    if ref.raw_doi:
+                        doi_result = await session.execute(
+                            select(Paper.id).where(
+                                Paper.doi == ref.raw_doi,
+                                Paper.deleted_at.is_(None),
+                            ).limit(1)
+                        )
+                        cited = doi_result.scalar_one_or_none()
+
+                    # 2) Fallback: match by title (case-insensitive)
+                    if not cited and ref.raw_title and len(ref.raw_title) > 10:
+                        title_result = await session.execute(
+                            select(Paper.id).where(
+                                Paper.title.ilike(ref.raw_title.strip()),
+                                Paper.deleted_at.is_(None),
+                            ).limit(1)
+                        )
+                        cited = title_result.scalar_one_or_none()
+
+                    if cited:
+                        ref.cited_paper_id = cited
+                        resolved_count += 1
+
+                if resolved_count:
+                    log.info("references_resolved", resolved=resolved_count)
+
                 # ── Commit FIRST, then queue index ───────────────
                 await session.commit()
 
@@ -554,3 +618,56 @@ def index_paper_task(self, paper_id: str):
     except Exception as exc:
         log.error("index_paper_failed", error=str(exc))
         self.retry(exc=exc, countdown=30)
+
+
+@celery_app.task(bind=True, max_retries=2, default_retry_delay=120)
+def parse_via_mineru(self, paper_id: str, url: str, is_html: bool = False):
+    """
+    Parse a paper from URL using MinerU API → stored as markdown.
+
+    Alternative to parse_fulltext_task (GROBID). Uses MinerU cloud API
+    for PDF/HTML → Markdown conversion.
+
+    After parsing, queues index_paper_task for search indexing.
+    """
+    log = logger.bind(paper_id=paper_id, url=url[:80], task_id=self.request.id)
+    log.info("parse_via_mineru_start")
+
+    async def _parse():
+        from app.dependencies import async_session_factory
+        from app.services.parsing.mineru_service import MinerUParsingService
+
+        async with async_session_factory() as session:
+            svc = MinerUParsingService(session)
+            try:
+                result = await svc.parse_from_url(
+                    paper_id=paper_id,
+                    url=url,
+                    is_html=is_html,
+                )
+            finally:
+                await svc.close()
+
+            await session.commit()
+
+            if result.get("status") == "parsed":
+                # Queue graph sync if references were found
+                if result.get("references", 0) > 0:
+                    try:
+                        from app.tasks.graph_tasks import sync_paper_to_graph
+                        sync_paper_to_graph.delay(paper_id)
+                        log.info("graph_sync_queued", paper_id=paper_id)
+                    except Exception as e:
+                        log.warning("graph_sync_queue_failed", error=str(e))
+
+            # Always index metadata whether parse succeeded or failed
+            index_paper_task.delay(paper_id)
+
+            return result
+
+    try:
+        return _run_async(_parse())
+    except Exception as exc:
+        log.error("parse_via_mineru_failed", error=str(exc))
+        self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+

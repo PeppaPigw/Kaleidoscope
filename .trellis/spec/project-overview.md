@@ -122,26 +122,32 @@ Kaleidoscope is a **literature-centric knowledge platform** that aggregates, str
 - [ ] Basic reading view (#33-36) — frontend, deferred to P2
 - [ ] Unit tests (≥ 80% coverage target)
 
-### Phase 2 — Experience (P1 Features) 🔄 In Progress (2026-03-21)
+### Phase 2 — Experience (P1 Features) ✅ Complete (2026-03-21)
 - [x] Collections, tags, reading status (#49-56) — models, schemas, service, API
 - [x] LLM-powered summaries & QA (#37-40) — client, chunker, summarizer, extractor, QA engine
 - [x] Citation graph & recommendations (#65-72) — Neo4j driver, queries, graph service, recommendation
-- [x] Agent API / MCP Server (#97-104) — 13 tools, dispatcher, API endpoints
+- [x] Agent Tool API (#97-104) — 13 tools, dispatcher, REST API endpoints
 - [x] Citation export (BibTeX, RIS, CSL-JSON)
 - [x] Smart collections (saved filter queries)
-- [ ] Database migration for P1 models
+- [x] User-scoped workflow state (per-user reading status, collections, tags)
+- [x] Graph sync wired into ingestion pipeline
+- [x] 3-signal recommendation (graph + embedding similarity via RRF)
+- [x] Idempotent reference materialization
+- [x] Process-level search service singletons
+- [x] Database migration for P1+P2 models (a1b2c3d4e5f6)
 - [ ] Integration testing with live services
-- [ ] Frontend integration
 
-### Phase 3 — Intelligence (P2 Features)
-- [ ] Advanced filtering (#25-32)
-- [ ] Trend analysis (#73-80)
-- [ ] Writing support (#189-200)
-- [ ] Collaboration (#57-64)
+### Phase 3 — Intelligence (P2 Features) ✅ Complete (2026-03-21)
+- [x] Advanced filtering (#25-32) — faceted navigation, multi-field queries, custom scoring
+- [x] Trend analysis (#73-80) — BERTopic clustering, hot topics, emerging entities
+- [x] Writing support (#189-200) — related work generation, gap analysis, rebuttal
+- [x] Monitoring & automation (#201-212) — alerts, digests, event-action pipelines
+- [x] Deep paper analysis (#81-88) — innovation analysis, method extraction, validity
+- [x] Local PDF intelligence (#41-48) — batch import, dedup, library management
 
-### Phase 4 — Deep Analysis (P3 Features)
-- [ ] Claim extraction (#129-140)
-- [ ] Cross-paper reasoning (#165-176)
-- [ ] Figure/table intelligence (#153-164)
-- [ ] Personal knowledge (#213-224)
+### Phase 4 — Deep Analysis (P3 Features) ✅ Complete (2026-03-21)
+- [x] Claim extraction (#129-140) — atomic claim + evidence extraction with LLM, evidence assessment
+- [x] Cross-paper reasoning (#165-176) — multi-doc synthesis, timeline, essential/bridge papers
+- [x] Figure/table intelligence (#153-164) — classify, extract, cross-paper result aggregation
+- [x] Personal knowledge (#213-224) — reading log, annotations, glossary, flashcards with SM-2
 

@@ -60,10 +60,15 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # --- Full-text & Storage ---
     pdf_path: Mapped[str | None] = mapped_column(Text)  # MinIO object key
-    remote_urls: Mapped[dict | None] = mapped_column(
+    remote_urls: Mapped[list | None] = mapped_column(
         JSONB
     )  # [{url, source, type}]
     has_full_text: Mapped[bool] = mapped_column(default=False)
+
+    # --- Markdown Content (primary storage format) ---
+    full_text_markdown: Mapped[str | None] = mapped_column(Text)
+    markdown_provenance: Mapped[dict | None] = mapped_column(JSONB)
+    # {source: "mineru", model_version: "vlm", timestamp: "...", batch_id: "..."}
 
     # --- Raw Data ---
     raw_metadata: Mapped[dict | None] = mapped_column(JSONB)  # Original API response
@@ -94,6 +99,19 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     limitations: Mapped[dict | None] = mapped_column(JSONB)  # [str]
     limitations_provenance: Mapped[dict | None] = mapped_column(JSONB)
+
+    # --- P2: Local PDF & Analysis ---
+    visibility: Mapped[str] = mapped_column(
+        String(20), default="private"
+    )  # private, shared, public
+    source_type: Mapped[str] = mapped_column(
+        String(20), default="remote"
+    )  # remote, local_upload, local_folder
+    local_annotations: Mapped[list | None] = mapped_column(JSONB)
+    parsed_sections: Mapped[list | None] = mapped_column(JSONB)
+    # [{title, paragraphs, level}] — structured sections
+    parsed_figures: Mapped[list | None] = mapped_column(JSONB)
+    # [{label, caption, type, page}] — extracted figure/table metadata
 
     # --- Relationships ---
     authors: Mapped[list["PaperAuthor"]] = relationship(

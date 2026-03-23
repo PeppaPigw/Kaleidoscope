@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     wiley_token: str = ""
     springer_api_key: str = ""
     openai_api_key: str = ""
+    open_base_url: str = "https://api.openai.com/v1"
+
+    # --- MinerU ---
+    mineru_api_token: str = ""
 
     # --- Celery ---
     celery_broker_url: str = "redis://localhost:6379/1"

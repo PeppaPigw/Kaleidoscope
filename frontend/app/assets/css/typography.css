@@ -1,0 +1,123 @@
+/* ═══════════════════════════════════════════════════════════
+   Kaleidoscope Typography System
+   Hierarchy: Display → Serif → Sans → Mono
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Type scale ───────────────────────────────────────── */
+
+/* Cover title — Playfair Display 56/60 600 */
+.ks-type-cover {
+  font: 600 clamp(2rem, 4.5vw, 3.5rem) / 1.07 var(--font-display);
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+/* Page title — Playfair Display 40/46 600 */
+.ks-type-page-title {
+  font: 600 clamp(1.75rem, 3.2vw, 2.5rem) / 1.15 var(--font-display);
+  color: var(--color-text);
+  letter-spacing: -0.005em;
+}
+
+/* Section title — Playfair Display 24/30 600 */
+.ks-type-section-title {
+  font: 600 clamp(1.25rem, 2vw, 1.5rem) / 1.25 var(--font-display);
+  color: var(--color-text);
+}
+
+/* Lead — Source Serif Pro 18/28 400, secondary */
+.ks-type-lead {
+  font: 400 clamp(1rem, 1.4vw, 1.125rem) / 1.56 var(--font-serif);
+  color: var(--color-secondary);
+}
+
+/* Body — Source Serif Pro 16/26 400 */
+.ks-type-body {
+  font: 400 1rem / 1.625 var(--font-serif);
+  color: var(--color-text);
+}
+
+/* Body small — Source Serif Pro 14/22 400 */
+.ks-type-body-sm {
+  font: 400 0.875rem / 1.57 var(--font-serif);
+  color: var(--color-text);
+}
+
+/* UI label — Inter 13/18 500 */
+.ks-type-label {
+  font: 500 0.8125rem / 1.38 var(--font-sans);
+  color: var(--color-secondary);
+}
+
+/* Eyebrow / small label — Inter 11/16 600 uppercase */
+.ks-type-eyebrow {
+  font: 600 0.6875rem / 1.45 var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
+/* Data / number — JetBrains Mono 12/16 500 */
+.ks-type-data {
+  font: 500 0.75rem / 1.33 var(--font-mono);
+  color: var(--color-secondary);
+}
+
+/* Stat value — Playfair Display 24/28 600 */
+.ks-type-stat {
+  font: 600 clamp(1.25rem, 2vw, 1.5rem) / 1.17 var(--font-display);
+  color: var(--color-text);
+}
+
+/* Large stat — Playfair Display 40/44 600 */
+.ks-type-stat-lg {
+  font: 600 clamp(1.75rem, 3.2vw, 2.5rem) / 1.1 var(--font-display);
+  color: var(--color-text);
+}
+
+/* ─── Link styles ──────────────────────────────────────── */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-smooth);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ─── Prose context ────────────────────────────────────── */
+.ks-prose {
+  font: 400 1rem / 1.72 var(--font-serif);
+  color: var(--color-text);
+  max-width: 68ch;
+}
+
+.ks-prose h1 {
+  font: 600 clamp(1.75rem, 3.2vw, 2.5rem) / 1.15 var(--font-display);
+  margin: 2.5rem 0 1rem;
+  color: var(--color-text);
+}
+
+.ks-prose h2 {
+  font: 600 clamp(1.25rem, 2vw, 1.5rem) / 1.25 var(--font-display);
+  margin: 2rem 0 0.75rem;
+  color: var(--color-text);
+}
+
+.ks-prose h3 {
+  font: 600 1.125rem / 1.35 var(--font-serif);
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-text);
+}
+
+.ks-prose p {
+  margin-bottom: 1.25rem;
+}
+
+.ks-prose code {
+  font: 500 0.875rem / 1.4 var(--font-mono);
+  padding: 0.15em 0.35em;
+  background: rgba(232, 229, 224, 0.4);
+  border-radius: 2px;
+}

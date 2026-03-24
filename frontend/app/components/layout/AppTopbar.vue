@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Search, Command, Bell, User, Menu, X, Settings, Moon, Sun, LogOut } from 'lucide-vue-next'
+import { Search, Command, Bell, User, Menu, X, Settings, Moon, Sun, LogOut, Languages } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
+
+const { locale, isZh, t, toggleLocale } = useTranslation()
 
 const route = useRoute()
 
@@ -206,16 +208,21 @@ watch(showSearch, (open) => {
             <div class="ks-topbar__profile-divider" />
             <button type="button" class="ks-topbar__profile-item" @click="handleProfileNavigate('/workspaces')">
               <Settings :size="16" :stroke-width="1.8" />
-              My Workspaces
+              {{ t('myWorkspaces') }}
             </button>
             <button type="button" class="ks-topbar__profile-item" @click="toggleTheme">
               <component :is="isDarkMode ? Sun : Moon" :size="16" :stroke-width="1.8" />
-              {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
+              {{ isDarkMode ? t('lightMode') : t('darkMode') }}
+            </button>
+            <button type="button" class="ks-topbar__profile-item" @click="toggleLocale">
+              <Languages :size="16" :stroke-width="1.8" />
+              <span>{{ isZh ? 'Switch to English' : '切换为中文' }}</span>
+              <span class="ks-topbar__lang-badge">{{ isZh ? 'ZH' : 'EN' }}</span>
             </button>
             <div class="ks-topbar__profile-divider" />
             <button type="button" class="ks-topbar__profile-item ks-topbar__profile-item--danger" @click="showProfile = false">
               <LogOut :size="16" :stroke-width="1.8" />
-              Sign Out
+              {{ t('signOut') }}
             </button>
           </div>
         </Transition>
@@ -527,6 +534,16 @@ watch(showSearch, (open) => {
 .ks-topbar__profile-item--danger:hover {
   background: rgba(220, 38, 38, 0.06);
   color: #dc2626;
+}
+
+.ks-topbar__lang-badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  font: 600 0.625rem / 1.4 var(--font-mono);
+  color: var(--color-primary);
+  background: rgba(13, 115, 119, 0.08);
+  border-radius: 3px;
+  letter-spacing: 0.04em;
 }
 
 /* ─── Search overlay ───────────────────────────────────── */

@@ -56,7 +56,7 @@ function relColor(r: RelatedPaper['relationship']): TagVariant {
             {{ (paper.similarity * 100).toFixed(0) }}%
           </span>
         </div>
-        <span class="ks-related-constellation__card-title">{{ paper.title }}</span>
+        <KsTranslatableTitle :text="paper.title" tag="span" title-class="ks-related-constellation__card-title" />
         <span class="ks-type-data">{{ paper.venue }} {{ paper.year }}</span>
       </button>
     </div>

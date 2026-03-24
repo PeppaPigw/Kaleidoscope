@@ -20,6 +20,7 @@ export interface MonitorRibbonProps {
 defineProps<MonitorRibbonProps>()
 
 const uid = useId()
+const { t } = useTranslation()
 
 const statusTagVariant: Record<MonitorItem['status'], 'primary' | 'accent' | 'warning'> = {
   ok: 'primary',
@@ -40,7 +41,7 @@ const statusLabel: Record<MonitorItem['status'], string> = {
     :aria-labelledby="`${uid}-title`"
   >
     <h3 :id="`${uid}-title`" class="ks-type-eyebrow ks-monitor-ribbon__title">
-      SYSTEM MONITOR
+      {{ t('systemMonitor') }}
     </h3>
     <div class="ks-monitor-ribbon__list" role="list">
       <div

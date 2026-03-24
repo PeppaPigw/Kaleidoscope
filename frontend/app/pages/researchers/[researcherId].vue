@@ -10,6 +10,8 @@ import type { SignaturePaper } from '~/components/researcher/SignatureShelf.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 const route = useRoute()
 const researcherId = computed(() => route.params.researcherId as string)
 

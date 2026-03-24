@@ -8,6 +8,8 @@ import type { NoteCard } from '~/components/knowledge/NoteWall.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Knowledge Garden — Kaleidoscope',
   meta: [{ name: 'description', content: 'Organize research notes, concepts, and learning materials.' }],
@@ -49,7 +51,7 @@ function getLinkedNotes(note: NoteCard): string[] {
 
 <template>
   <div class="ks-knowledge">
-    <KsPageHeader title="Knowledge Garden" subtitle="KNOWLEDGE" />
+    <KsPageHeader :title="t('knowledge')" :subtitle="t('knowledgeGardenSubtitle')" />
 
     <div class="ks-knowledge__content">
       <KnowledgeNoteWall :notes="notes" @note-click="handleNoteClick" />
@@ -66,7 +68,7 @@ function getLinkedNotes(note: NoteCard): string[] {
           <aside class="ks-knowledge__drawer" role="dialog" aria-modal="true" :aria-label="selectedNote.title">
             <div class="ks-knowledge__drawer-header">
               <h2 class="ks-knowledge__drawer-title">{{ selectedNote.title }}</h2>
-              <button type="button" class="ks-knowledge__drawer-close" aria-label="Close" @click="closeDrawer">✕</button>
+              <button type="button" class="ks-knowledge__drawer-close" :aria-label="t('close')" @click="closeDrawer">✕</button>
             </div>
 
             <div class="ks-knowledge__drawer-tags">
@@ -79,12 +81,12 @@ function getLinkedNotes(note: NoteCard): string[] {
 
             <div class="ks-knowledge__drawer-meta">
               <span class="ks-type-data">Last updated: {{ selectedNote.updatedAt }}</span>
-              <span class="ks-type-data" style="color: var(--color-primary);">{{ selectedNote.backlinkCount }} backlinks</span>
+              <span class="ks-type-data" style="color: var(--color-primary);">{{ selectedNote.backlinkCount }} {{ t('backlinks') }}</span>
             </div>
 
             <!-- Linked notes -->
             <div v-if="getLinkedNotes(selectedNote).length > 0" class="ks-knowledge__drawer-links">
-              <h3 class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 8px;">LINKED NOTES</h3>
+              <h3 class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 8px;">{{ t('linkedNotes').toUpperCase() }}</h3>
               <button
                 v-for="linked in getLinkedNotes(selectedNote)"
                 :key="linked"
@@ -99,10 +101,10 @@ function getLinkedNotes(note: NoteCard): string[] {
             <!-- Actions -->
             <div class="ks-knowledge__drawer-actions">
               <button type="button" class="ks-knowledge__action-btn ks-knowledge__action-btn--edit" @click="closeDrawer">
-                Edit Note
+                {{ t('editNote') }}
               </button>
               <button type="button" class="ks-knowledge__action-btn ks-knowledge__action-btn--delete" @click="handleDeleteNote(selectedNote)">
-                Delete
+                {{ t('deleteNote') }}
               </button>
             </div>
           </aside>

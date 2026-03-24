@@ -18,6 +18,8 @@ definePageMeta({
   title: 'Dashboard',
 })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Dashboard — Kaleidoscope',
   meta: [
@@ -29,11 +31,11 @@ useHead({
 const heroDate = 'MON 2026-03-22'
 const heroTitle = 'Clinical Multimodal Reasoning Enters the Verification Era'
 const heroLead = '27 篇新论文已入库，6 条 leaderboard claim 与既有证据冲突，今日重点转向 "可复现临床推理" 而非更高分数。'
-const heroStats: HeroStat[] = [
-  { label: 'NEW PAPERS', value: '27' },
-  { label: 'CONFLICTS', value: '6' },
-  { label: 'CODE RELEASES', value: '3' },
-]
+const heroStats = computed<HeroStat[]>(() => [
+  { label: t('newPapers'), value: '27' },
+  { label: t('conflicts'), value: '6' },
+  { label: t('codeReleases'), value: '3' },
+])
 
 const briefingItems: BriefingItem[] = [
   { id: 'b-1', type: 'NEW', title: 'GraphRAG for Literature Reviews', time: '08:12' },

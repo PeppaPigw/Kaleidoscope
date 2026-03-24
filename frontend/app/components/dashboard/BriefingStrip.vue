@@ -19,6 +19,8 @@ export interface BriefingStripProps {
 
 defineProps<BriefingStripProps>()
 
+const { t } = useTranslation()
+
 defineEmits<{
   'item-click': [item: BriefingItem]
 }>()
@@ -38,7 +40,7 @@ const typeVariantMap: Record<BriefingItem['type'], 'primary' | 'accent' | 'succe
     aria-label="Today's briefing"
   >
     <span class="ks-briefing-strip__label ks-type-eyebrow">
-      BRIEFING
+      {{ t('briefing') }}
     </span>
     <ul class="ks-briefing-strip__ticker">
       <li

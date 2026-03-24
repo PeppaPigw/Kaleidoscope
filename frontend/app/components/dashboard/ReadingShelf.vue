@@ -30,15 +30,19 @@ const emit = defineEmits<{
   'tab-change': [tab: ShelfTab]
 }>()
 
+const { t } = useTranslation()
+
 type ShelfTab = 'for-you' | 'trending' | 'controversial'
 
 const activeTab = ref<ShelfTab>('for-you')
 
-const tabs: { key: ShelfTab; label: string }[] = [
-  { key: 'for-you', label: 'For You' },
-  { key: 'trending', label: 'Trending' },
-  { key: 'controversial', label: 'Controversial' },
-]
+const tabLabelKeys: Record<ShelfTab, keyof typeof import('~/composables/useTranslation').UI_LABELS.en> = {
+  'for-you': 'forYou',
+  'trending': 'trending',
+  'controversial': 'controversial',
+}
+
+const tabs: ShelfTab[] = ['for-you', 'trending', 'controversial']
 
 // ─── Generate unique IDs for ARIA ──────────────────────────
 const uid = useId()
@@ -70,10 +74,10 @@ function handleTabKeydown(e: KeyboardEvent, idx: number) {
 
   if (newIdx !== null) {
     e.preventDefault()
-    activeTab.value = tabs[newIdx]!.key
-    emit('tab-change', tabs[newIdx]!.key)
+    activeTab.value = tabs[newIdx]!
+    emit('tab-change', tabs[newIdx]!)
     // Move focus to the new tab
-    const el = document.getElementById(tabId(tabs[newIdx]!.key))
+    const el = document.getElementById(tabId(tabs[newIdx]!))
     el?.focus()
   }
 }
@@ -91,24 +95,24 @@ function handleCardAction(pick: ReadingPick) {
 <template>
   <section class="ks-reading-shelf" :aria-labelledby="`${uid}-title`">
     <div class="ks-reading-shelf__header">
-      <h3 :id="`${uid}-title`" class="ks-type-section-title">Recommended Reading</h3>
-      <div class="ks-reading-shelf__tabs" role="tablist" aria-label="Reading categories">
+      <h3 :id="`${uid}-title`" class="ks-type-section-title">{{ t('recommendedReading') }}</h3>
+      <div class="ks-reading-shelf__tabs" role="tablist" :aria-label="t('recommendedReading')">
         <button
           v-for="(tab, idx) in tabs"
-          :key="tab.key"
-          :id="tabId(tab.key)"
+          :key="tab"
+          :id="tabId(tab)"
           role="tab"
-          :aria-selected="activeTab === tab.key"
-          :aria-controls="panelId(tab.key)"
-          :tabindex="activeTab === tab.key ? 0 : -1"
+          :aria-selected="activeTab === tab"
+          :aria-controls="panelId(tab)"
+          :tabindex="activeTab === tab ? 0 : -1"
           :class="[
             'ks-reading-shelf__tab',
-            { 'ks-reading-shelf__tab--active': activeTab === tab.key },
+            { 'ks-reading-shelf__tab--active': activeTab === tab },
           ]"
-          @click="selectTab(tab.key)"
+          @click="selectTab(tab)"
           @keydown="handleTabKeydown($event, idx)"
         >
-          {{ tab.label }}
+          {{ t(tabLabelKeys[tab]) }}
         </button>
       </div>
     </div>
@@ -132,10 +136,11 @@ function handleCardAction(pick: ReadingPick) {
         <span class="ks-type-eyebrow ks-reading-shelf__card-eyebrow">
           {{ pick.eyebrow }}
         </span>
-        <h4 class="ks-reading-shelf__card-title">{{ pick.title }}</h4>
+        <KsTranslatableTitle :text="pick.title" tag="h4" title-class="ks-reading-shelf__card-title" />
         <p class="ks-type-body-sm ks-reading-shelf__card-abstract">
           {{ pick.abstract }}
         </p>
+        <KsTranslateBtn :text="pick.abstract" />
         <div class="ks-reading-shelf__card-meta">
           <span class="ks-type-data">{{ pick.venue }}</span>
           <KsTag

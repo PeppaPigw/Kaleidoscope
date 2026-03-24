@@ -26,14 +26,17 @@ export interface DashboardHeroProps {
   stats?: HeroStat[]
 }
 
-withDefaults(defineProps<DashboardHeroProps>(), {
-  eyebrow: "Today's Research Theme",
+const props = withDefaults(defineProps<DashboardHeroProps>(), {
+  eyebrow: '',
   stats: () => [],
 })
 
 defineEmits<{ click: [] }>()
 
 const uid = useId()
+const { t } = useTranslation()
+
+const resolvedEyebrow = computed(() => props.eyebrow || t('todaysResearchTheme'))
 </script>
 
 <template>
@@ -49,11 +52,9 @@ const uid = useId()
     <div class="ks-dashboard-hero__gradient" aria-hidden="true" />
     <div class="ks-dashboard-hero__content">
       <span class="ks-type-eyebrow ks-dashboard-hero__eyebrow">
-        {{ eyebrow }}
+        {{ resolvedEyebrow }}
       </span>
-      <h2 :id="`${uid}-title`" class="ks-type-cover ks-dashboard-hero__title">
-        {{ title }}
-      </h2>
+      <KsTranslatableTitle :text="title" tag="h2" title-class="ks-type-cover ks-dashboard-hero__title" />
       <p class="ks-type-lead ks-dashboard-hero__lead">
         {{ lead }}
       </p>

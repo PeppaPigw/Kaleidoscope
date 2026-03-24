@@ -7,6 +7,8 @@ import type { ThemeCluster } from '~/components/synthesis/ThemeClusters.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Synthesis Studio — Kaleidoscope',
   meta: [{ name: 'description', content: 'Cross-paper comparison and thematic synthesis.' }],
@@ -40,7 +42,7 @@ function handleClusterClick(cluster: ThemeCluster) {
 
 <template>
   <div class="ks-synthesis">
-    <KsPageHeader title="Synthesis Studio" subtitle="SYNTHESIS" />
+    <KsPageHeader :title="t('synthesis')" :subtitle="t('synthesisSubtitle')" />
 
     <div class="ks-synthesis__content">
       <SynthesisThemeClusters :clusters="clusters" @cluster-click="handleClusterClick" />

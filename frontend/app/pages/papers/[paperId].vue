@@ -15,6 +15,8 @@ import type { RelatedPaper } from '~/components/paper/RelatedConstellation.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 const route = useRoute()
 const paperId = computed(() => route.params.paperId as string)
 
@@ -136,7 +138,7 @@ function handleRelatedClick(paper: RelatedPaper) {
 
 <template>
   <div class="ks-paper-profile">
-    <KsPageHeader title="Paper Profile" :subtitle="`PAPER ${paperId}`" />
+    <KsPageHeader :title="t('paperProfile')" :subtitle="`PAPER ${paperId}`" />
 
     <div class="ks-paper-profile__layout">
       <div class="ks-paper-profile__main">

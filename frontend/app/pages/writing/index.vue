@@ -6,6 +6,8 @@ import type { ManuscriptSection } from '~/components/writing/ManuscriptOverview.
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Writing Studio — Kaleidoscope',
   meta: [{ name: 'description', content: 'Draft, revise, and cite in the manuscript editor.' }],
@@ -31,7 +33,7 @@ function handleSectionClick(section: ManuscriptSection) {
 
 <template>
   <div class="ks-writing">
-    <KsPageHeader title="Writing Studio" subtitle="MANUSCRIPT" />
+    <KsPageHeader :title="t('writing')" :subtitle="t('writingSubtitle')" />
 
     <div class="ks-writing__content">
       <WritingManuscriptOverview

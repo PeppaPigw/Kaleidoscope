@@ -7,6 +7,8 @@ import type { Contradiction } from '~/components/evidence/ContradictionsPanel.vu
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Evidence Lab — Kaleidoscope',
   meta: [{ name: 'description', content: 'Analyze methods, results, and contradictions across papers.' }],
@@ -46,7 +48,7 @@ function handleEditRQ() {
 
 <template>
   <div class="ks-evidence-lab">
-    <KsPageHeader title="Evidence & Methods Lab" subtitle="ANALYSIS" />
+    <KsPageHeader :title="t('evidenceLab')" :subtitle="t('evidenceLabSubtitle')" />
 
     <div class="ks-evidence-lab__content">
       <EvidenceRQHeader

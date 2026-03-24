@@ -31,13 +31,16 @@ alembic revision --autogenerate -m "initial"
 alembic upgrade head
 
 # Seed RSS feeds
-python -m app.seed_feeds
+python -m app.scripts.seed_feeds
+
+# Seed 50 arXiv papers via MinerU
+python -m app.scripts.seed_arxiv
 ```
 
 ### 4. Start the API server
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
 ### 5. Start the Celery worker
@@ -69,11 +72,14 @@ app/
 ├── schemas/          # Pydantic request/response schemas
 ├── api/v1/           # FastAPI routers (thin layer)
 ├── services/         # Business logic
-│   ├── ingestion/    # RSS polling, dedup, enrichment, PDF download
-│   ├── parsing/      # GROBID PDF parsing
+│   ├── ingestion/    # RSS polling, dedup, enrichment
+│   ├── parsing/      # GROBID/MinerU parsing
+│   ├── analysis/     # Deep paper analysis
 │   └── search/       # Keyword, vector, hybrid search
+├── scripts/          # CLI scripts (seeders)
 ├── tasks/            # Celery async tasks
-├── clients/          # External API clients (CrossRef, OpenAlex, S2, etc.)
+├── clients/          # External API clients (arXiv, MinerU, CrossRef, OpenAlex…)
+├── graph_db/         # Neo4j driver & queries
 └── utils/            # DOI, text, rate limiting utilities
 ```
 

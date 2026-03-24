@@ -21,6 +21,7 @@ const paperId = computed(() => {
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
 })
 const uid = useId()
+const { t } = useTranslation()
 
 useHead({
   title: 'Smart Reader — Kaleidoscope',
@@ -37,12 +38,27 @@ const { data: paperContent, pending: contentPending } = useFetch<{
   has_full_text: boolean
   sections: Array<{ title: string; level: number; paragraphs: string[] }>
   format: string
+  remote_urls?: Array<{ url: string; source: string; type: string }> | null
 }>(() => `${apiUrl}/api/v1/papers/${paperId.value}/content`)
 
 // Dynamic paper title
 const paperTitle = computed(() =>
   paperContent.value?.title || 'Loading paper...'
 )
+
+// Original paper links for navigation
+const originalLinks = computed(() => {
+  const urls = paperContent.value?.remote_urls || []
+  return urls.map(u => ({
+    url: u.url,
+    label: u.source === 'arxiv'
+      ? (u.type === 'pdf' ? '📄 arXiv PDF' : u.type === 'html' ? '🌐 ar5iv HTML' : '📋 arXiv Abstract')
+      : u.source === 'ar5iv' ? '🌐 ar5iv HTML'
+      : u.source === 'doi' ? '🔗 DOI Link'
+      : `🔗 ${u.source}`,
+    type: u.type,
+  }))
+})
 
 // Build outline from sections
 const outlineSections = computed<OutlineSection[]>(() => {
@@ -88,7 +104,26 @@ function handleHighlightClick(highlight: SemanticHighlight) {
 
 <template>
   <div class="ks-reader">
-    <KsPageHeader :title="paperTitle" subtitle="SMART READER" />
+    <KsPageHeader :title="paperTitle" :subtitle="t('readerSubtitle')" />
+
+    <!-- Original paper link bar -->
+    <div v-if="originalLinks.length" class="ks-reader__links">
+      <span class="ks-reader__links-label">View Original:</span>
+      <a
+        v-for="link in originalLinks"
+        :key="link.url"
+        :href="link.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="ks-reader__link-btn"
+      >
+        {{ link.label }}
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="margin-left:4px">
+          <path d="M11 3a1 1 0 110-2h6a1 1 0 011 1v6a1 1 0 01-2 0V4.414l-7.293 7.293a1 1 0 01-1.414-1.414L14.586 3H11z"/>
+          <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+        </svg>
+      </a>
+    </div>
 
     <div class="ks-reader__layout">
       <div class="ks-reader__main">
@@ -224,5 +259,47 @@ function handleHighlightClick(highlight: SemanticHighlight) {
     position: static;
     height: auto;
   }
+}
+
+/* ── Original paper link bar ──────────────────── */
+.ks-reader__links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1400px;
+  margin: 0 auto 16px;
+  padding: 12px 24px;
+  background: var(--color-surface, rgba(30, 41, 59, 0.6));
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+
+.ks-reader__links-label {
+  font: 600 0.75rem / 1 var(--font-mono, monospace);
+  color: var(--color-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ks-reader__link-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border: 1px solid var(--color-primary, #8b5cf6);
+  border-radius: 6px;
+  color: var(--color-primary, #8b5cf6);
+  text-decoration: none;
+  font: 500 0.8rem / 1 var(--font-sans, 'Inter', sans-serif);
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.ks-reader__link-btn:hover {
+  background: var(--color-primary, #8b5cf6);
+  color: #fff;
+  transform: translateY(-1px);
 }
 </style>

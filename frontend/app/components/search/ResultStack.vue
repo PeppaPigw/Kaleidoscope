@@ -35,11 +35,12 @@ defineEmits<{
 }>()
 
 const uid = useId()
+const { t } = useTranslation()
 </script>
 
 <template>
   <section class="ks-result-stack" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="sr-only">Search Results</h2>
+    <h2 :id="`${uid}-title`" class="sr-only">{{ t('searchResults') }}</h2>
 
     <!-- Loading skeletons -->
     <div v-if="loading" class="ks-result-stack__list">
@@ -68,7 +69,7 @@ const uid = useId()
             class="ks-result-stack__card-title-link"
             @click="$emit('paper-click', result)"
           >
-            <h3 class="ks-result-stack__card-title">{{ result.title }}</h3>
+            <KsTranslatableTitle :text="result.title" tag="h3" title-class="ks-result-stack__card-title" />
           </NuxtLink>
           <span class="ks-type-data ks-result-stack__card-score" style="color: var(--color-primary);">
             {{ (result.score * 100).toFixed(0) }}%
@@ -87,9 +88,12 @@ const uid = useId()
           <span v-if="result.openAccess" class="ks-result-stack__card-oa" title="Open Access">🔓</span>
         </div>
 
-        <p class="ks-type-body-sm ks-result-stack__card-abstract">
-          {{ result.abstract }}
-        </p>
+        <div class="ks-result-stack__card-abstract-wrap">
+          <p class="ks-type-body-sm ks-result-stack__card-abstract">
+            {{ result.abstract }}
+          </p>
+          <KsTranslateBtn :text="result.abstract" />
+        </div>
 
         <div class="ks-result-stack__card-footer">
           <div class="ks-result-stack__card-meta">
@@ -106,26 +110,26 @@ const uid = useId()
             <KsButton
               variant="secondary"
               size="sm"
-              :aria-label="`Save ${result.title}`"
+              :aria-label="`${t('save')} ${result.title}`"
               @click="$emit('save', result)"
             >
-              Save
+              {{ t('save') }}
             </KsButton>
             <KsButton
               variant="secondary"
               size="sm"
-              :aria-label="`Compare ${result.title}`"
+              :aria-label="`${t('compare')} ${result.title}`"
               @click="$emit('compare', result)"
             >
-              Compare
+              {{ t('compare') }}
             </KsButton>
             <KsButton
               variant="primary"
               size="sm"
-              :aria-label="`Read ${result.title}`"
+              :aria-label="`${t('readPaper')} ${result.title}`"
               @click="$emit('read', result)"
             >
-              Read
+              {{ t('readPaper') }}
             </KsButton>
           </div>
         </div>

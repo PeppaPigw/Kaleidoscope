@@ -9,6 +9,8 @@
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Workspaces — Kaleidoscope',
   meta: [{ name: 'description', content: 'Manage your research projects, paper collections, and collaboration spaces.' }],
@@ -125,20 +127,20 @@ function statusColor(status: string) {
 
 <template>
   <div class="ks-workspaces">
-    <KsPageHeader title="Workspaces" subtitle="RESEARCH" />
+    <KsPageHeader :title="t('workspaces')" :subtitle="t('research')" />
 
     <div class="ks-workspaces__content">
       <!-- Toolbar -->
       <div class="ks-workspaces__toolbar">
         <p class="ks-type-body-sm" style="color: var(--color-secondary);">
-          {{ workspaces.length }} workspaces
+          {{ workspaces.length }} {{ t('workspaces').toLowerCase() }}
         </p>
         <button
           type="button"
           class="ks-workspaces__create-btn"
           @click="showCreateModal = true"
         >
-          + New Workspace
+          {{ t('newWorkspace') }}
         </button>
       </div>
 
@@ -177,8 +179,8 @@ function statusColor(status: string) {
 
           <!-- Meta row -->
           <div class="ks-workspaces__card-meta">
-            <span class="ks-type-data">{{ ws.paperCount }} papers</span>
-            <span class="ks-type-data">{{ ws.memberCount }} members</span>
+            <span class="ks-type-data">{{ ws.paperCount }} {{ t('papers') }}</span>
+            <span class="ks-type-data">{{ ws.memberCount }} {{ t('members') }}</span>
             <span class="ks-type-data" style="margin-left: auto;">{{ ws.lastUpdated }}</span>
           </div>
 
@@ -198,11 +200,11 @@ function statusColor(status: string) {
           class="ks-workspaces__overlay"
           @click.self="showCreateModal = false"
         >
-          <div class="ks-workspaces__modal ks-motion-paper-reveal" role="dialog" aria-modal="true" aria-label="Create workspace">
-            <h2 class="ks-type-section-title">Create New Workspace</h2>
+          <div class="ks-workspaces__modal ks-motion-paper-reveal" role="dialog" aria-modal="true" :aria-label="t('createNewWorkspace')">
+            <h2 class="ks-type-section-title">{{ t('createNewWorkspace') }}</h2>
 
             <label class="ks-workspaces__field">
-              <span class="ks-type-eyebrow">Name</span>
+              <span class="ks-type-eyebrow">{{ t('name') }}</span>
               <input
                 v-model="newWsName"
                 type="text"
@@ -213,7 +215,7 @@ function statusColor(status: string) {
             </label>
 
             <label class="ks-workspaces__field">
-              <span class="ks-type-eyebrow">Description</span>
+              <span class="ks-type-eyebrow">{{ t('description') }}</span>
               <textarea
                 v-model="newWsDesc"
                 class="ks-workspaces__textarea"
@@ -228,7 +230,7 @@ function statusColor(status: string) {
                 class="ks-workspaces__modal-btn ks-workspaces__modal-btn--secondary"
                 @click="showCreateModal = false"
               >
-                Cancel
+                {{ t('cancel') }}
               </button>
               <button
                 type="button"
@@ -236,7 +238,7 @@ function statusColor(status: string) {
                 :disabled="!newWsName.trim()"
                 @click="handleCreateWorkspace"
               >
-                Create
+                {{ t('createBtn') }}
               </button>
             </div>
           </div>

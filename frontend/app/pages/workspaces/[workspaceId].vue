@@ -6,6 +6,8 @@ import type { CorpusPaper } from '~/components/workspace/CorpusShelf.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 const route = useRoute()
 const workspaceId = computed(() => {
   const p = route.params.workspaceId
@@ -32,7 +34,7 @@ function handlePaperClick(paper: CorpusPaper) {
 
 <template>
   <div class="ks-workspace">
-    <KsPageHeader title="Research Workspace" :subtitle="`WORKSPACE ${workspaceId}`" />
+    <KsPageHeader :title="t('workspaces')" :subtitle="`WORKSPACE ${workspaceId}`" />
 
     <div class="ks-workspace__content">
       <WorkspaceProjectCover

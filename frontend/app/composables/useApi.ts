@@ -156,6 +156,32 @@ export function useApi() {
     })
   }
 
+  // ── Analytics ───────────────────────────────────────────────
+
+  async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
+    return apiFetch('/analytics/overview')
+  }
+
+  async function getAnalyticsTimeline(days = 90): Promise<AnalyticsTimeline> {
+    return apiFetch(`/analytics/timeline?days=${days}`)
+  }
+
+  async function getAnalyticsCategories(limit = 20): Promise<AnalyticsCategories> {
+    return apiFetch(`/analytics/categories?limit=${limit}`)
+  }
+
+  async function getAnalyticsTopAuthors(limit = 20): Promise<AnalyticsTopAuthors> {
+    return apiFetch(`/analytics/top-authors?limit=${limit}`)
+  }
+
+  async function getAnalyticsKeywordCloud(limit = 50): Promise<AnalyticsKeywordCloud> {
+    return apiFetch(`/analytics/keyword-cloud?limit=${limit}`)
+  }
+
+  async function getAnalyticsCitationNetwork(): Promise<AnalyticsCitationNetwork> {
+    return apiFetch('/analytics/citation-network')
+  }
+
   return {
     // Papers
     listPapers,
@@ -171,5 +197,60 @@ export function useApi() {
     // Intelligence
     summarizePaper,
     askAboutPaper,
+    // Analytics
+    getAnalyticsOverview,
+    getAnalyticsTimeline,
+    getAnalyticsCategories,
+    getAnalyticsTopAuthors,
+    getAnalyticsKeywordCloud,
+    getAnalyticsCitationNetwork,
   }
+}
+
+// ─── Analytics Types ────────────────────────────────────────────
+
+export interface AnalyticsOverview {
+  total_papers: number
+  with_fulltext: number
+  by_status: Record<string, number>
+  by_source_type: Record<string, number>
+  avg_citation_count: number
+  total_authors: number
+  total_references: number
+}
+
+export interface AnalyticsTimeline {
+  points: Array<{ date: string; count: number }>
+  granularity: string
+}
+
+export interface AnalyticsCategories {
+  categories: Array<{ name: string; count: number }>
+  total: number
+}
+
+export interface AnalyticsTopAuthors {
+  authors: Array<{
+    id: string
+    name: string
+    paper_count: number
+    total_citations: number
+  }>
+}
+
+export interface AnalyticsKeywordCloud {
+  keywords: Array<{ keyword: string; count: number }>
+  total_papers_with_keywords: number
+}
+
+export interface AnalyticsCitationNetwork {
+  total_nodes: number
+  total_edges: number
+  resolved_edges: number
+  avg_references_per_paper: number
+  top_cited: Array<{
+    paper_id: string
+    title: string
+    internal_citations: number
+  }>
 }

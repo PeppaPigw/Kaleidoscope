@@ -7,6 +7,7 @@ import {
   Network,
   FolderOpen,
   FlaskConical,
+  BarChart3,
   PenTool,
   Flower2,
   Settings,
@@ -14,26 +15,28 @@ import {
 } from 'lucide-vue-next'
 
 const route = useRoute()
+const { t } = useTranslation()
 
 const collapsed = ref(false)
 
 interface NavItem {
-  label: string
+  labelKey: keyof typeof import('~/composables/useTranslation').UI_LABELS.en
   icon: typeof LayoutDashboard
   to: string
-  section?: string
+  sectionKey?: keyof typeof import('~/composables/useTranslation').UI_LABELS.en
 }
 
-const navigation: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', section: 'HOME' },
-  { label: 'Discover', icon: Compass, to: '/discover', section: 'EXPLORE' },
-  { label: 'Search', icon: Search, to: '/search' },
-  { label: 'Insights', icon: Network, to: '/insights/landscape' },
-  { label: 'Workspaces', icon: FolderOpen, to: '/workspaces', section: 'RESEARCH' },
-  { label: 'Evidence Lab', icon: FlaskConical, to: '/analysis/evidence' },
-  { label: 'Synthesis', icon: BookOpen, to: '/synthesis' },
-  { label: 'Writing', icon: PenTool, to: '/writing', section: 'CREATE' },
-  { label: 'Knowledge', icon: Flower2, to: '/knowledge' },
+const navDefinition: NavItem[] = [
+  { labelKey: 'dashboard', icon: LayoutDashboard, to: '/dashboard', sectionKey: 'home' },
+  { labelKey: 'discover', icon: Compass, to: '/discover', sectionKey: 'explore' },
+  { labelKey: 'search', icon: Search, to: '/search' },
+  { labelKey: 'insights', icon: Network, to: '/insights/landscape' },
+  { labelKey: 'workspaces', icon: FolderOpen, to: '/workspaces', sectionKey: 'research' },
+  { labelKey: 'evidenceLab', icon: FlaskConical, to: '/analysis/evidence' },
+  { labelKey: 'analytics', icon: BarChart3, to: '/analysis' },
+  { labelKey: 'synthesis', icon: BookOpen, to: '/synthesis' },
+  { labelKey: 'writing', icon: PenTool, to: '/writing', sectionKey: 'create' },
+  { labelKey: 'knowledge', icon: Flower2, to: '/knowledge' },
 ]
 
 function isActive(item: NavItem): boolean {
@@ -41,7 +44,8 @@ function isActive(item: NavItem): boolean {
 }
 
 function getSectionBefore(index: number): string | undefined {
-  return navigation[index]?.section
+  const key = navDefinition[index]?.sectionKey
+  return key ? t(key) : undefined
 }
 </script>
 
@@ -61,7 +65,7 @@ function getSectionBefore(index: number): string | undefined {
 
     <!-- Navigation -->
     <nav class="ks-sidebar__nav">
-      <template v-for="(item, index) in navigation" :key="item.to">
+      <template v-for="(item, index) in navDefinition" :key="item.to">
         <!-- Section label -->
         <span
           v-if="!collapsed && getSectionBefore(index)"
@@ -73,11 +77,11 @@ function getSectionBefore(index: number): string | undefined {
         <NuxtLink
           :to="item.to"
           :class="['ks-sidebar__item', { 'ks-sidebar__item--active': isActive(item) }]"
-          :aria-label="item.label"
+          :aria-label="t(item.labelKey)"
         >
           <component :is="item.icon" :size="20" :stroke-width="1.8" />
           <Transition name="ks-fade">
-            <span v-if="!collapsed" class="ks-sidebar__item-label">{{ item.label }}</span>
+            <span v-if="!collapsed" class="ks-sidebar__item-label">{{ t(item.labelKey) }}</span>
           </Transition>
           <span v-if="isActive(item)" class="ks-sidebar__active-indicator" />
         </NuxtLink>
@@ -86,10 +90,10 @@ function getSectionBefore(index: number): string | undefined {
 
     <!-- Bottom -->
     <div class="ks-sidebar__footer">
-      <NuxtLink to="/admin" class="ks-sidebar__item" aria-label="Settings">
+      <NuxtLink to="/admin" class="ks-sidebar__item" :aria-label="t('settings')">
         <Settings :size="20" :stroke-width="1.8" />
         <Transition name="ks-fade">
-          <span v-if="!collapsed" class="ks-sidebar__item-label">Settings</span>
+          <span v-if="!collapsed" class="ks-sidebar__item-label">{{ t('settings') }}</span>
         </Transition>
       </NuxtLink>
 

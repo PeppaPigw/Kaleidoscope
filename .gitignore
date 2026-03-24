@@ -1,37 +1,58 @@
-# Ignore all hidden files
-.*
-!.gitignore
-!.trellis
+# ═══════════════════════════════════════════════════════
+#  Kaleidoscope — .gitignore
+# ═══════════════════════════════════════════════════════
 
-# OS files
+# ── OS ────────────────────────────────────────────────
+.DS_Store
 Thumbs.db
+*.swp
+*.swo
 
-# Draft & temp
-draft/
-Memo/
-AGENTS.md
-
-# Python
-__pycache__/
-*.pyc
-*.egg-info/
-*.pyo
-.venv/
-venv/
-backend/.env
-
-# IDE
+# ── IDE ───────────────────────────────────────────────
 .vscode/
 .idea/
+*.iml
 
-# Node
+# ── Python (backend) ─────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── Node (frontend) ──────────────────────────────────
 node_modules/
-.next/
+.nuxt/
+.output/
 dist/
+*.tsbuildinfo
 
-# History
+# ── Environment & Secrets ────────────────────────────
+.env
+!.env.example
+backend/.env
+!backend/.env.example
+
+# ── Docker volumes (local dev) ───────────────────────
+docker-data/
+
+# ── Logs ─────────────────────────────────────────────
+*.log
+logs/
+
+# ── AI / Agent tooling (local only) ──────────────────
 .history/
-
-
-# skills
+.trellis/
+.agent/
+.repo/
 skills/
+AGENTS.md
+
+docs/design
+docs/memo

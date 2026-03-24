@@ -58,10 +58,11 @@ const uid = useId()
             {{ (paper.score * 100).toFixed(0) }}%
           </span>
         </div>
-        <h4 class="ks-recommendation-stream__card-title">{{ paper.title }}</h4>
+        <KsTranslatableTitle :text="paper.title" tag="h4" title-class="ks-recommendation-stream__card-title" />
         <p class="ks-type-body-sm ks-recommendation-stream__card-abstract">
           {{ paper.abstract }}
         </p>
+        <KsTranslateBtn :text="paper.abstract" />
         <div class="ks-recommendation-stream__card-meta">
           <span class="ks-type-data">{{ paper.venue }}</span>
           <KsTag

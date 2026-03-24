@@ -24,6 +24,8 @@ definePageMeta({
   title: 'Discovery Explorer',
 })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Discover — Kaleidoscope',
   meta: [

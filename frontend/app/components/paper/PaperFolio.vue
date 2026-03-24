@@ -33,6 +33,7 @@ defineEmits<{
   'author-click': [author: PaperAuthor]
 }>()
 
+const { t } = useTranslation()
 const uid = useId()
 </script>
 
@@ -46,7 +47,7 @@ const uid = useId()
       </a>
     </div>
 
-    <h1 :id="`${uid}-title`" class="ks-paper-folio__title">{{ title }}</h1>
+    <KsTranslatableTitle :text="title" tag="h1" title-class="ks-paper-folio__title" />
 
     <div class="ks-paper-folio__authors">
       <button
@@ -62,6 +63,7 @@ const uid = useId()
     </div>
 
     <p class="ks-paper-folio__abstract">{{ abstract }}</p>
+    <KsTranslateBtn v-if="abstract" :text="abstract" />
 
     <div class="ks-paper-folio__stats">
       <span class="ks-type-data"><strong>{{ citedBy }}</strong> citations</span>
@@ -70,9 +72,9 @@ const uid = useId()
     </div>
 
     <div class="ks-paper-folio__actions">
-      <KsButton variant="primary" @click="$emit('read')">Read Paper</KsButton>
-      <KsButton variant="secondary" @click="$emit('save')">Save</KsButton>
-      <KsButton variant="secondary" @click="$emit('cite')">Cite</KsButton>
+      <KsButton variant="primary" @click="$emit('read')">{{ t('readPaper') }}</KsButton>
+      <KsButton variant="secondary" @click="$emit('save')">{{ t('save') }}</KsButton>
+      <KsButton variant="secondary" @click="$emit('cite')">{{ t('cite') }}</KsButton>
     </div>
   </header>
 </template>

@@ -126,6 +126,9 @@ def create_app() -> FastAPI:
     # Content/MinerU router
     from app.api.v1.content import router as content_router
     app.include_router(content_router, prefix="/api/v1")
+    # Analytics router
+    from app.api.v1.analytics import router as analytics_router
+    app.include_router(analytics_router, prefix="/api/v1")
 
     # --- Health Check ---
 

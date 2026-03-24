@@ -7,6 +7,8 @@ import type { Opportunity } from '~/components/graph/OpportunityLens.vue'
 
 definePageMeta({ layout: 'default' })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Insights Landscape — Kaleidoscope',
   meta: [{ name: 'description', content: 'Research trends, burst detection, and opportunity analysis.' }],
@@ -37,7 +39,7 @@ function handleOpportunityClick(opportunity: Opportunity) {
 
 <template>
   <div class="ks-insights">
-    <KsPageHeader title="Insights Landscape" subtitle="GRAPH & TRENDS" />
+    <KsPageHeader :title="t('insights')" :subtitle="t('insightsSubtitle')" />
 
     <div class="ks-insights__content">
       <GraphBurstMoments :topics="burstTopics" @topic-click="handleTopicClick" />

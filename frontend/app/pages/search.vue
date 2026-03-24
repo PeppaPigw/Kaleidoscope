@@ -17,6 +17,8 @@ definePageMeta({
   layout: 'default',
 })
 
+const { t } = useTranslation()
+
 useHead({
   title: 'Search — Kaleidoscope',
   meta: [
@@ -268,7 +270,7 @@ function handleClaimPaperClick(paperId: string) {
 
 <template>
   <div class="ks-search">
-    <KsPageHeader title="Search" subtitle="SEARCH RESULTS" />
+    <KsPageHeader :title="t('search')" :subtitle="t('searchResults')" />
 
     <!-- Query Ribbon -->
     <SearchQueryRibbon

@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
 
+  // SPA mode — no SSR needed, avoids locale hydration mismatch
+  ssr: false,
+
   future: {
     compatibilityVersion: 4,
   },

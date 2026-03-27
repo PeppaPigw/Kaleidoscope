@@ -316,8 +316,9 @@ class TrendService:
         Find 'sleeping beauty' papers: old papers with recent citation spikes.
 
         Simplified heuristic: papers published >5 years ago with high
-        citation count relative to their age.
+        citation count relative to their age. Proxy score = citation_count / sqrt(years_old).
         """
+        import math
         cutoff_old = date.today() - timedelta(days=5 * 365)
         cutoff_recent = date.today() - timedelta(days=2 * 365)
 
@@ -330,21 +331,128 @@ class TrendService:
                 Paper.citation_count_updated_at >= cutoff_recent,
             )
             .order_by(Paper.citation_count.desc())
-            .limit(top_k)
+            .limit(top_k * 3)  # over-fetch for sorting by proxy score
         )
 
         papers = result.scalars().all()
-        return [
-            {
+        results = []
+        for p in papers:
+            years_old = (date.today() - p.published_at).days // 365 if p.published_at else None
+            proxy = (
+                round(p.citation_count / math.sqrt(max(years_old, 1)), 2)
+                if years_old and years_old > 0 else None
+            )
+            results.append({
                 "id": str(p.id),
                 "title": p.title,
                 "doi": p.doi,
                 "published_at": str(p.published_at) if p.published_at else None,
                 "citation_count": p.citation_count,
-                "years_old": (
-                    (date.today() - p.published_at).days // 365
-                    if p.published_at else None
-                ),
-            }
-            for p in papers
+                "years_old": years_old,
+                "proxy_score": proxy,
+            })
+
+        results.sort(key=lambda x: (x["proxy_score"] or 0), reverse=True)
+        return results[:top_k]
+
+    async def keyword_timeseries(
+        self,
+        keywords: list[str],
+        years_back: int = 5,
+    ) -> dict:
+        """
+        Return year-by-year paper counts for the specified keywords.
+
+        Returns dict with:
+          - keywords: list of {keyword, series: [{year, count}], total}
+          - years_covered: sorted list of years
+        """
+        cutoff = date.today() - timedelta(days=years_back * 365)
+
+        result = await self.db.execute(
+            select(Paper.keywords, Paper.published_at)
+            .where(
+                Paper.deleted_at.is_(None),
+                Paper.keywords.is_not(None),
+                Paper.published_at >= cutoff,
+            )
+        )
+
+        kw_lower = {kw.lower() for kw in keywords}
+        # year_kw_counts[year][keyword] = count
+        year_kw: dict[int, Counter] = defaultdict(Counter)
+        for row in result.all():
+            if not row.keywords or not row.published_at:
+                continue
+            year = row.published_at.year
+            for kw in row.keywords:
+                if isinstance(kw, str) and kw.lower() in kw_lower:
+                    year_kw[year][kw.lower()] += 1
+
+        all_years = sorted(year_kw.keys())
+        output = []
+        for kw in keywords:
+            kw_l = kw.lower()
+            series = [{"year": y, "count": year_kw[y].get(kw_l, 0)} for y in all_years]
+            total = sum(pt["count"] for pt in series)
+            output.append({"keyword": kw, "series": series, "total": total})
+
+        return {"keywords": output, "years_covered": all_years}
+
+    async def keyword_cooccurrence(
+        self,
+        top_keywords: int = 30,
+        years_back: int = 3,
+        min_cooccurrence: int = 2,
+    ) -> dict:
+        """
+        Compute keyword co-occurrence matrix from paper keyword lists.
+
+        For each paper, all pairs of keywords contribute to the co-occurrence
+        count. Returns edges sorted by count descending.
+
+        Used to reveal thematic bridges and emerging combinations (§79).
+        """
+        from itertools import combinations
+
+        cutoff = date.today() - timedelta(days=years_back * 365)
+
+        result = await self.db.execute(
+            select(Paper.keywords)
+            .where(
+                Paper.deleted_at.is_(None),
+                Paper.keywords.is_not(None),
+                Paper.published_at >= cutoff,
+            )
+        )
+
+        # First pass: find top N keywords by frequency
+        freq: Counter = Counter()
+        all_keyword_lists = []
+        for (kw_list,) in result.all():
+            if not isinstance(kw_list, list):
+                continue
+            normalized = [kw.lower().strip() for kw in kw_list if isinstance(kw, str) and kw.strip()]
+            all_keyword_lists.append(normalized)
+            freq.update(normalized)
+
+        top_kws = {kw for kw, _ in freq.most_common(top_keywords)}
+
+        # Second pass: count co-occurrences among top keywords only
+        cooc: Counter = Counter()
+        for kw_list in all_keyword_lists:
+            relevant = [kw for kw in kw_list if kw in top_kws]
+            for a, b in combinations(sorted(set(relevant)), 2):
+                cooc[(a, b)] += 1
+
+        edges = [
+            {"keyword_a": a, "keyword_b": b, "count": cnt}
+            for (a, b), cnt in cooc.most_common()
+            if cnt >= min_cooccurrence
         ]
+
+        return {
+            "edges": edges,
+            "total_papers_analyzed": len(all_keyword_lists),
+        }
+

@@ -80,7 +80,8 @@ async def get_paper_content(
         md_parts = []
         for sec in paper.parsed_sections:
             level = sec.get("level", 1)
-            md_parts.append(f"{'#' * level} {sec.get('title', '')}\n")
+            heading = sec.get("title") or sec.get("heading", "")
+            md_parts.append(f"{'#' * level} {heading}\n")
             for p in sec.get("paragraphs", []):
                 md_parts.append(p + "\n")
             md_parts.append("")

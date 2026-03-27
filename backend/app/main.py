@@ -90,12 +90,14 @@ def create_app() -> FastAPI:
     from app.api.v1.collections import router as collections_router
     from app.api.v1.tags import router as tags_router
     from app.api.v1.graph import router as graph_router
+    from app.api.v1.governance import router as governance_router
     from app.api.v1.intelligence import router as intelligence_router
     from app.api.v1.agent import router as agent_router
     from app.api.v1.filters import router as filters_router
     from app.api.v1.local_pdf import router as local_pdf_router
     from app.api.v1.analysis import router as analysis_router
     from app.api.v1.trends import router as trends_router
+    from app.api.v1.trend_ext import router as trend_ext_router
     from app.api.v1.writing import router as writing_router
     from app.api.v1.alerts import router as alerts_router
     # P3 routers
@@ -103,6 +105,9 @@ def create_app() -> FastAPI:
     from app.api.v1.cross_paper import router as cross_paper_router
     from app.api.v1.figures import router as figures_router
     from app.api.v1.knowledge import router as knowledge_router
+    from app.api.v1.knowledge_ext import router as knowledge_ext_router
+    from app.api.v1.quality import router as quality_router
+    from app.api.v1.researchers import router as researchers_router
 
     app.include_router(papers_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
@@ -110,12 +115,14 @@ def create_app() -> FastAPI:
     app.include_router(collections_router, prefix="/api/v1")
     app.include_router(tags_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
+    app.include_router(governance_router, prefix="/api/v1")
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
     app.include_router(filters_router, prefix="/api/v1")
     app.include_router(local_pdf_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(trends_router, prefix="/api/v1")
+    app.include_router(trend_ext_router, prefix="/api/v1")
     app.include_router(writing_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
     # P3 routers
@@ -123,12 +130,29 @@ def create_app() -> FastAPI:
     app.include_router(cross_paper_router, prefix="/api/v1")
     app.include_router(figures_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
+    app.include_router(knowledge_ext_router, prefix="/api/v1")
+    app.include_router(quality_router, prefix="/api/v1")
     # Content/MinerU router
     from app.api.v1.content import router as content_router
     app.include_router(content_router, prefix="/api/v1")
     # Analytics router
     from app.api.v1.analytics import router as analytics_router
     app.include_router(analytics_router, prefix="/api/v1")
+    # Researcher analytics router
+    app.include_router(researchers_router, prefix="/api/v1")
+    # Batch 4-6 extended feature routers
+    from app.api.v1.trend_ext import router as trend_ext_router
+    app.include_router(trend_ext_router, prefix="/api/v1")
+    # Batch 6: Collaboration & Experiments
+    from app.api.v1.collaboration import router as collaboration_router
+    from app.api.v1.experiments import router as experiments_router
+    app.include_router(collaboration_router, prefix="/api/v1")
+    app.include_router(experiments_router, prefix="/api/v1")
+    # Admin + SSE (Features 7/8/9/25/26/35/42)
+    from app.api.v1.admin import router as admin_router
+    from app.api.v1.sse import router as sse_router
+    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(sse_router, prefix="/api/v1")
 
     # --- Health Check ---
 

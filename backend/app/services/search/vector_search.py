@@ -110,6 +110,34 @@ class VectorSearchService:
                         range=models.Range(lte=filters["year_to"]),
                     )
                 )
+            if filters.get("venue"):
+                conditions.append(
+                    models.FieldCondition(
+                        key="venue",
+                        match=models.MatchValue(value=filters["venue"]),
+                    )
+                )
+            if filters.get("paper_type"):
+                conditions.append(
+                    models.FieldCondition(
+                        key="paper_type",
+                        match=models.MatchValue(value=filters["paper_type"]),
+                    )
+                )
+            if filters.get("oa_status"):
+                conditions.append(
+                    models.FieldCondition(
+                        key="oa_status",
+                        match=models.MatchValue(value=filters["oa_status"]),
+                    )
+                )
+            if filters.get("has_full_text") is not None:
+                conditions.append(
+                    models.FieldCondition(
+                        key="has_full_text",
+                        match=models.MatchValue(value=filters["has_full_text"]),
+                    )
+                )
             if conditions:
                 qdrant_filter = models.Filter(must=conditions)
 

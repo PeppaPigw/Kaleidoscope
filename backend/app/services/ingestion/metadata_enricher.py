@@ -247,7 +247,15 @@ class MetadataEnricherService:
 
     def _apply_crossref(self, paper: Paper, data: dict) -> None:
         """Apply CrossRef metadata to paper (only fills empty fields)."""
-        if not paper.title or paper.title == "":
+        # Overwrite title if empty or if it looks like a raw identifier
+        _is_identifier = (
+            not paper.title
+            or paper.title == ""
+            or paper.title.startswith("10.")  # DOI prefix
+            or paper.title.startswith("arXiv:")
+            or paper.title.startswith("arxiv:")
+        )
+        if _is_identifier:
             titles = data.get("title", [])
             if titles:
                 paper.title = titles[0]

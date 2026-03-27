@@ -117,6 +117,42 @@ SET r.position = $position
 RETURN a.id, p.id
 """
 
+# ─── Stub reconciliation ─────────────────────────────────────
+
+RECONCILE_STUBS_BY_DOI = """
+MATCH (canonical:Paper {id: $canonical_id})
+WHERE canonical.doi IS NOT NULL
+WITH canonical
+MATCH (stub:Paper)
+WHERE stub.is_stub = true
+  AND stub.doi = canonical.doi
+  AND stub.id <> canonical.id
+WITH canonical, collect(stub) AS stubs
+UNWIND stubs AS stub
+OPTIONAL MATCH (citing)-[:CITES]->(stub)
+WITH canonical, stub, collect(citing) AS citers
+FOREACH (c IN citers | MERGE (c)-[:CITES]->(canonical))
+DETACH DELETE stub
+RETURN count(*) AS reconciled
+"""
+
+RECONCILE_STUBS_BY_TITLE = """
+MATCH (canonical:Paper {id: $canonical_id})
+WHERE canonical.title IS NOT NULL AND canonical.title <> ''
+WITH canonical
+MATCH (stub:Paper)
+WHERE stub.is_stub = true
+  AND stub.title = canonical.title
+  AND stub.id <> canonical.id
+WITH canonical, collect(stub) AS stubs
+UNWIND stubs AS stub
+OPTIONAL MATCH (citing)-[:CITES]->(stub)
+WITH canonical, stub, collect(citing) AS citers
+FOREACH (c IN citers | MERGE (c)-[:CITES]->(canonical))
+DETACH DELETE stub
+RETURN count(*) AS reconciled
+"""
+
 # ─── Stats ───────────────────────────────────────────────────────
 
 GRAPH_STATS = """

@@ -302,3 +302,104 @@ async def export_paper_citation(
         media_type=content_types.get(format, "text/plain"),
     )
 
+
+# ─── Version History (Feature 2) ─────────────────────────────────
+
+@router.get("/{paper_id}/versions")
+async def get_paper_versions(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return version history for a paper from raw_metadata provenance markers."""
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    raw = paper.raw_metadata or {}
+    versions: list[dict] = []
+
+    for v in raw.get("arxiv_versions") or []:
+        versions.append({"version": v.get("version"), "submitted": v.get("submitted"), "source": "arxiv"})
+
+    for u in raw.get("update-to") or []:
+        versions.append({"version": u.get("type"), "doi": u.get("DOI"), "updated": u.get("updated"), "source": "crossref"})
+
+    for step in raw.get("pipeline_steps") or []:
+        versions.append({"version": step.get("step"), "timestamp": step.get("timestamp"), "source": "pipeline"})
+
+    if not versions:
+        versions = [{"version": "v1", "source": paper.source_type or "unknown",
+                     "timestamp": str(paper.created_at), "note": "Single ingested version."}]
+
+    return {"paper_id": str(paper.id), "doi": paper.doi, "arxiv_id": paper.arxiv_id,
+            "parser_version": paper.parser_version, "versions": versions}
+
+
+# ─── Reading Status GET (Feature 43) ─────────────────────────────
+
+@router.get("/{paper_id}/reading-status")
+async def get_reading_status(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get current reading status for a paper."""
+    from app.services.collection_service import ReadingStatusService
+
+    res = await db.execute(select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None)))
+    if not res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    svc = ReadingStatusService(db, user_id)
+    status = await svc.get_status(str(paper_id))
+    return {"paper_id": str(paper_id), "reading_status": status}
+
+
+# ─── Library Deduplication (Feature 5) ───────────────────────────
+
+@router.post("/deduplicate")
+async def deduplicate_library(
+    sample: int = Query(500, ge=10, le=5000),
+    db: AsyncSession = Depends(get_db),
+):
+    """Scan the library for potential duplicate papers (DOI, arXiv ID, title fuzzy match)."""
+    from app.utils.text import titles_are_similar
+
+    res = await db.execute(
+        select(Paper).where(Paper.deleted_at.is_(None))
+        .order_by(Paper.created_at.desc()).limit(sample)
+    )
+    papers = res.scalars().all()
+
+    doi_map: dict[str, list[str]] = {}
+    arxiv_map: dict[str, list[str]] = {}
+    for p in papers:
+        if p.doi:
+            doi_map.setdefault(p.doi.lower(), []).append(str(p.id))
+        if p.arxiv_id:
+            arxiv_map.setdefault(p.arxiv_id.lower(), []).append(str(p.id))
+
+    suspected: list[dict] = []
+    for doi, ids in doi_map.items():
+        if len(ids) > 1:
+            suspected.append({"match_type": "doi", "doi": doi, "paper_ids": ids, "confidence": 1.0})
+    for arxiv_id, ids in arxiv_map.items():
+        if len(ids) > 1:
+            suspected.append({"match_type": "arxiv_id", "arxiv_id": arxiv_id, "paper_ids": ids, "confidence": 1.0})
+
+    no_id = [p for p in papers if not p.doi and not p.arxiv_id and p.title]
+    seen_pairs: set[frozenset] = set()
+    for i, p1 in enumerate(no_id):
+        for p2 in no_id[i + 1:]:
+            pk = frozenset({str(p1.id), str(p2.id)})
+            if pk not in seen_pairs and titles_are_similar(p1.title, p2.title, threshold=0.90):
+                seen_pairs.add(pk)
+                suspected.append({"match_type": "title", "titles": [p1.title, p2.title],
+                                   "paper_ids": [str(p1.id), str(p2.id)], "confidence": 0.9})
+
+    return {"sample_size": len(papers), "duplicate_groups_found": len(suspected), "suspected_duplicates": suspected}
+
+

@@ -1,12 +1,20 @@
 """Paper model — central entity of Kaleidoscope."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.author import PaperAuthor
+    from app.models.collection import PaperTag
+    from app.models.venue import Venue
 
 
 class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -40,7 +48,7 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     venue_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("venues.id"), nullable=True
     )
-    venue: Mapped["Venue | None"] = relationship("Venue", back_populates="papers")
+    venue: Mapped[Venue | None] = relationship("Venue", back_populates="papers")
     volume: Mapped[str | None] = mapped_column(String(50))
     issue: Mapped[str | None] = mapped_column(String(50))
     pages: Mapped[str | None] = mapped_column(String(50))
@@ -114,19 +122,19 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # [{label, caption, type, page}] — extracted figure/table metadata
 
     # --- Relationships ---
-    authors: Mapped[list["PaperAuthor"]] = relationship(
+    authors: Mapped[list[PaperAuthor]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"
     )
-    versions: Mapped[list["PaperVersion"]] = relationship(
+    versions: Mapped[list[PaperVersion]] = relationship(
         "PaperVersion", back_populates="paper", cascade="all, delete-orphan"
     )
-    references: Mapped[list["PaperReference"]] = relationship(
+    references: Mapped[list[PaperReference]] = relationship(
         "PaperReference",
         back_populates="citing_paper",
         foreign_keys="PaperReference.citing_paper_id",
         cascade="all, delete-orphan",
     )
-    tags: Mapped[list["PaperTag"]] = relationship(  # type: ignore[name-defined]
+    tags: Mapped[list[PaperTag]] = relationship(
         "PaperTag", cascade="all, delete-orphan",
     )
 
@@ -148,7 +156,7 @@ class PaperVersion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     pdf_path: Mapped[str | None] = mapped_column(Text)
     is_current: Mapped[bool] = mapped_column(default=True)
 
-    paper: Mapped["Paper"] = relationship("Paper", back_populates="versions")
+    paper: Mapped[Paper] = relationship("Paper", back_populates="versions")
 
 
 class PaperReference(UUIDPrimaryKeyMixin, Base):
@@ -171,9 +179,30 @@ class PaperReference(UUIDPrimaryKeyMixin, Base):
     raw_string: Mapped[str | None] = mapped_column(Text)  # Full reference string
     position: Mapped[int | None] = mapped_column(Integer)  # Order in reference list
 
-    citing_paper: Mapped["Paper"] = relationship(
+    citing_paper: Mapped[Paper] = relationship(
         "Paper", back_populates="references", foreign_keys=[citing_paper_id]
     )
-    cited_paper: Mapped["Paper | None"] = relationship(
+    cited_paper: Mapped[Paper | None] = relationship(
         "Paper", foreign_keys=[cited_paper_id]
+    )
+
+
+class MetadataProvenance(UUIDPrimaryKeyMixin, Base):
+    """Source trace for individual paper metadata fields (§15).
+
+    Each row records where a specific field value was obtained,
+    enabling transparent audit trails and trust scoring.
+    """
+
+    __tablename__ = "metadata_provenance"
+
+    paper_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("papers.id"), nullable=False, index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    value: Mapped[dict | None] = mapped_column(JSONB)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

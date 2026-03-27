@@ -172,7 +172,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
                 doi=doi,
                 arxiv_id=arxiv_id,
                 pmid=pmid,
-                title=title or identifier,
+                title=title or "",
                 abstract=abstract or None,
                 ingestion_status="discovered",
             )
@@ -386,10 +386,15 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                         paper.abstract = grobid_result.abstract
                     if grobid_result.keywords:
                         paper.keywords = grobid_result.keywords
-                    # Store sections in raw_metadata for downstream use
+                    # Store sections in BOTH the direct column (for content API)
+                    # and raw_metadata (for downstream analysis)
+                    paper.parsed_sections = grobid_result.sections
                     paper.raw_metadata = paper.raw_metadata or {}
                     paper.raw_metadata["parsed_sections"] = grobid_result.sections
                     paper.raw_metadata["parsed_references"] = grobid_result.references
+                    # Explicitly flag in-place JSONB mutation for change tracking
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(paper, "raw_metadata")
                     paper.parser_version = "grobid"
                     log.info("grobid_parse_complete",
                              sections=len(grobid_result.sections),
@@ -563,14 +568,22 @@ def index_paper_task(self, paper_id: str):
             # Index in Meilisearch
             try:
                 kw_service = KeywordSearchService()
+                # Resolve author names from relationship
+                author_names = []
+                if hasattr(paper, 'authors') and paper.authors:
+                    author_names = [a.name for a in paper.authors if a.name]
+                # Resolve venue from relationship
+                venue_name = ""
+                if hasattr(paper, 'venue') and paper.venue:
+                    venue_name = paper.venue.name or ""
                 kw_service.index_paper({
                     "id": str(paper.id),
-                    "title": paper.title,
+                    "title": paper.title or "",
                     "abstract": paper.abstract or "",
                     "keywords": paper.keywords or [],
-                    "author_names": [],  # TODO: join author names
+                    "author_names": author_names,
                     "year": paper.published_at.year if paper.published_at else None,
-                    "venue": "",  # TODO: join venue name
+                    "venue": venue_name,
                     "paper_type": paper.paper_type,
                     "oa_status": paper.oa_status,
                     "has_full_text": paper.has_full_text,
@@ -609,6 +622,57 @@ def index_paper_task(self, paper_id: str):
                 log.error("index_both_failed")
 
             await session.commit()
+
+            # ── Evaluate alert rules for newly indexed paper ──────
+            if paper.ingestion_status == "indexed":
+                try:
+                    from app.models.collection import DEFAULT_USER_ID
+                    from app.services.monitoring.alert_service import AlertService
+                    alert_svc = AlertService(session, user_id=DEFAULT_USER_ID)
+                    fired = await alert_svc.evaluate_rules(paper)
+                    if fired:
+                        await session.commit()
+                        log.info("alerts_fired", count=len(fired))
+                except Exception as e:
+                    log.warning("alert_evaluation_failed", error=str(e))
+
+                # ── Fire webhooks for newly indexed paper ──────────
+                try:
+                    from app.services.governance_service import GovernanceService
+                    gov_svc = GovernanceService(session)
+                    await gov_svc.fire_webhooks("paper.indexed", {
+                        "paper_id": paper_id,
+                        "title": paper.title,
+                        "doi": paper.doi,
+                    })
+                    # Commit so hook.last_triggered_at persists (task uses raw session,
+                    # not the auto-committing get_db() wrapper)
+                    await session.commit()
+                except Exception as e:
+                    log.warning("webhook_dispatch_failed", error=str(e))
+
+                # ── Broadcast to SSE subscribers ──────────────────
+                try:
+                    from app.api.v1.sse import broadcast_event
+                    broadcast_event("paper.indexed", {
+                        "paper_id": paper_id,
+                        "title": paper.title,
+                        "doi": paper.doi,
+                        "arxiv_id": paper.arxiv_id,
+                    })
+                except Exception as e:
+                    log.warning("sse_broadcast_failed", error=str(e))
+
+                # ── Evaluate smart collections ────────────────────
+                try:
+                    from app.services.collection_service import CollectionService
+                    col_svc = CollectionService(session, user_id=DEFAULT_USER_ID)
+                    matched = await col_svc.evaluate_smart_collections(paper)
+                    if matched:
+                        await session.commit()
+                        log.info("smart_collections_matched", count=len(matched))
+                except Exception as e:
+                    log.warning("smart_collection_eval_failed", error=str(e))
 
             log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
             return {"status": paper.ingestion_status, "meili": meili_ok, "qdrant": qdrant_ok}

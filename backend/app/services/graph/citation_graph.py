@@ -68,7 +68,34 @@ class CitationGraphService:
                 refs_synced += 1
 
         log.info("paper_synced_to_graph", refs=refs_synced)
-        return {"paper_id": str(paper.id), "references_synced": refs_synced}
+
+        # ── Reconcile stubs: merge any existing stub nodes that match ──
+        stubs_reconciled = 0
+        try:
+            if paper.doi:
+                result = await neo4j_driver.run_query(
+                    Q.RECONCILE_STUBS_BY_DOI,
+                    {"canonical_id": str(paper.id)},
+                )
+                if result:
+                    stubs_reconciled += result[0].get("reconciled", 0)
+            if paper.title:
+                result = await neo4j_driver.run_query(
+                    Q.RECONCILE_STUBS_BY_TITLE,
+                    {"canonical_id": str(paper.id)},
+                )
+                if result:
+                    stubs_reconciled += result[0].get("reconciled", 0)
+            if stubs_reconciled:
+                log.info("stubs_reconciled", count=stubs_reconciled)
+        except Exception as e:
+            log.warning("stub_reconciliation_failed", error=str(e))
+
+        return {
+            "paper_id": str(paper.id),
+            "references_synced": refs_synced,
+            "stubs_reconciled": stubs_reconciled,
+        }
 
     async def sync_all_papers(self, limit: int = 1000) -> int:
         """Batch-sync papers from PostgreSQL to Neo4j."""

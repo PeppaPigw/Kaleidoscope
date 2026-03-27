@@ -92,6 +92,19 @@ class CitationNetworkResponse(BaseModel):
     top_cited: list[TopCitedItem]
 
 
+class CoverageField(BaseModel):
+    field: str
+    present: int
+    total: int
+    pct: float
+
+
+class DataCoverageResponse(BaseModel):
+    total_papers: int
+    fields: list[CoverageField]
+    institution_coverage_note: str
+
+
 # ─── Endpoints ─────────────────────────────────────────────────
 
 @router.get("/overview", response_model=OverviewResponse)
@@ -357,4 +370,113 @@ async def get_citation_network(
         resolved_edges=resolved,
         avg_references_per_paper=round(avg_refs, 1),
         top_cited=top_cited,
+    )
+
+
+@router.get("/data-coverage", response_model=DataCoverageResponse)
+async def get_data_coverage(
+    db: AsyncSession = Depends(get_db),
+) -> DataCoverageResponse:
+    """
+    Report field-level data coverage across the paper library.
+
+    Use this to understand what downstream analytics are reliable:
+    - published_at needed for timeline/trend analytics
+    - keywords needed for keyword-cloud and hot-topic detection
+    - abstract needed for BERTopic clustering and QA
+    - citation_count needed for sleeping-beauty and emerging-author signals
+    - authors/institutions needed for researcher analytics
+    """
+    total = (await db.execute(
+        select(func.count()).select_from(
+            select(Paper.id).where(Paper.deleted_at.is_(None)).subquery()
+        )
+    )).scalar() or 0
+
+    if total == 0:
+        return DataCoverageResponse(
+            total_papers=0,
+            fields=[],
+            institution_coverage_note="No papers in library.",
+        )
+
+    async def _count(condition) -> int:
+        return (await db.execute(
+            select(func.count()).select_from(
+                select(Paper.id).where(Paper.deleted_at.is_(None), condition).subquery()
+            )
+        )).scalar() or 0
+
+    with_date = await _count(Paper.published_at.isnot(None))
+    # Non-empty keyword array (jsonb_array_length > 0 guards against [] entries)
+    with_kw = (await db.execute(
+        select(func.count()).select_from(
+            select(Paper.id).where(
+                Paper.deleted_at.is_(None),
+                Paper.keywords.isnot(None),
+                func.jsonb_array_length(Paper.keywords) > 0,
+            ).subquery()
+        )
+    )).scalar() or 0
+    # Non-blank abstract
+    with_abs = (await db.execute(
+        select(func.count()).select_from(
+            select(Paper.id).where(
+                Paper.deleted_at.is_(None),
+                Paper.abstract.isnot(None),
+                func.length(func.coalesce(Paper.abstract, "")) > 0,
+            ).subquery()
+        )
+    )).scalar() or 0
+    # Citation data ready means the field was fetched/updated (not just defaulting to 0)
+    with_cite = await _count(Paper.citation_count_updated_at.isnot(None))
+    with_fulltext = await _count(Paper.has_full_text.is_(True))
+
+    # Authors coverage: papers with ≥1 linked author
+    with_authors = (await db.execute(
+        select(func.count(func.distinct(PaperAuthor.paper_id))).select_from(
+            PaperAuthor.__table__.join(
+                Paper.__table__, PaperAuthor.paper_id == Paper.id
+            )
+        ).where(Paper.deleted_at.is_(None))
+    )).scalar() or 0
+
+    # Institution coverage: papers with ≥1 author having institution
+    from app.models.author import Institution
+    with_inst = (await db.execute(
+        select(func.count(func.distinct(PaperAuthor.paper_id))).select_from(
+            PaperAuthor.__table__
+            .join(Paper.__table__, PaperAuthor.paper_id == Paper.id)
+            .join(Author.__table__, PaperAuthor.author_id == Author.id)
+        ).where(
+            Paper.deleted_at.is_(None),
+            Author.institution_id.isnot(None),
+        )
+    )).scalar() or 0
+
+    def _pct(n: int) -> float:
+        return round(100.0 * n / total, 1) if total else 0.0
+
+    fields = [
+        CoverageField(field="published_at",  present=with_date,     total=total, pct=_pct(with_date)),
+        CoverageField(field="keywords",       present=with_kw,       total=total, pct=_pct(with_kw)),
+        CoverageField(field="abstract",       present=with_abs,      total=total, pct=_pct(with_abs)),
+        CoverageField(field="citation_count", present=with_cite,     total=total, pct=_pct(with_cite)),
+        CoverageField(field="full_text",      present=with_fulltext, total=total, pct=_pct(with_fulltext)),
+        CoverageField(field="authors_linked", present=with_authors,  total=total, pct=_pct(with_authors)),
+        CoverageField(field="institution_linked", present=with_inst, total=total, pct=_pct(with_inst)),
+    ]
+
+    inst_pct = _pct(with_inst)
+    if inst_pct >= 50:
+        note = f"Good ({inst_pct}% papers have institution). Institution analytics are reliable."
+    elif inst_pct >= 20:
+        note = f"Partial ({inst_pct}% papers have institution). Institution analytics may be biased."
+    else:
+        note = f"Low ({inst_pct}% papers have institution). Skip institution analytics for now."
+
+    return DataCoverageResponse(
+        total_papers=total,
+        fields=fields,
+        institution_coverage_note=note,
     )

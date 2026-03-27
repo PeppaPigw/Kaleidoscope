@@ -262,17 +262,13 @@ class PDFBatchImporter:
         self, paper_id: str, filename: str, content: bytes
     ) -> str:
         """
-        Store PDF to configured storage.
+        Store PDF to the same location used by PDFDownloaderService.
 
-        For now, stores to local filesystem under data/pdfs/.
-        In production, this would write to MinIO/S3.
+        Uses /tmp/kaleidoscope-papers/<object_key> so that
+        PDFDownloaderService.load_content() can find it later
+        during the parse task.
         """
-        # Ensure storage directory exists
-        storage_dir = Path("data/pdfs")
-        storage_dir.mkdir(parents=True, exist_ok=True)
-
-        # Use paper_id as filename for uniqueness
-        dest = storage_dir / f"{paper_id}.pdf"
-        dest.write_bytes(content)
-
-        return str(dest)
+        from app.services.ingestion.pdf_downloader import PDFDownloaderService
+        object_key = f"papers/{paper_id}/local_upload.pdf"
+        PDFDownloaderService._persist_content(object_key, content)
+        return object_key

@@ -288,9 +288,136 @@ class CollectionService:
             ]
             query = query.where(or_(*keyword_conditions))
 
+        # oa_status
+        if filt.get("oa_status"):
+            query = query.where(Paper.oa_status == filt["oa_status"])
+
+        # min_citations
+        if filt.get("min_citations"):
+            query = query.where(
+                Paper.citation_count >= filt["min_citations"]
+            )
+
+        # venue: substring in raw_metadata->>'crossref_venue'
+        if filt.get("venue"):
+            from sqlalchemy import cast as sa_cast, String
+            venue_expr = Paper.raw_metadata["crossref_venue"].as_string()
+            query = query.where(
+                venue_expr.ilike(f"%{filt['venue']}%")
+            )
+
+        # text_search: substring in title or abstract
+        if filt.get("text_search"):
+            from sqlalchemy import or_
+            term = f"%{filt['text_search']}%"
+            query = query.where(
+                or_(
+                    Paper.title.ilike(term),
+                    Paper.abstract.ilike(term),
+                )
+            )
+
         query = query.order_by(Paper.published_at.desc().nullslast()).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    # ─── Smart Collection Auto-Add ────────────────────────────────
+
+    async def evaluate_smart_collections(self, paper: Paper) -> list[str]:
+        """
+        Match a newly indexed paper against ALL smart collections for this user
+        and auto-add it to any that match.
+
+        Filter keys (aligned with evaluate_smart_collection / smart_filter schema):
+          year_gte / year_lte : int  — published year range
+          has_full_text       : bool
+          paper_type          : str  — exact match
+          reading_status      : str  — requires UserReadingStatus row
+          keywords            : list[str] — any keyword in paper.keywords array
+          venue               : str  — substring match on raw_metadata crossref_venue
+          oa_status           : str  — exact match
+          min_citations       : int
+          text_search         : str  — substring in title or abstract
+
+        Returns list of collection IDs the paper was auto-added to.
+        """
+        smart_result = await self.db.execute(
+            select(Collection).where(
+                Collection.user_id == self.user_id,
+                Collection.is_smart.is_(True),
+                Collection.deleted_at.is_(None),
+            )
+        )
+        added_to: list[str] = []
+        for col in smart_result.scalars().all():
+            filt = col.smart_filter or {}
+            if not filt:
+                continue
+            if not self._paper_matches_smart_filter(paper, filt):
+                continue
+            count = await self.add_papers(str(col.id), [str(paper.id)])
+            if count > 0:
+                added_to.append(str(col.id))
+                logger.info(
+                    "smart_collection_auto_add",
+                    collection=col.name,
+                    paper_id=str(paper.id),
+                )
+        return added_to
+
+    @staticmethod
+    def _paper_matches_smart_filter(paper: Paper, filt: dict) -> bool:
+        """Evaluate whether a paper matches a smart_filter dict (in-process check)."""
+        from datetime import date
+
+        # year_gte / year_lte
+        if paper.published_at:
+            year = paper.published_at.year
+            if filt.get("year_gte") and year < filt["year_gte"]:
+                return False
+            if filt.get("year_lte") and year > filt["year_lte"]:
+                return False
+        elif filt.get("year_gte") or filt.get("year_lte"):
+            return False
+
+        # has_full_text
+        if "has_full_text" in filt:
+            if bool(paper.has_full_text) != bool(filt["has_full_text"]):
+                return False
+
+        # paper_type
+        if filt.get("paper_type") and paper.paper_type != filt["paper_type"]:
+            return False
+
+        # oa_status
+        if filt.get("oa_status") and paper.oa_status != filt["oa_status"]:
+            return False
+
+        # min_citations
+        if filt.get("min_citations"):
+            if (paper.citation_count or 0) < filt["min_citations"]:
+                return False
+
+        # keywords: any keyword in paper.keywords array
+        if filt.get("keywords"):
+            paper_kws = [k.lower() for k in (paper.keywords or [])]
+            if not any(kw.lower() in paper_kws for kw in filt["keywords"]):
+                return False
+
+        # venue: substring in raw_metadata crossref_venue
+        if filt.get("venue"):
+            raw = paper.raw_metadata or {}
+            paper_venue = (raw.get("crossref_venue") or "").lower()
+            if filt["venue"].lower() not in paper_venue:
+                return False
+
+        # text_search: substring in title or abstract
+        if filt.get("text_search"):
+            haystack = f"{paper.title or ''} {paper.abstract or ''}".lower()
+            if filt["text_search"].lower() not in haystack:
+                return False
+
+        return True
 
 
 class ReadingStatusService:

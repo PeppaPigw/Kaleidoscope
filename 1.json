@@ -1,0 +1,97 @@
+{
+  "data": [
+    {
+      "id": "claude-3-5-sonnet-20240620",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "gpt-5.4",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "codex",
+      "supported_endpoint_types": ["openai"]
+    },
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "gpt-5.3-codex",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "codex",
+      "supported_endpoint_types": ["openai"]
+    },
+    {
+      "id": "claude-sonnet-4-20250514",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-3-5-sonnet-20241022",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "gpt-5",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "codex",
+      "supported_endpoint_types": ["openai"]
+    },
+    {
+      "id": "claude-sonnet-4.6",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "custom",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-sonnet-4-5-20250929-thinking",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-sonnet-4.6-thinking",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "custom",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-sonnet-4-20250514-thinking",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "vertex-ai",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    },
+    {
+      "id": "claude-3-5-sonnet-20241022-thinking",
+      "object": "model",
+      "created": 1626777600,
+      "owned_by": "custom",
+      "supported_endpoint_types": ["anthropic", "openai"]
+    }
+  ],
+  "object": "list",
+  "success": true
+}

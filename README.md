@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/K-8b5cf6?style=for-the-badge&logoColor=white" alt="K" height="60" />
+  <img src="./assests/processed/kaleidoscope-icon-rounded.png" alt="Kaleidoscope" height="120" />
 </p>
 
 <h1 align="center">Kaleidoscope</h1>

@@ -57,7 +57,12 @@ function getSectionBefore(index: number): string | undefined {
   >
     <!-- Logo -->
     <div class="ks-sidebar__logo">
-      <span class="ks-sidebar__logo-mark">K</span>
+      <img
+        src="/brand/kaleidoscope-icon-mark.svg"
+        alt=""
+        aria-hidden="true"
+        class="ks-sidebar__logo-mark"
+      >
       <Transition name="ks-fade">
         <span v-if="!collapsed" class="ks-sidebar__logo-text">Kaleidoscope</span>
       </Transition>
@@ -143,15 +148,10 @@ function getSectionBefore(index: number): string | undefined {
 
 .ks-sidebar__logo-mark {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary);
-  color: var(--color-bg);
-  font: 600 1.125rem / 1 var(--font-display);
-  border-radius: 2px;
+  width: 34px;
+  height: 34px;
+  display: block;
+  object-fit: contain;
 }
 
 .ks-sidebar__logo-text {

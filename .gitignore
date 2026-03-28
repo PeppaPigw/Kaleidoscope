@@ -51,6 +51,7 @@ logs/
 .trellis/
 .agent/
 .repo/
+.claude/
 .worktrees/
 skills/
 AGENTS.md

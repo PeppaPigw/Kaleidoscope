@@ -62,6 +62,11 @@ export default defineNuxtConfig({
           content: 'Literature dataset analysis and management platform for researchers.',
         },
       ],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/brand/kaleidoscope-icon-rounded.svg' },
+        { rel: 'icon', type: 'image/png', href: '/brand/kaleidoscope-icon-rounded.png' },
+        { rel: 'apple-touch-icon', href: '/brand/kaleidoscope-icon-rounded.png' },
+      ],
       htmlAttrs: { lang: 'en' },
     },
     pageTransition: {

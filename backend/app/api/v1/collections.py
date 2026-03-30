@@ -42,7 +42,6 @@ async def create_collection(
         is_smart=body.is_smart,
         smart_filter=body.smart_filter,
     )
-    await db.commit()
     return collection
 
 
@@ -91,7 +90,6 @@ async def update_collection(
     )
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    await db.commit()
     return collection
 
 
@@ -105,7 +103,6 @@ async def delete_collection(
     svc = CollectionService(db, user_id)
     if not await svc.delete_collection(collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")
-    await db.commit()
 
 
 # ─── Paper Management ────────────────────────────────────────────
@@ -126,7 +123,6 @@ async def add_papers_to_collection(
     added = await svc.add_papers(
         collection_id, [str(pid) for pid in body.paper_ids], note=body.note,
     )
-    await db.commit()
     return {"added": added, "total": collection.paper_count + added}
 
 
@@ -140,7 +136,6 @@ async def remove_paper_from_collection(
     svc = CollectionService(db, user_id)
     if not await svc.remove_paper(collection_id, paper_id):
         raise HTTPException(status_code=404, detail="Paper not in collection")
-    await db.commit()
 
 
 @router.patch("/{collection_id}/papers/reorder", status_code=200)
@@ -153,7 +148,6 @@ async def reorder_collection_papers(
     """Reorder papers in a collection."""
     svc = CollectionService(db, user_id)
     await svc.reorder_papers(collection_id, [str(pid) for pid in body.paper_ids])
-    await db.commit()
     return {"status": "reordered"}
 
 

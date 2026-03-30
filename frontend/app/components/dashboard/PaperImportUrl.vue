@@ -6,12 +6,15 @@
  * Shows status feedback during the async extraction.
  */
 
-const apiUrl = useRuntimeConfig().public.apiUrl
+const api = useApi()
 
 const url = ref('')
 const title = ref('')
 const isHtml = ref(false)
 const importing = ref(false)
+const importedPaperId = ref<string | null>(null)
+const importStatus = ref<string | null>(null)
+const importError = ref<string | null>(null)
 const result = ref<{
   status: 'idle' | 'importing' | 'success' | 'error'
   paperId?: string
@@ -21,6 +24,8 @@ const result = ref<{
 }>({ status: 'idle' })
 
 const showAdvanced = ref(false)
+let pollInterval: ReturnType<typeof setInterval> | null = null
+let pollCount = 0
 
 const isValidUrl = computed(() => {
   try {
@@ -45,29 +50,58 @@ watch(url, (v) => {
   }
 })
 
+function clearPollInterval() {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+}
+
+async function pollStatus(paperId: string) {
+  clearPollInterval()
+  pollCount = 0
+  pollInterval = setInterval(async () => {
+    pollCount += 1
+    try {
+      const status = await api.getImportStatus(paperId)
+      importStatus.value = status.ingestion_status
+      importError.value = status.error_message ?? null
+      if (
+        status.ingestion_status === 'ready' ||
+        status.ingestion_status === 'error' ||
+        pollCount >= 10
+      ) {
+        clearPollInterval()
+      }
+    } catch {
+      clearPollInterval()
+    }
+  }, 2000)
+}
+
+onBeforeUnmount(() => {
+  clearPollInterval()
+})
+
 async function handleImport() {
   if (!isValidUrl.value || importing.value) return
 
   importing.value = true
+  clearPollInterval()
+  importedPaperId.value = null
+  importStatus.value = null
+  importError.value = null
   result.value = { status: 'importing' }
 
   try {
-    const resp = await $fetch<{
-      paper_id: string
-      title: string
-      status: string
-      error?: string
-      markdown_length?: number
-      sections?: number
-    }>(`${apiUrl}/api/v1/papers/import-url`, {
-      method: 'POST',
-      body: {
-        url: url.value,
-        title: title.value || undefined,
-        is_html: isHtml.value,
-      },
+    const resp = await api.importFromUrl({
+      url: url.value,
+      title: title.value || undefined,
+      is_html: isHtml.value,
     })
 
+    importedPaperId.value = resp.paper_id
+    importStatus.value = resp.status
     result.value = {
       status: 'success',
       paperId: resp.paper_id,
@@ -75,10 +109,12 @@ async function handleImport() {
       markdownLength: resp.markdown_length ?? undefined,
       sections: resp.sections ?? undefined,
     }
+    void pollStatus(resp.paper_id)
     // Clear form
     url.value = ''
     title.value = ''
   } catch (err: any) {
+    clearPollInterval()
     const detail = err?.data?.detail || err?.message || 'Import failed'
     result.value = {
       status: 'error',
@@ -90,8 +126,8 @@ async function handleImport() {
 }
 
 function goToPaper() {
-  if (result.value.paperId) {
-    navigateTo(`/reader/${result.value.paperId}`)
+  if (importedPaperId.value) {
+    navigateTo(`/reader/${importedPaperId.value}`)
   }
 }
 </script>
@@ -162,6 +198,12 @@ function goToPaper() {
           <span>✓ {{ result.message }}</span>
           <div v-if="result.sections" class="ks-import__meta">
             {{ result.sections }} sections · {{ (result.markdownLength ?? 0).toLocaleString() }} chars
+          </div>
+          <div v-if="importStatus" class="ks-import__meta">
+            Status: {{ importStatus }}
+          </div>
+          <div v-if="importStatus === 'error' && importError" class="ks-import__meta">
+            {{ importError }}
           </div>
           <button class="ks-import__link" @click="goToPaper">Open in Reader →</button>
         </template>

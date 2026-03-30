@@ -53,7 +53,6 @@ async def add_comment(body: CommentCreate, db: AsyncSession = Depends(get_db)):
         anchor_type=body.anchor_type,
         anchor_ref=body.anchor_ref,
     )
-    await db.commit()
     return result
 
 
@@ -80,7 +79,6 @@ async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
         priority=body.priority,
         notes=body.notes,
     )
-    await db.commit()
     return result
 
 
@@ -102,8 +100,6 @@ async def complete_task(
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     result = await svc.complete_task(task_id, body.decision, body.notes)
-    if result:
-        await db.commit()
     return result or {"error": "Task not found"}
 
 
@@ -122,5 +118,4 @@ async def record_screening(
         reason=body.reason,
         criteria_met=body.criteria_met,
     )
-    await db.commit()
     return result

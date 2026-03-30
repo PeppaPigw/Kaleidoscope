@@ -58,6 +58,7 @@ celery -A app.worker beat --loglevel=info
 ## API Documentation
 
 Once running, visit:
+
 - **Swagger UI**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 - **Service Health**: http://localhost:8000/health/services
@@ -85,12 +86,12 @@ app/
 
 ## Key APIs
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/papers/import` | POST | Import paper by DOI/arXiv ID |
-| `/api/v1/papers/batch-import` | POST | Batch import |
-| `/api/v1/papers` | GET | List papers (paginated) |
-| `/api/v1/papers/{id}` | GET | Paper details |
-| `/api/v1/search?q=...&mode=hybrid` | GET | Hybrid search |
-| `/api/v1/feeds` | GET/POST | Manage RSS feeds |
-| `/api/v1/feeds/poll` | POST | Trigger RSS polling |
+| Endpoint                           | Method   | Description                  |
+| ---------------------------------- | -------- | ---------------------------- |
+| `/api/v1/papers/import`            | POST     | Import paper by DOI/arXiv ID |
+| `/api/v1/papers/batch-import`      | POST     | Batch import                 |
+| `/api/v1/papers`                   | GET      | List papers (paginated)      |
+| `/api/v1/papers/{id}`              | GET      | Paper details                |
+| `/api/v1/search?q=...&mode=hybrid` | GET      | Hybrid search                |
+| `/api/v1/feeds`                    | GET/POST | Manage RSS feeds             |
+| `/api/v1/feeds/poll`               | POST     | Trigger RSS polling          |

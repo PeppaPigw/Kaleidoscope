@@ -5,6 +5,7 @@
  * Composes PaperFolio, ThesisLine, ClaimsLedger, MethodsResultsSlice,
  * FigureGallery, SupplementRail, ReproductionStatus, RelatedConstellation.
  */
+import type { PaperHighlights } from '~/composables/useApi'
 import type { PaperAuthor } from '~/components/paper/PaperFolio.vue'
 import type { PaperClaim } from '~/components/paper/ClaimsLedger.vue'
 import type { MethodItem, ResultItem } from '~/components/paper/MethodsResultsSlice.vue'
@@ -18,6 +19,7 @@ definePageMeta({ layout: 'default' })
 const { t } = useTranslation()
 
 const route = useRoute()
+const { getClaimsForPaper, getPaperHighlights, getSimilarPapers } = useApi()
 const paperId = computed(() => route.params.paperId as string)
 
 useHead({
@@ -40,20 +42,19 @@ const { data: paperData } = useFetch<{
   has_full_text?: boolean
 }>(() => `${apiUrl}/api/v1/papers/${paperId.value}`)
 
+const claims = ref<PaperClaim[]>([])
+const relatedPapers = ref<RelatedPaper[]>([])
+const paperHighlights = ref<PaperHighlights | null>(null)
+const methodsResultHighlights = computed(
+  () => paperHighlights.value?.highlights ?? [],
+)
+
 // ─── Mock data ───────────────────────────────────────────────
 const authors: PaperAuthor[] = [
   { id: 'a1', name: 'Jiawei Liu', affiliation: 'Tsinghua University' },
   { id: 'a2', name: 'Xiaoming Wang', affiliation: 'Stanford University' },
   { id: 'a3', name: 'Hui Chen', affiliation: 'Google DeepMind' },
   { id: 'a4', name: 'Yafeng Zhang', affiliation: 'Tsinghua University' },
-]
-
-const claims: PaperClaim[] = [
-  { id: 'c1', text: 'Atomic claim extraction improves downstream RAG accuracy by 12% over paragraph-level retrieval.', category: 'Main Result', confidence: 0.94, evidenceCount: 3, status: 'verified' },
-  { id: 'c2', text: 'Our pipeline decomposes biomedical papers into an average of 47 atomic claims per paper.', category: 'Quantitative', confidence: 0.91, evidenceCount: 2, status: 'verified' },
-  { id: 'c3', text: 'Evidence alignment reaches 89% F1 on the BioASQ benchmark.', category: 'Benchmark', confidence: 0.88, evidenceCount: 4, status: 'verified' },
-  { id: 'c4', text: 'The approach generalizes to legal and financial documents without retraining.', category: 'Generalizability', confidence: 0.62, evidenceCount: 1, status: 'unverified' },
-  { id: 'c5', text: 'Claim-level granularity reduces hallucination in fact-checking by 23%.', category: 'Main Result', confidence: 0.85, evidenceCount: 2, status: 'disputed' },
 ]
 
 const methods: MethodItem[] = [
@@ -89,13 +90,56 @@ const reproAttempts: ReproductionAttempt[] = [
   { id: 'ra2', team: 'UIUC NLP Lab', date: '2025-09', success: 'partial', notes: 'Reproduced claim extraction, but evidence alignment was 3% lower than reported.' },
 ]
 
-const relatedPapers: RelatedPaper[] = [
-  { id: 'rp1', title: 'RAGBench-Sci: Failure Modes of Citation-Grounded Retrieval', venue: 'ACL 2025', year: 2025, relationship: 'cited-by', similarity: 0.89 },
-  { id: 'rp2', title: 'Atomic Facts: Decomposing Knowledge for NLI', venue: 'NAACL 2024', year: 2024, relationship: 'cites', similarity: 0.92 },
-  { id: 'rp3', title: 'SciBERT: A Pretrained Language Model for Scientific Text', venue: 'EMNLP 2019', year: 2019, relationship: 'cites', similarity: 0.85 },
-  { id: 'rp4', title: 'ContractNLI: Claim Verification for Legal Documents', venue: 'ACL 2023', year: 2023, relationship: 'similar', similarity: 0.76 },
-  { id: 'rp5', title: 'When More Context Hurts: Long-Context Failure Analysis', venue: 'EMNLP 2025', year: 2025, relationship: 'contradicts', similarity: 0.71 },
-]
+function mapClaimStatus(status?: string): PaperClaim['status'] {
+  switch (status) {
+    case 'verified':
+    case 'disputed':
+      return status
+    default:
+      return 'unverified'
+  }
+}
+
+watch(paperId, async id => {
+  if (!id) {
+    claims.value = []
+    relatedPapers.value = []
+    paperHighlights.value = null
+    return
+  }
+
+  const [claimsResult, similarResult, highlightsResult] = await Promise.allSettled([
+    getClaimsForPaper(id),
+    getSimilarPapers(id, 5),
+    getPaperHighlights(id),
+  ])
+
+  claims.value = claimsResult.status === 'fulfilled'
+    ? (claimsResult.value.claims || []).map(claim => ({
+        id: claim.id,
+        text: claim.claim_text || '',
+        category: claim.category || 'General',
+        confidence: claim.confidence ?? 0.5,
+        evidenceCount: 0,
+        status: mapClaimStatus(claim.status),
+      }))
+    : []
+
+  relatedPapers.value = similarResult.status === 'fulfilled'
+    ? (similarResult.value.similar_papers || []).map(paper => ({
+        id: paper.paper_id,
+        title: paper.title || 'Untitled',
+        venue: '(no venue)',
+        year: 0,
+        relationship: 'similar' as const,
+        similarity: paper.score ?? 0,
+      }))
+    : []
+
+  paperHighlights.value = highlightsResult.status === 'fulfilled'
+    ? highlightsResult.value
+    : null
+}, { immediate: true })
 
 // ─── Handlers ────────────────────────────────────────────────
 function handleRead() {
@@ -147,7 +191,7 @@ function handleRelatedClick(paper: RelatedPaper) {
           :title="paperData?.title || 'Loading...'"
           :authors="authors"
           :venue="paperData?.venue || ''"
-          :year="paperData?.published_at ? new Date(paperData.published_at).getFullYear() : undefined"
+          :year="paperData?.published_at ? new Date(paperData.published_at).getFullYear() : 0"
           :doi="paperData?.doi || undefined"
           :open-access="true"
           :abstract="paperData?.abstract || ''"
@@ -171,7 +215,11 @@ function handleRelatedClick(paper: RelatedPaper) {
         <PaperClaimsLedger :claims="claims" @claim-click="handleClaimClick" />
 
         <!-- Methods & Results -->
-        <PaperMethodsResultsSlice :methods="methods" :results="results" />
+        <PaperMethodsResultsSlice
+          :methods="methods"
+          :results="results"
+          :highlights="methodsResultHighlights"
+        />
 
         <!-- Figures -->
         <PaperFigureGallery :figures="figures" @figure-click="handleFigureClick" />

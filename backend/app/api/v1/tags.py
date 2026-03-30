@@ -22,7 +22,6 @@ async def create_tag(
         tag = await svc.create_tag(
             name=body.name, color=body.color, description=body.description,
         )
-        await db.commit()
         return TagResponse(
             id=tag.id, name=tag.name, color=tag.color,
             description=tag.description, paper_count=0,
@@ -70,7 +69,6 @@ async def update_tag(
     tag = await svc.update_tag(tag_id, **body.model_dump(exclude_none=True))
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
-    await db.commit()
     return TagResponse(
         id=tag.id, name=tag.name, color=tag.color,
         description=tag.description, paper_count=0,
@@ -87,4 +85,3 @@ async def delete_tag(
     svc = TagService(db, user_id)
     if not await svc.delete_tag(tag_id):
         raise HTTPException(status_code=404, detail="Tag not found")
-    await db.commit()

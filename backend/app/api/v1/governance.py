@@ -50,7 +50,6 @@ async def create_saved_search(
         filters=body.filters,
         collection_id=body.collection_id,
     )
-    await db.commit()
     return saved_search
 
 
@@ -73,7 +72,6 @@ async def delete_saved_search(
     deleted = await svc.delete_saved_search(str(search_id))
     if not deleted:
         raise HTTPException(status_code=404, detail="Saved search not found")
-    await db.commit()
 
 
 @router.get("/audit")
@@ -96,7 +94,6 @@ async def create_webhook(
     """Create a webhook."""
     svc = GovernanceService(db)
     webhook = await svc.create_webhook(url=body.url, events=body.events)
-    await db.commit()
     return webhook
 
 
@@ -119,7 +116,6 @@ async def delete_webhook(
     deleted = await svc.delete_webhook(str(webhook_id))
     if not deleted:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    await db.commit()
 
 
 @router.post("/papers/{paper_id}/corrections", status_code=201)
@@ -137,7 +133,6 @@ async def submit_correction(
         corrected_value=body.corrected_value,
         note=body.note,
     )
-    await db.commit()
     return correction
 
 
@@ -165,7 +160,6 @@ async def log_reproduction(
         notes=body.notes,
         code_url=body.code_url,
     )
-    await db.commit()
     return reproduction
 
 

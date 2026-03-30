@@ -161,12 +161,15 @@ async def import_from_url(
 
     # Propagate parse failures as HTTP errors
     if result.get("status") == "error":
-        await db.commit()  # persist the paper + failure state
+        # NOTE: Intentional explicit commit — saves the paper record and failure
+        # state before raising, so the import attempt is traceable even on error.
+        await db.commit()
         raise HTTPException(
             status_code=502,
             detail=result.get("error", "MinerU extraction failed"),
         )
 
+    # NOTE: Intentional explicit commit for import completion.
     await db.commit()
 
     return ImportUrlResponse(
@@ -233,12 +236,15 @@ async def reparse_paper(
 
     # Propagate parse failures as HTTP errors
     if parse_result.get("status") == "error":
+        # NOTE: Intentional explicit commit — saves the paper record and failure
+        # state before raising, so the import attempt is traceable even on error.
         await db.commit()
         raise HTTPException(
             status_code=502,
             detail=parse_result.get("error", "MinerU extraction failed"),
         )
 
+    # NOTE: Intentional explicit commit for import completion.
     await db.commit()
 
     return ImportUrlResponse(
@@ -249,3 +255,33 @@ async def reparse_paper(
         sections=parse_result.get("sections"),
         references=parse_result.get("references"),
     )
+
+
+@router.get("/{paper_id}/import-status")
+async def get_import_status(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current ingestion status for a paper.
+
+    Clients can poll this after POST /papers/import-url to track progress.
+    Status values: 'pending', 'importing', 'parsed', 'ready', 'error'.
+    """
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    return {
+        "paper_id": str(paper.id),
+        "title": paper.title,
+        "ingestion_status": paper.ingestion_status,
+        "has_full_text": paper.has_full_text,
+        "created_at": paper.created_at.isoformat() if paper.created_at else None,
+        "updated_at": paper.updated_at.isoformat() if paper.updated_at else None,
+        "error_message": (paper.raw_metadata or {}).get("import_error"),
+    }

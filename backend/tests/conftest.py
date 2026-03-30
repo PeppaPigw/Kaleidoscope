@@ -1,3 +1,3 @@
 """Tests conftest — shared fixtures."""
 
-import pytest
+pytest_plugins = ("pytest_asyncio.plugin",)

@@ -51,7 +51,6 @@ async def create_alert_rule(
         condition=body.condition,
         actions=body.actions,
     )
-    await db.commit()
     return {
         "id": str(rule.id),
         "name": rule.name,
@@ -99,7 +98,6 @@ async def update_alert_rule(
     rule = await svc.update_rule(rule_id, **body.model_dump(exclude_none=True))
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
-    await db.commit()
     return {
         "id": str(rule.id),
         "name": rule.name,
@@ -118,7 +116,6 @@ async def delete_alert_rule(
     svc = AlertService(db, user_id)
     if not await svc.delete_rule(rule_id):
         raise HTTPException(status_code=404, detail="Rule not found")
-    await db.commit()
 
 
 # ─── Notifications ───────────────────────────────────────────────
@@ -147,7 +144,6 @@ async def mark_alert_read(
     svc = AlertService(db, user_id)
     if not await svc.mark_read(alert_id):
         raise HTTPException(status_code=404, detail="Alert not found")
-    await db.commit()
     return {"status": "read"}
 
 
@@ -159,7 +155,6 @@ async def mark_all_read(
     """Mark all alerts as read."""
     svc = AlertService(db, user_id)
     count = await svc.mark_all_read()
-    await db.commit()
     return {"marked_read": count}
 
 

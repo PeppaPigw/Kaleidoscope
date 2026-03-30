@@ -25,9 +25,12 @@ export interface ResultItem {
 export interface MethodsResultsSliceProps {
   methods: MethodItem[]
   results: ResultItem[]
+  highlights?: string[]
 }
 
-defineProps<MethodsResultsSliceProps>()
+const props = withDefaults(defineProps<MethodsResultsSliceProps>(), {
+  highlights: () => [],
+})
 const uid = useId()
 
 type TagVariant = 'primary' | 'accent' | 'neutral'
@@ -47,6 +50,19 @@ function typeColor(t: MethodItem['type']): TagVariant {
 <template>
   <section class="ks-methods-results ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Methods & Results</h2>
+
+    <div v-if="props.highlights.length" class="ks-methods-results__highlights">
+      <h3 class="ks-type-eyebrow" style="color: var(--color-secondary); margin-bottom: 12px;">AI Highlights</h3>
+      <div class="ks-methods-results__items">
+        <div
+          v-for="(highlight, index) in props.highlights"
+          :key="`highlight-${index}`"
+          class="ks-card ks-methods-results__highlight"
+        >
+          <p class="ks-type-body-sm">{{ highlight }}</p>
+        </div>
+      </div>
+    </div>
 
     <div class="ks-methods-results__grid">
       <!-- Methods column -->
@@ -88,6 +104,11 @@ function typeColor(t: MethodItem['type']): TagVariant {
 </template>
 
 <style scoped>
+.ks-methods-results__highlights {
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
 .ks-methods-results__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -102,6 +123,10 @@ function typeColor(t: MethodItem['type']): TagVariant {
 }
 
 .ks-methods-results__item {
+  padding: 14px 16px;
+}
+
+.ks-methods-results__highlight {
   padding: 14px 16px;
 }
 

@@ -56,7 +56,6 @@ async def create_experiment(body: ExperimentCreate, db: AsyncSession = Depends(g
     )
     db.add(exp)
     await db.flush()
-    await db.commit()
     return _ser_experiment(exp)
 
 
@@ -94,7 +93,6 @@ async def create_method(body: MethodCreate, db: AsyncSession = Depends(get_db)):
     )
     db.add(method)
     await db.flush()
-    await db.commit()
     return _ser_method(method)
 
 
@@ -125,7 +123,6 @@ async def create_dataset(body: DatasetCreate, db: AsyncSession = Depends(get_db)
     )
     db.add(ds)
     await db.flush()
-    await db.commit()
     return _ser_dataset(ds)
 
 

@@ -12,6 +12,7 @@ import type { ReadingPick } from '~/components/dashboard/ReadingShelf.vue'
 import type { WorkspaceSummary } from '~/components/dashboard/ActiveWorkspacePanel.vue'
 import type { QueueItem } from '~/components/dashboard/ReadingQueue.vue'
 import type { MonitorItem } from '~/components/dashboard/MonitorRibbon.vue'
+import type { AnalyticsOverview } from '~/composables/useApi'
 
 definePageMeta({
   layout: 'default',
@@ -27,16 +28,41 @@ useHead({
   ],
 })
 
-// ─── Mock data (will be replaced by API composables) ──────
-const heroDate = 'MON 2026-03-22'
+const analyticsOverview = ref<AnalyticsOverview | null>(null)
+
+onMounted(async () => {
+  try {
+    const { getAnalyticsOverview } = useApi()
+    analyticsOverview.value = await getAnalyticsOverview()
+  } catch {
+    analyticsOverview.value = null
+  }
+})
+
 const heroTitle = 'Clinical Multimodal Reasoning Enters the Verification Era'
 const heroLead = '27 篇新论文已入库，6 条 leaderboard claim 与既有证据冲突，今日重点转向 "可复现临床推理" 而非更高分数。'
+const heroDate = new Date().toLocaleDateString('en-US', {
+  weekday: 'short',
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+})
 const heroStats = computed<HeroStat[]>(() => [
-  { label: t('newPapers'), value: '27' },
-  { label: t('conflicts'), value: '6' },
-  { label: t('codeReleases'), value: '3' },
+  {
+    label: t('newPapers'),
+    value: analyticsOverview.value ? String(analyticsOverview.value.total_papers) : '—',
+  },
+  {
+    label: 'Authors',
+    value: analyticsOverview.value ? String(analyticsOverview.value.total_authors) : '—',
+  },
+  {
+    label: 'Full Text',
+    value: analyticsOverview.value ? String(analyticsOverview.value.with_fulltext) : '—',
+  },
 ])
 
+// ─── Mock data (will be replaced by API composables) ──────
 const briefingItems: BriefingItem[] = [
   { id: 'b-1', type: 'NEW', title: 'GraphRAG for Literature Reviews', time: '08:12' },
   { id: 'b-2', type: 'ALERT', title: '3 papers claim MedQA SOTA without external validation', time: '08:16' },

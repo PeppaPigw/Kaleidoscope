@@ -1,5 +1,7 @@
 """FastAPI application factory with middleware, exception handlers, and router registration."""
 
+from datetime import datetime, timezone
+
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +35,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # TODO: Restrict in production
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -140,9 +142,6 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router, prefix="/api/v1")
     # Researcher analytics router
     app.include_router(researchers_router, prefix="/api/v1")
-    # Batch 4-6 extended feature routers
-    from app.api.v1.trend_ext import router as trend_ext_router
-    app.include_router(trend_ext_router, prefix="/api/v1")
     # Batch 6: Collaboration & Experiments
     from app.api.v1.collaboration import router as collaboration_router
     from app.api.v1.experiments import router as experiments_router
@@ -161,8 +160,11 @@ def create_app() -> FastAPI:
         """Health check endpoint."""
         return {
             "status": "ok",
-            "app": settings.app_name,
-            "version": "0.1.0",
+            "version": "1.0.0",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "services": {
+                "database": "unknown",
+            },
         }
 
     @app.get("/health/services")

@@ -57,6 +57,8 @@ class VenueBrief(BaseModel):
 class PaperResponse(BaseModel):
     """Full paper response with all metadata."""
 
+    # Per-user reading status is intentionally excluded here; use the
+    # UserReadingStatus-backed /papers/{id}/reading-status endpoint instead.
     id: uuid.UUID
     doi: str | None = None
     arxiv_id: str | None = None

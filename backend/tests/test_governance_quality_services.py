@@ -98,7 +98,12 @@ def test_governance_service_saved_search_and_webhook_flows():
             FakeScalarResult([webhook]),
             FakeRowResult(1),
         ],
-        flush_templates=[saved_search, webhook],
+        flush_templates=[
+            saved_search,
+            SimpleNamespace(),
+            SimpleNamespace(),
+            webhook,
+        ],
     )
 
     service = GovernanceService(db)
@@ -185,7 +190,13 @@ def test_governance_service_audit_corrections_and_reproductions():
             FakeScalarResult([correction]),
             FakeScalarResult([reproduction]),
         ],
-        flush_templates=[audit, correction, reproduction],
+        flush_templates=[
+            audit,
+            correction,
+            SimpleNamespace(),
+            reproduction,
+            SimpleNamespace(),
+        ],
     )
 
     service = GovernanceService(db)
@@ -296,6 +307,7 @@ def test_quality_service_reports_metadata_and_reproducibility():
             "statement": "Code available and open source.",
         },
         grobid_tei="This manuscript is reproducible and archived on Zenodo.",
+        full_text_markdown="Supplementary implementation details.",
     )
     corrections = [
         SimpleNamespace(
@@ -351,7 +363,6 @@ def test_quality_service_reports_metadata_and_reproducibility():
         assert report["corrections"] == [
             {
                 "id": str(corrections[0].id),
-                "paper_id": paper_id,
                 "field_name": "title",
                 "original_value": "Old title",
                 "corrected_value": "Reproducible Science",

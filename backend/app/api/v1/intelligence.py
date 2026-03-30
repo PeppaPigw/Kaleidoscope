@@ -185,3 +185,101 @@ async def get_agent_summary(
         "quality_score": quality_score,
         "links": links,
     }
+
+
+class AskPaperRequest(BaseModel):
+    question: str = Field(..., min_length=3, max_length=1000)
+
+
+@router.get("/papers/{paper_id}/highlights")
+async def get_paper_highlights(
+    paper_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return AI-derived highlights/contributions/limitations for a paper."""
+    from sqlalchemy import select
+
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    return {
+        "paper_id": str(paper_id),
+        "highlights": paper.highlights or [],
+        "contributions": paper.contributions or [],
+        "limitations": paper.limitations or [],
+        "has_analysis": bool(
+            paper.summary or paper.highlights or paper.contributions
+        ),
+    }
+
+
+@router.post("/papers/{paper_id}/summarize")
+async def summarize_paper(
+    paper_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return AI summary for a paper."""
+    from sqlalchemy import select
+
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    if paper.summary:
+        return {"summary": paper.summary}
+
+    abstract = paper.abstract or ""
+    summary = abstract[:500] + ("..." if len(abstract) > 500 else "")
+    return {"summary": summary or "Summary not yet available."}
+
+
+@router.post("/papers/{paper_id}/ask")
+async def ask_about_paper(
+    paper_id: UUID,
+    body: AskPaperRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Answer a question about a paper using stored analysis data."""
+    from sqlalchemy import select
+
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    context_parts = []
+    if paper.abstract:
+        context_parts.append(f"Abstract: {paper.abstract}")
+    if paper.summary:
+        context_parts.append(f"Summary: {paper.summary}")
+    if paper.contributions:
+        context_parts.append(f"Contributions: {paper.contributions}")
+    if paper.limitations:
+        context_parts.append(f"Limitations: {paper.limitations}")
+
+    context = "\n\n".join(context_parts)
+    answer = (
+        context[:300] + "..."
+        if len(context) > 300
+        else context or "Full text analysis not yet available for this paper."
+    )
+    return {
+        "answer": f"Based on the paper '{paper.title}': {answer}",
+        "paper_id": str(paper_id),
+        "question": body.question,
+    }

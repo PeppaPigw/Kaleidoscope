@@ -12,6 +12,7 @@ import type { FilterGroup } from '~/components/search/PrecisionFilters.vue'
 import type { SearchResultItem } from '~/components/search/ResultStack.vue'
 import type { ClaimResult } from '~/components/search/ClaimSearch.vue'
 import type { CompareItem } from '~/components/search/CompareStrip.vue'
+import type { SearchHit, SearchResponse } from '~/composables/useApi'
 
 definePageMeta({
   layout: 'default',
@@ -38,9 +39,11 @@ const initialMode: SearchMode = validModes.includes(parsedMode as SearchMode)
   : 'keyword'
 
 // ─── Reactive state ──────────────────────────────────────────
+const api = useApi()
 const queryText = ref(initialQuery)
 const searchMode = ref<SearchMode>(initialMode)
 const isLoading = ref(false)
+const searchResponse = ref<SearchResponse | null>(null)
 
 // ─── Mock filter data ────────────────────────────────────────
 const filterGroups = ref<FilterGroup[]>([
@@ -75,69 +78,53 @@ const filterGroups = ref<FilterGroup[]>([
   },
 ])
 
-// ─── Mock results ────────────────────────────────────────────
-const searchResults: SearchResultItem[] = [
-  {
-    id: 'sr-1',
-    title: 'ClaimMiner: Atomic Claim Extraction for Biomedical Papers with Evidence Alignment',
-    authors: ['Liu, J.', 'Wang, X.', 'Chen, H.', 'Zhang, Y.'],
-    venue: 'EMNLP 2025',
-    year: 2025,
-    abstract: 'A pipeline for decomposing biomedical papers into atomic, verifiable claims linked to supporting evidence sentences. We demonstrate that claim-level granularity improves downstream RAG and fact-checking accuracy.',
-    score: 0.94,
-    tags: ['Code', 'Human eval'],
-    cited: 42,
-    openAccess: true,
-  },
-  {
-    id: 'sr-2',
-    title: 'RAGBench-Sci: Failure Modes of Citation-Grounded Retrieval',
-    authors: ['Park, S.', 'Kim, D.'],
-    venue: 'ACL 2025',
-    year: 2025,
-    abstract: 'Systematic analysis of where citation-grounded RAG fails: hallucinated citations, partial quotes, and context window overflow. We propose a taxonomy of failure modes and a diagnostic benchmark.',
-    score: 0.89,
-    tags: ['Open data', 'Benchmark'],
-    cited: 28,
-    openAccess: true,
-  },
-  {
-    id: 'sr-3',
-    title: 'MedJudge-External: Reassessing Medical QA with Hospital-held Data',
-    authors: ['Singh, R.', 'Patel, A.', 'Thompson, L.'],
-    venue: 'Nature MI 2025',
-    year: 2025,
-    abstract: 'External validation study showing 60% of MedQA leaderboard gains disappear under hospital-held test sets, challenging the generalizability of current medical QA systems.',
-    score: 0.86,
-    tags: ['External eval', 'Clinical'],
-    cited: 67,
+// ─── Search results ──────────────────────────────────────────
+function createEmptySearchResponse(query = ''): SearchResponse {
+  return {
+    hits: [],
+    total: 0,
+    page: 1,
+    per_page: 20,
+    query,
+    mode: 'hybrid',
+    processing_time_ms: 0,
+  }
+}
+
+function getPublishedYear(publishedAt?: string | null): number {
+  if (!publishedAt) return 0
+  const year = new Date(publishedAt).getFullYear()
+  return Number.isNaN(year) ? 0 : year
+}
+
+function mapSearchHit(hit: SearchHit): SearchResultItem {
+  return {
+    id: hit.paper_id,
+    title: hit.title,
+    authors: hit.authors,
+    venue: hit.venue ?? '',
+    year: getPublishedYear(hit.published_at),
+    abstract: hit.abstract ?? '',
+    score: hit.score,
+    tags: [],
+    cited: hit.citation_count ?? 0,
     openAccess: false,
-  },
-  {
-    id: 'sr-4',
-    title: 'ToolChain Scholar: Agents under Long-Context Constraints',
-    authors: ['Müller, T.', 'Garcia, C.'],
-    venue: 'NeurIPS 2025',
-    year: 2025,
-    abstract: 'Evaluating tool-augmented scientific agents when context windows are constrained to 4K tokens. We show that strategic tool selection compensates for limited context in 78% of tasks.',
-    score: 0.81,
-    tags: ['Code', 'Agents'],
-    cited: 19,
-    openAccess: true,
-  },
-  {
-    id: 'sr-5',
-    title: 'When More Context Hurts: Failure Analysis for 128K Scientific QA',
-    authors: ['Zhang, L.', 'Wu, F.', 'Li, Q.'],
-    venue: 'EMNLP 2025 Findings',
-    year: 2025,
-    abstract: 'Documenting systematic performance drops when scaling context beyond 32K tokens in scientific QA benchmarks. Longer contexts introduce noise that degrades answer precision.',
-    score: 0.76,
-    tags: ['Negative result'],
-    cited: 11,
-    openAccess: true,
-  },
-]
+  }
+}
+
+const searchResults = computed<SearchResultItem[]>(() =>
+  searchResponse.value?.hits.map(mapSearchHit) ?? [],
+)
+const totalResults = computed(() =>
+  searchMode.value === 'claim'
+    ? claimResults.length
+    : (searchResponse.value?.total ?? 0),
+)
+const searchTimingMs = computed(() =>
+  searchMode.value === 'claim'
+    ? 0
+    : (searchResponse.value?.processing_time_ms ?? 0),
+)
 
 // ─── Mock claim results ──────────────────────────────────────
 const claimResults: ClaimResult[] = [
@@ -205,6 +192,78 @@ const claimResults: ClaimResult[] = [
 
 // ─── Compare tray ────────────────────────────────────────────
 const compareItems = ref<CompareItem[]>([])
+let searchRequestId = 0
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+async function runSearch(query: string) {
+  const normalizedQuery = query.trim()
+  searchRequestId += 1
+  const requestId = searchRequestId
+
+  if (!normalizedQuery || searchMode.value === 'claim') {
+    searchResponse.value = createEmptySearchResponse(normalizedQuery)
+    isLoading.value = false
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const response = await api.searchPapers(normalizedQuery, {
+      mode: 'hybrid',
+      page: 1,
+      per_page: 20,
+    })
+    if (requestId === searchRequestId) {
+      searchResponse.value = response
+    }
+  }
+  catch {
+    if (requestId === searchRequestId) {
+      searchResponse.value = createEmptySearchResponse(normalizedQuery)
+    }
+  }
+  finally {
+    if (requestId === searchRequestId) {
+      isLoading.value = false
+    }
+  }
+}
+
+watch(queryText, (value) => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    void runSearch(value)
+  }, 300)
+}, {
+  immediate: Boolean(queryText.value.trim()),
+})
+
+watch(searchMode, (mode, previousMode) => {
+  if (mode === 'claim') {
+    searchRequestId += 1
+    isLoading.value = false
+    searchResponse.value = createEmptySearchResponse(queryText.value.trim())
+    return
+  }
+  if (previousMode === 'claim' && queryText.value.trim()) {
+    void runSearch(queryText.value)
+  }
+})
+
+watch(() => route.query.q, (nextQuery) => {
+  const nextValue = Array.isArray(nextQuery) ? nextQuery[0] ?? '' : nextQuery ?? ''
+  if (nextValue !== queryText.value) queryText.value = nextValue
+})
+
+watch(() => route.query.mode, (nextMode) => {
+  const parsed = Array.isArray(nextMode) ? nextMode[0] : nextMode
+  const value = validModes.includes(parsed as SearchMode) ? parsed as SearchMode : 'keyword'
+  if (value !== searchMode.value) searchMode.value = value
+})
+
+onBeforeUnmount(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+})
 
 // ─── Handlers ────────────────────────────────────────────────
 function handleFilterToggle(groupId: string, optionId: string, active: boolean) {
@@ -223,8 +282,12 @@ function handleClearFilters() {
   }
 }
 
-function handleSearchSubmit(query: string) {
-  navigateTo({ path: '/search', query: { q: query, mode: searchMode.value } })
+async function handleSearchSubmit(query: string) {
+  const normalizedQuery = query.trim()
+  queryText.value = normalizedQuery
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  await runSearch(normalizedQuery)
+  await navigateTo({ path: '/search', query: { q: normalizedQuery, mode: searchMode.value } })
 }
 
 function handlePaperClick(_paper: SearchResultItem) {
@@ -276,8 +339,8 @@ function handleClaimPaperClick(paperId: string) {
     <SearchQueryRibbon
       v-model="queryText"
       :mode="searchMode"
-      :result-count="searchMode === 'claim' ? claimResults.length : searchResults.length"
-      :search-time-ms="142"
+      :result-count="totalResults"
+      :search-time-ms="searchTimingMs"
       @update:mode="searchMode = $event"
       @submit="handleSearchSubmit"
     />

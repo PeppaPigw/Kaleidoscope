@@ -8,6 +8,7 @@
  * Fetches paper content as markdown from the backend API and renders
  * it in a styled, scrollable reading view.
  */
+import type { PaperHighlights } from '~/composables/useApi'
 import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
 import type { Annotation } from '~/components/reader/Marginalia.vue'
 import type { SemanticHighlight } from '~/components/reader/SemanticHighlights.vue'
@@ -16,6 +17,7 @@ import type { ParagraphQuestion } from '~/components/reader/ParagraphQA.vue'
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
+const { getPaperHighlights, askAboutPaper } = useApi()
 const paperId = computed(() => {
   const p = route.params.paperId
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
@@ -75,8 +77,10 @@ const activeSectionId = ref('section-0')
 
 // Static demo data (will be replaced by API calls later)
 const annotations: Annotation[] = []
-const highlights: SemanticHighlight[] = []
-const questions: ParagraphQuestion[] = []
+const highlights = ref<SemanticHighlight[]>([])
+const questions = ref<ParagraphQuestion[]>([])
+const qaQuestion = ref('')
+const qaLoading = ref(false)
 
 const sidebarTabs = [
   { key: 'outline' as const, label: 'Outline' },
@@ -99,6 +103,79 @@ function handleAnnotationClick(annotation: Annotation) {
 
 function handleHighlightClick(highlight: SemanticHighlight) {
   // TODO: scroll to highlight location
+}
+
+function toSemanticHighlightItems(
+  items: string[],
+  category: SemanticHighlight['category'],
+  prefix: string,
+  confidence: number,
+): SemanticHighlight[] {
+  return items.map((text, index) => ({
+    id: `${prefix}-${index}`,
+    text,
+    category,
+    confidence,
+    page: 1,
+  }))
+}
+
+function mapPaperHighlights(payload: PaperHighlights): SemanticHighlight[] {
+  return [
+    ...toSemanticHighlightItems(payload.highlights, 'result', 'highlight', 0.86),
+    ...toSemanticHighlightItems(payload.contributions, 'contribution', 'contribution', 0.92),
+    ...toSemanticHighlightItems(payload.limitations, 'limitation', 'limitation', 0.78),
+  ]
+}
+
+watch(
+  paperId,
+  async currentPaperId => {
+    if (!currentPaperId) {
+      highlights.value = []
+      return
+    }
+
+    try {
+      const payload = await getPaperHighlights(currentPaperId)
+      highlights.value = mapPaperHighlights(payload)
+    }
+    catch {
+      highlights.value = []
+    }
+  },
+  { immediate: true },
+)
+
+async function handleAskQuestion() {
+  const q = qaQuestion.value.trim()
+  if (!q || qaLoading.value) return
+
+  qaLoading.value = true
+
+  try {
+    const result = await askAboutPaper(paperId.value, q)
+    questions.value.unshift({
+      id: `qa-${Date.now()}`,
+      question: q,
+      answer: result.answer,
+      paragraph: 0,
+      source: 'AI',
+    })
+    qaQuestion.value = ''
+  }
+  catch {
+    questions.value.unshift({
+      id: `qa-err-${Date.now()}`,
+      question: q,
+      answer: 'Sorry, could not get an answer. Please try again.',
+      paragraph: 0,
+      source: 'Error',
+    })
+  }
+  finally {
+    qaLoading.value = false
+  }
 }
 </script>
 
@@ -176,10 +253,26 @@ function handleHighlightClick(highlight: SemanticHighlight) {
             @highlight-click="handleHighlightClick"
           />
 
-          <ReaderParagraphQA
-            v-if="activeTab === 'qa'"
-            :questions="questions"
-          />
+          <div v-if="activeTab === 'qa'" class="ks-reader__qa-wrap">
+            <form class="ks-reader__qa-form" @submit.prevent="handleAskQuestion">
+              <input
+                v-model="qaQuestion"
+                type="text"
+                class="ks-reader__qa-input"
+                placeholder="Ask a question about this paper..."
+                :disabled="qaLoading"
+                aria-label="Ask a question about this paper"
+              />
+              <button
+                type="submit"
+                class="ks-reader__qa-btn"
+                :disabled="qaLoading || !qaQuestion.trim()"
+              >
+                {{ qaLoading ? '...' : 'Ask' }}
+              </button>
+            </form>
+            <ReaderParagraphQA :questions="questions" />
+          </div>
         </div>
       </aside>
     </div>
@@ -301,5 +394,57 @@ function handleHighlightClick(highlight: SemanticHighlight) {
   background: var(--color-primary, #8b5cf6);
   color: #fff;
   transform: translateY(-1px);
+}
+
+.ks-reader__qa-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ks-reader__qa-form {
+  display: flex;
+  gap: 6px;
+}
+
+.ks-reader__qa-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: 400 0.875rem / 1.4 var(--font-serif);
+  color: var(--color-text);
+  transition: border-color var(--duration-fast) var(--ease-smooth);
+}
+
+.ks-reader__qa-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.ks-reader__qa-input:disabled {
+  opacity: 0.5;
+}
+
+.ks-reader__qa-btn {
+  padding: 8px 14px;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 6px;
+  font: 600 0.8125rem / 1 var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-smooth),
+              opacity var(--duration-fast) var(--ease-smooth);
+}
+
+.ks-reader__qa-btn:hover:not(:disabled) {
+  background: var(--color-primary-dark, #0a8a8e);
+}
+
+.ks-reader__qa-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

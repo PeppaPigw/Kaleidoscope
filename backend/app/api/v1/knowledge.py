@@ -55,7 +55,6 @@ async def log_reading_event(
 
     svc = ReadingLogService(db, user_id)
     result = await svc.log_event(req.paper_id, req.event_type, req.duration_seconds, req.metadata)
-    await db.commit()
     return result
 
 
@@ -100,7 +99,6 @@ async def create_annotation(
     result = await svc.create(
         req.paper_id, req.annotation_type, req.text, req.note, req.color, req.page, req.position
     )
-    await db.commit()
     return result
 
 
@@ -131,7 +129,6 @@ async def delete_annotation(
     if not deleted:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Annotation not found")
-    await db.commit()
     return {"deleted": True}
 
 
@@ -148,7 +145,6 @@ async def add_glossary_term(
 
     svc = GlossaryService(db, user_id)
     result = await svc.add_term(req.term, req.definition, req.domain, req.paper_id)
-    await db.commit()
     return result
 
 
@@ -163,7 +159,6 @@ async def auto_extract_terms(
 
     svc = GlossaryService(db, user_id)
     result = await svc.auto_extract_terms(paper_id)
-    await db.commit()
     return result
 
 
@@ -207,7 +202,6 @@ async def generate_cards(
 
     svc = KnowledgeCardService(db, user_id)
     result = await svc.generate_cards(paper_id)
-    await db.commit()
     return result
 
 
@@ -236,7 +230,6 @@ async def review_card(
 
     svc = KnowledgeCardService(db, user_id)
     result = await svc.review_card(card_id, req.quality)
-    await db.commit()
     return result
 
 

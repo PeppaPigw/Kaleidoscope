@@ -220,7 +220,6 @@ async def update_reading_status(
 
     svc = ReadingStatusService(db, user_id)
     status = await svc.set_status(str(paper_id), body.status)
-    await db.commit()
     return {"paper_id": str(paper_id), "reading_status": status}
 
 
@@ -240,7 +239,6 @@ async def add_tag_to_paper(
     added = await svc.add_tag_to_paper(str(paper_id), str(tag_id))
     if not added:
         raise HTTPException(status_code=409, detail="Tag already applied")
-    await db.commit()
     return {"paper_id": str(paper_id), "tag_id": str(tag_id), "status": "added"}
 
 
@@ -257,7 +255,6 @@ async def remove_tag_from_paper(
     svc = TagService(db, user_id)
     if not await svc.remove_tag_from_paper(str(paper_id), str(tag_id)):
         raise HTTPException(status_code=404, detail="Tag not found on paper")
-    await db.commit()
 
 
 @router.get("/{paper_id}/tags")
@@ -401,5 +398,4 @@ async def deduplicate_library(
                                    "paper_ids": [str(p1.id), str(p2.id)], "confidence": 0.9})
 
     return {"sample_size": len(papers), "duplicate_groups_found": len(suspected), "suspected_duplicates": suspected}
-
 

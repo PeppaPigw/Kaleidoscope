@@ -26,6 +26,56 @@ export interface Paper {
   limitations?: string[]
 }
 
+export interface PaperListResponse {
+  items: Paper[]
+  total: number
+  page: number
+  per_page: number
+}
+
+export interface SearchHit {
+  paper_id: string
+  doi?: string | null
+  arxiv_id?: string | null
+  title: string
+  abstract?: string | null
+  published_at?: string | null
+  citation_count?: number | null
+  authors: string[]
+  venue?: string | null
+  score: number
+  highlights?: Record<string, string[]> | null
+}
+
+export interface SearchResponse {
+  hits: SearchHit[]
+  total: number
+  page: number
+  per_page: number
+  query: string
+  mode: string
+  processing_time_ms: number
+}
+
+export interface RecentPaperQueueItem {
+  id: string
+  title: string
+  time: string
+  mode: string
+}
+
+export interface Collection {
+  id: string
+  name: string
+  description?: string | null
+  paper_count?: number | null
+  color?: string | null
+  icon?: string | null
+  is_smart?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface PaperContent {
   paper_id: string
   title: string | null
@@ -48,6 +98,29 @@ export interface PaperContent {
   }>
 }
 
+export interface PaperHighlights {
+  paper_id: string
+  highlights: string[]
+  contributions: string[]
+  limitations: string[]
+  has_analysis: boolean
+}
+
+export interface BackendClaim {
+  id: string
+  claim_text: string
+  category: string
+  confidence: number
+  status: string
+}
+
+export interface BackendSimilarPaper {
+  paper_id: string
+  title: string
+  score: number
+  doi?: string | null
+}
+
 export interface ImportUrlRequest {
   url: string
   title?: string
@@ -62,6 +135,16 @@ export interface ImportUrlResponse {
   markdown_length?: number | null
   sections?: number | null
   references?: number | null
+}
+
+export interface ImportStatusResponse {
+  paper_id: string
+  title?: string | null
+  ingestion_status: string
+  has_full_text: boolean
+  created_at?: string | null
+  updated_at?: string | null
+  error_message?: string | null
 }
 
 // ─── Composable ────────────────────────────────────────────────
@@ -91,16 +174,37 @@ export function useApi() {
   async function listPapers(params?: {
     limit?: number
     offset?: number
-  }): Promise<{ papers: Paper[] }> {
+  }): Promise<PaperListResponse> {
     const query = new URLSearchParams()
-    if (params?.limit) query.set('limit', String(params.limit))
-    if (params?.offset) query.set('offset', String(params.offset))
+    if (params?.limit) query.set('per_page', String(params.limit))
+    if (params?.limit && params?.offset !== undefined) {
+      query.set('page', String(Math.floor(params.offset / params.limit) + 1))
+    }
     const qs = query.toString()
     return apiFetch(`/papers${qs ? `?${qs}` : ''}`)
   }
 
   async function getPaper(paperId: string): Promise<Paper> {
     return apiFetch(`/papers/${paperId}`)
+  }
+
+  async function getClaimsForPaper(
+    paperId: string,
+  ): Promise<{ claims: BackendClaim[] }> {
+    return apiFetch(`/claims/papers/${paperId}`)
+  }
+
+  async function listRecentPapers(): Promise<RecentPaperQueueItem[]> {
+    const response = await apiFetch<PaperListResponse>(
+      '/papers?page=1&per_page=5&sort_by=created_at&order=desc',
+    )
+
+    return response.items.map(paper => ({
+      id: paper.id,
+      title: paper.title,
+      time: '~10 min',
+      mode: 'read',
+    }))
   }
 
   // ── Paper Content (Markdown) ────────────────────────────────
@@ -126,19 +230,53 @@ export function useApi() {
     })
   }
 
+  async function getImportStatus(paperId: string): Promise<ImportStatusResponse> {
+    return apiFetch(`/papers/${paperId}/import-status`)
+  }
+
   // ── Search ──────────────────────────────────────────────────
 
-  async function searchPapers(query: string, limit = 20): Promise<{ results: Paper[] }> {
-    return apiFetch(`/search?q=${encodeURIComponent(query)}&limit=${limit}`)
+  async function searchPapers(
+    query: string,
+    params?: { mode?: string; page?: number; per_page?: number },
+  ): Promise<SearchResponse> {
+    const searchParams = new URLSearchParams({ q: query })
+    if (params?.mode) searchParams.set('mode', params.mode)
+    if (params?.page !== undefined) searchParams.set('page', String(params.page))
+    if (params?.per_page !== undefined) {
+      searchParams.set('per_page', String(params.per_page))
+    }
+    return apiFetch(`/search?${searchParams.toString()}`)
   }
 
   // ── Collections ─────────────────────────────────────────────
 
-  async function listCollections(): Promise<{ collections: unknown[] }> {
+  async function listCollections(): Promise<Collection[]> {
     return apiFetch('/collections')
   }
 
+  async function createCollection(req: {
+    name: string
+    description?: string
+  }): Promise<Collection> {
+    return apiFetch('/collections', {
+      method: 'POST',
+      body: req,
+    })
+  }
+
   // ── Intelligence ────────────────────────────────────────────
+
+  async function getPaperHighlights(paperId: string): Promise<PaperHighlights> {
+    return apiFetch(`/intelligence/papers/${paperId}/highlights`)
+  }
+
+  async function getSimilarPapers(
+    paperId: string,
+    topK = 5,
+  ): Promise<{ similar_papers: BackendSimilarPaper[] }> {
+    return apiFetch(`/intelligence/papers/${paperId}/similar?top_k=${topK}`)
+  }
 
   async function summarizePaper(paperId: string): Promise<{ summary: string }> {
     return apiFetch(`/intelligence/papers/${paperId}/summarize`, {
@@ -149,7 +287,7 @@ export function useApi() {
   async function askAboutPaper(
     paperId: string,
     question: string,
-  ): Promise<{ answer: string }> {
+  ): Promise<{ answer: string; paper_id?: string; question?: string }> {
     return apiFetch(`/intelligence/papers/${paperId}/ask`, {
       method: 'POST',
       body: { question },
@@ -186,15 +324,21 @@ export function useApi() {
     // Papers
     listPapers,
     getPaper,
+    getClaimsForPaper,
+    listRecentPapers,
     // Content
     getPaperContent,
     importFromUrl,
     reparsePaper,
+    getImportStatus,
     // Search
     searchPapers,
     // Collections
     listCollections,
+    createCollection,
     // Intelligence
+    getPaperHighlights,
+    getSimilarPapers,
     summarizePaper,
     askAboutPaper,
     // Analytics

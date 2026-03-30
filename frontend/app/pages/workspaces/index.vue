@@ -6,10 +6,12 @@
  * member counts, and quick-action buttons. Users can create new workspaces
  * or navigate into existing ones.
  */
+import type { Collection } from '~/composables/useApi'
 
 definePageMeta({ layout: 'default' })
 
 const { t } = useTranslation()
+const api = useApi()
 
 useHead({
   title: 'Workspaces — Kaleidoscope',
@@ -28,64 +30,24 @@ interface Workspace {
   tags: string[]
 }
 
-const workspaces = ref<Workspace[]>([
-  {
-    id: 'ws-1',
-    name: 'Claim-Level Scientific NLP',
-    description: 'Investigating atomic claim extraction and evidence alignment for biomedical retrieval-augmented generation.',
-    paperCount: 5,
-    memberCount: 3,
+function mapCollectionToWorkspace(collection: Collection): Workspace {
+  return {
+    id: collection.id,
+    name: collection.name,
+    description: collection.description || '',
+    paperCount: collection.paper_count ?? 0,
+    memberCount: 1,
     status: 'active',
-    progress: 43,
-    lastUpdated: '2 hours ago',
-    tags: ['NLP', 'biomedical', 'claims'],
-  },
-  {
-    id: 'ws-2',
-    name: 'Clinical Multimodal Reasoning',
-    description: 'Survey and benchmark audit of vision-language models for clinical diagnosis workflows.',
-    paperCount: 12,
-    memberCount: 4,
-    status: 'active',
-    progress: 68,
-    lastUpdated: '1 day ago',
-    tags: ['VLM', 'clinical', 'multimodal'],
-  },
-  {
-    id: 'ws-3',
-    name: 'Long-Context Benchmark Audit',
-    description: 'Systematic evaluation of benchmark contamination and evaluation failure modes in 128K+ context models.',
-    paperCount: 8,
-    memberCount: 2,
-    status: 'active',
-    progress: 22,
-    lastUpdated: '3 days ago',
-    tags: ['benchmark', 'evaluation', 'long-context'],
-  },
-  {
-    id: 'ws-4',
-    name: 'Citation-Aware Retrieval Agents',
-    description: 'Building research agents that ground outputs in verifiable citations from scientific literature.',
-    paperCount: 18,
-    memberCount: 5,
-    status: 'active',
-    progress: 85,
-    lastUpdated: '5 hours ago',
-    tags: ['RAG', 'agents', 'citations'],
-  },
-  {
-    id: 'ws-5',
-    name: 'Previous: Protein Folding Survey',
-    description: 'Archived survey of deep learning approaches to protein structure prediction. Published as review.',
-    paperCount: 34,
-    memberCount: 3,
-    status: 'archived',
-    progress: 100,
-    lastUpdated: '2 months ago',
-    tags: ['protein', 'survey', 'completed'],
-  },
-])
+    progress: 0,
+    lastUpdated: collection.updated_at
+      ? new Date(collection.updated_at).toLocaleDateString()
+      : 'unknown',
+    tags: [],
+  }
+}
 
+const workspaces = ref<Workspace[]>([])
+const isLoading = ref(false)
 const showCreateModal = ref(false)
 const newWsName = ref('')
 const newWsDesc = ref('')
@@ -95,24 +57,47 @@ const sortedWorkspaces = computed(() =>
   [...workspaces.value].sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9))
 )
 
+onMounted(async () => {
+  isLoading.value = true
+  try {
+    const collections = await api.listCollections()
+    workspaces.value = collections.map(mapCollectionToWorkspace)
+  } catch {
+    workspaces.value = []
+  } finally {
+    isLoading.value = false
+  }
+})
+
 function handleWorkspaceClick(ws: Workspace) {
   navigateTo(`/workspaces/${ws.id}`)
 }
 
-function handleCreateWorkspace() {
-  if (!newWsName.value.trim()) return
-  const newWs: Workspace = {
-    id: `ws-${Date.now()}`,
-    name: newWsName.value.trim(),
-    description: newWsDesc.value.trim() || 'New research workspace',
-    paperCount: 0,
-    memberCount: 1,
-    status: 'draft',
-    progress: 0,
-    lastUpdated: 'just now',
-    tags: [],
+async function handleCreateWorkspace() {
+  const name = newWsName.value.trim()
+  const description = newWsDesc.value.trim()
+  if (!name) return
+
+  try {
+    const collection = await api.createCollection({
+      name,
+      description: description || undefined,
+    })
+    workspaces.value.unshift(mapCollectionToWorkspace(collection))
+  } catch {
+    workspaces.value.unshift({
+      id: `ws-${Date.now()}`,
+      name,
+      description: description || 'New research workspace',
+      paperCount: 0,
+      memberCount: 1,
+      status: 'draft',
+      progress: 0,
+      lastUpdated: 'just now',
+      tags: [],
+    })
   }
-  workspaces.value.unshift(newWs)
+
   newWsName.value = ''
   newWsDesc.value = ''
   showCreateModal.value = false

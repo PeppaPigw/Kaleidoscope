@@ -42,7 +42,7 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(50)
     )  # article, review, preprint, etc.
     language: Mapped[str | None] = mapped_column(String(10), default="en")
-    keywords: Mapped[dict | None] = mapped_column(JSONB)  # ["quantum", "ML"]
+    keywords: Mapped[list | None] = mapped_column(JSONB)  # ["quantum", "ML"]
 
     # --- Venue ---
     venue_id: Mapped[str | None] = mapped_column(
@@ -89,7 +89,10 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     parser_version: Mapped[str | None] = mapped_column(String(20))
     ingestion_error: Mapped[str | None] = mapped_column(Text)
 
-    # --- Reading Status (P1) ---
+    # --- Reading Status (Legacy) ---
+    # Deprecated paper-level status retained for backward compatibility only.
+    # Canonical per-user status lives in UserReadingStatus and is exposed via
+    # /api/v1/papers/{id}/reading-status.
     reading_status: Mapped[str] = mapped_column(
         String(20), default="unread"
     )  # unread, to_read, reading, read, archived
@@ -99,13 +102,13 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     summary_provenance: Mapped[dict | None] = mapped_column(JSONB)
     # {source: "gpt-4o", timestamp: "...", confidence: 0.92}
 
-    highlights: Mapped[dict | None] = mapped_column(JSONB)  # [str]
+    highlights: Mapped[list | None] = mapped_column(JSONB)  # [str]
     highlights_provenance: Mapped[dict | None] = mapped_column(JSONB)
 
-    contributions: Mapped[dict | None] = mapped_column(JSONB)  # [str]
+    contributions: Mapped[list | None] = mapped_column(JSONB)  # [str]
     contributions_provenance: Mapped[dict | None] = mapped_column(JSONB)
 
-    limitations: Mapped[dict | None] = mapped_column(JSONB)  # [str]
+    limitations: Mapped[list | None] = mapped_column(JSONB)  # [str]
     limitations_provenance: Mapped[dict | None] = mapped_column(JSONB)
 
     # --- P2: Local PDF & Analysis ---
@@ -135,7 +138,7 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
     tags: Mapped[list[PaperTag]] = relationship(
-        "PaperTag", cascade="all, delete-orphan",
+        "PaperTag", cascade="all, delete-orphan", overlaps="paper",
     )
 
     def __repr__(self) -> str:

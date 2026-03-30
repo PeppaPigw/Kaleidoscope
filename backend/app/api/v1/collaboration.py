@@ -1,5 +1,8 @@
 """Collaboration API — comments, tasks, screening (§8)."""
 
+from datetime import datetime, timezone
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,14 +24,16 @@ class CommentCreate(BaseModel):
 
 
 class TaskCreate(BaseModel):
-    paper_id: str
+    paper_id: str | None = None
+    title: str | None = None
+    description: str | None = None
     task_type: str = "review"
     priority: int = 0
     notes: str | None = None
 
 
 class TaskComplete(BaseModel):
-    decision: str
+    decision: str = "completed"
     notes: str | None = None
 
 
@@ -64,7 +69,7 @@ async def list_comments(
 ):
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
-    return await svc.list_comments(paper_id, limit=limit)
+    return {"comments": await svc.list_comments(paper_id, limit=limit)}
 
 
 # ─── Task endpoints ──────────────────────────────────────────────
@@ -73,11 +78,19 @@ async def list_comments(
 async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
+    if not body.paper_id:
+        return {
+            "id": f"draft-{uuid4()}",
+            "title": body.title or body.task_type,
+            "description": body.description or body.notes,
+            "completed": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
     result = await svc.create_task(
         paper_id=body.paper_id,
-        task_type=body.task_type,
+        task_type=body.title or body.task_type,
         priority=body.priority,
-        notes=body.notes,
+        notes=body.description or body.notes,
     )
     return result
 
@@ -90,16 +103,19 @@ async def list_tasks(
 ):
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
-    return await svc.list_tasks(status=status, limit=limit)
+    return {"tasks": await svc.list_tasks(status=status, limit=limit)}
 
 
 @router.patch("/tasks/{task_id}/complete")
 async def complete_task(
-    task_id: str, body: TaskComplete, db: AsyncSession = Depends(get_db)
+    task_id: str,
+    body: TaskComplete | None = None,
+    db: AsyncSession = Depends(get_db),
 ):
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
-    result = await svc.complete_task(task_id, body.decision, body.notes)
+    payload = body or TaskComplete()
+    result = await svc.complete_task(task_id, payload.decision, payload.notes)
     return result or {"error": "Task not found"}
 
 

@@ -8,7 +8,7 @@ export interface CorpusPaper {
   title: string
   authors: string
   year: number
-  status: 'read' | 'unread' | 'annotated'
+  status: 'read' | 'unread' | 'annotated' | 'skipped'
 }
 
 export interface CorpusShelfProps {
@@ -23,7 +23,12 @@ const uid = useId()
 type TagVariant = 'success' | 'neutral' | 'accent'
 
 function statusVariant(s: CorpusPaper['status']): TagVariant {
-  const map: Record<CorpusPaper['status'], TagVariant> = { read: 'success', unread: 'neutral', annotated: 'accent' }
+  const map: Record<CorpusPaper['status'], TagVariant> = {
+    read: 'success',
+    unread: 'neutral',
+    annotated: 'accent',
+    skipped: 'neutral',
+  }
   return map[s]
 }
 </script>

@@ -19,7 +19,7 @@ definePageMeta({ layout: 'default' })
 const { t } = useTranslation()
 
 const route = useRoute()
-const { getClaimsForPaper, getPaperHighlights, getSimilarPapers } = useApi()
+const { getClaimsForPaper, getPaperContent, getPaperHighlights, getSimilarPapers } = useApi()
 const paperId = computed(() => route.params.paperId as string)
 
 useHead({
@@ -31,18 +31,53 @@ useHead({
 
 // ─── Fetch paper data from API ───────────────────────────────
 const apiUrl = useRuntimeConfig().public.apiUrl
+type PaperDetailAuthor = {
+  id?: string
+  display_name?: string
+  name?: string
+  affiliation?: string | null
+  position?: number
+}
+
+type PaperRawMetadata = {
+  authors_parsed?: PaperDetailAuthor[] | null
+  authors?: Array<string | PaperDetailAuthor> | null
+  pdf_url?: string | null
+  best_oa_url?: string | null
+  github_url?: string | null
+  code_url?: string | null
+}
+
+type PaperDetailResponse = {
+  id: string
+  title: string
+  abstract?: string | null
+  doi?: string | null
+  arxiv_id?: string | null
+  published_at?: string | null
+  citation_count?: number
+  venue?: string
+  has_full_text?: boolean
+  authors?: PaperDetailAuthor[] | null
+  raw_metadata?: PaperRawMetadata | null
+}
+
 const { data: paperData } = useFetch<{
   id: string
   title: string
   abstract?: string | null
   doi?: string | null
+  arxiv_id?: string | null
   published_at?: string | null
   citation_count?: number
   venue?: string
   has_full_text?: boolean
+  authors?: PaperDetailAuthor[] | null
+  raw_metadata?: PaperDetailResponse['raw_metadata']
 }>(() => `${apiUrl}/api/v1/papers/${paperId.value}`)
 
 const claims = ref<PaperClaim[]>([])
+const figures = ref<PaperFigure[]>([])
 const relatedPapers = ref<RelatedPaper[]>([])
 const paperHighlights = ref<PaperHighlights | null>(null)
 const methodsResultHighlights = computed(
@@ -50,12 +85,45 @@ const methodsResultHighlights = computed(
 )
 
 // ─── Mock data ───────────────────────────────────────────────
-const authors: PaperAuthor[] = [
+const mockAuthors: PaperAuthor[] = [
   { id: 'a1', name: 'Jiawei Liu', affiliation: 'Tsinghua University' },
   { id: 'a2', name: 'Xiaoming Wang', affiliation: 'Stanford University' },
   { id: 'a3', name: 'Hui Chen', affiliation: 'Google DeepMind' },
   { id: 'a4', name: 'Yafeng Zhang', affiliation: 'Tsinghua University' },
 ]
+
+const authors = computed<PaperAuthor[]>(() => {
+  const paper = paperData.value
+
+  const structuredAuthors = [...(paper?.authors ?? [])]
+    .sort((a, b) => (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER))
+    .map((author, index) => ({
+      id: String(author.id ?? `author-${author.position ?? index}`),
+      name: author.display_name ?? author.name ?? '',
+      affiliation: author.affiliation ?? undefined,
+    }))
+    .filter(author => author.name)
+
+  if (structuredAuthors.length > 0)
+    return structuredAuthors
+
+  const rawAuthors = paper?.raw_metadata?.authors_parsed ?? paper?.raw_metadata?.authors ?? []
+  const parsedRawAuthors = rawAuthors
+    .map((author, index) => {
+      if (typeof author === 'string') {
+        return { id: `raw-author-${index}`, name: author }
+      }
+
+      return {
+        id: String(author.id ?? `raw-author-${index}`),
+        name: author.display_name ?? author.name ?? '',
+        affiliation: author.affiliation ?? undefined,
+      }
+    })
+    .filter(author => author.name)
+
+  return parsedRawAuthors.length > 0 ? parsedRawAuthors : mockAuthors
+})
 
 const methods: MethodItem[] = [
   { id: 'm1', name: 'SciBERT-Decomposer', description: 'Fine-tuned SciBERT for sentence-to-claim decomposition with NLI filtering.', type: 'model' },
@@ -71,19 +139,52 @@ const results: ResultItem[] = [
   { id: 'r4', metric: 'Hallucination Reduction', value: '23.1%', comparison: 'Baseline RAG', delta: '-23.1%', positive: true },
 ]
 
-const figures: PaperFigure[] = [
-  { id: 'f1', number: 1, caption: 'Pipeline architecture: document → sentences → atomic claims → evidence alignment', imageUrl: '' },
-  { id: 'f2', number: 2, caption: 'Claim decomposition F1 across different document lengths', imageUrl: '' },
-  { id: 'f3', number: 3, caption: 'Evidence alignment quality vs. retrieval granularity', imageUrl: '' },
-  { id: 'f4', number: 4, caption: 'Cross-domain transfer results (law, finance, biomedical)', imageUrl: '' },
-]
+const supplements = computed<SupplementItem[]>(() => {
+  const paper = paperData.value
+  if (!paper)
+    return []
 
-const supplements: SupplementItem[] = [
-  { id: 's1', label: 'GitHub Repository', type: 'code', url: 'https://github.com/example/claimminer' },
-  { id: 's2', label: 'BioASQ-Claims Dataset', type: 'dataset', url: 'https://example.com/bioasq-claims' },
-  { id: 's3', label: 'EMNLP 2025 Slides', type: 'slides', url: 'https://example.com/slides' },
-  { id: 's4', label: 'Demo Application', type: 'demo', url: 'https://example.com/demo' },
-]
+  const items: SupplementItem[] = []
+  const raw = paper.raw_metadata ?? {}
+
+  if (raw.pdf_url || raw.best_oa_url) {
+    items.push({
+      id: 'sup-pdf',
+      label: 'PDF',
+      type: 'appendix',
+      url: raw.pdf_url ?? raw.best_oa_url ?? '',
+    })
+  }
+
+  if (raw.github_url || raw.code_url) {
+    items.push({
+      id: 'sup-code',
+      label: 'Code Repository',
+      type: 'code',
+      url: raw.github_url ?? raw.code_url ?? '',
+    })
+  }
+
+  if (paper.doi) {
+    items.push({
+      id: 'sup-doi',
+      label: 'DOI Link',
+      type: 'appendix',
+      url: `https://doi.org/${paper.doi}`,
+    })
+  }
+
+  if (paper.arxiv_id) {
+    items.push({
+      id: 'sup-arxiv',
+      label: 'arXiv',
+      type: 'appendix',
+      url: `https://arxiv.org/abs/${paper.arxiv_id}`,
+    })
+  }
+
+  return items
+})
 
 const reproAttempts: ReproductionAttempt[] = [
   { id: 'ra1', team: 'Allen AI (Semantic Scholar)', date: '2025-08', success: 'full', notes: 'Successfully reproduced main results within 1% margin on BioASQ benchmark.' },
@@ -103,13 +204,15 @@ function mapClaimStatus(status?: string): PaperClaim['status'] {
 watch(paperId, async id => {
   if (!id) {
     claims.value = []
+    figures.value = []
     relatedPapers.value = []
     paperHighlights.value = null
     return
   }
 
-  const [claimsResult, similarResult, highlightsResult] = await Promise.allSettled([
+  const [claimsResult, contentResult, similarResult, highlightsResult] = await Promise.allSettled([
     getClaimsForPaper(id),
+    getPaperContent(id),
     getSimilarPapers(id, 5),
     getPaperHighlights(id),
   ])
@@ -133,6 +236,15 @@ watch(paperId, async id => {
         year: 0,
         relationship: 'similar' as const,
         similarity: paper.score ?? 0,
+      }))
+    : []
+
+  figures.value = contentResult.status === 'fulfilled'
+    ? (contentResult.value.figures || []).map((fig, index) => ({
+        id: fig.figure_id || `fig-${index}`,
+        number: index + 1,
+        caption: fig.caption || '',
+        imageUrl: fig.image_url || '',
       }))
     : []
 

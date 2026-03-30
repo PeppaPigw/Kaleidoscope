@@ -14,16 +14,10 @@ useHead({
   meta: [{ name: 'description', content: 'Analyze methods, results, and contradictions across papers.' }],
 })
 
-const metricNames = ['Evidence F1', 'Claim Precision', 'Throughput']
-
-const results: MatrixResult[] = [
-  { id: 'r1', method: 'ClaimMiner (Ours)', metrics: { 'Evidence F1': '89.2%', 'Claim Precision': '94.7%', 'Throughput': '12.3 papers/min' }, isBest: true, source: 'EMNLP 2025' },
-  { id: 'r2', method: 'RAG-Paragraph', metrics: { 'Evidence F1': '77.1%', 'Claim Precision': '86.4%', 'Throughput': '18.7 papers/min' }, isBest: false, source: 'ACL 2024' },
-  { id: 'r3', method: 'SciBERT-base', metrics: { 'Evidence F1': '71.3%', 'Claim Precision': '81.2%', 'Throughput': '22.1 papers/min' }, isBest: false, source: 'NAACL 2023' },
-  { id: 'r4', method: 'FactNet', metrics: { 'Evidence F1': '82.8%', 'Claim Precision': '90.1%', 'Throughput': '9.8 papers/min' }, isBest: false, source: 'NeurIPS 2022' },
-]
-
-const contradictions: Contradiction[] = [
+// ─── Live stats from analytics API ────────────────────────────────
+const paperCount = ref(0)
+const claimCount = ref(0)
+const contradictions = ref<Contradiction[]>([
   {
     id: 'c1',
     claimA: { text: 'Atomic claim extraction improves RAG accuracy by 12%', paper: 'ClaimMiner', year: 2025 },
@@ -34,14 +28,54 @@ const contradictions: Contradiction[] = [
   {
     id: 'c2',
     claimA: { text: 'SciBERT fine-tuning is sufficient for biomedical claim decomposition', paper: 'ClaimMiner', year: 2025 },
-    claimB: { text: 'Larger models (7B+) are necessary for reliable scientific text understanding', paper: 'ScaleLM Survey', year: 2024 },
+    claimB: { text: 'Larger models (7B+) are necessary for scientific text understanding', paper: 'ScaleLM Survey', year: 2024 },
     severity: 'medium',
     resolved: true,
   },
+])
+
+onMounted(async () => {
+  const { getAnalyticsOverview, getClaimsStats, getContradictions } = useApi()
+  try {
+    const overview = await getAnalyticsOverview()
+    paperCount.value = overview.total_papers ?? 0
+  } catch {
+    // Keep zero defaults
+  }
+
+  try {
+    const stats = await getClaimsStats()
+    claimCount.value = stats.total_claims ?? 0
+  } catch {
+    claimCount.value = 0
+  }
+
+  try {
+    const contrasResp = await getContradictions(10)
+    if (contrasResp.contradictions.length > 0) {
+      contradictions.value = contrasResp.contradictions.map(c => ({
+        id: c.id,
+        claimA: { text: c.claimA.text, paper: c.claimA.paper || c.claimA.paper_id || 'Unknown', year: c.claimA.year || 0 },
+        claimB: { text: c.claimB.text, paper: c.claimB.paper || c.claimB.paper_id || 'Unknown', year: c.claimB.year || 0 },
+        severity: c.severity,
+        resolved: c.resolved,
+      }))
+    }
+  } catch {
+    // Keep static stubs if endpoint fails
+  }
+})
+
+// ─── Results matrix (static stubs — TODO: wire to GET /analysis/methods) ───
+const metricNames = ['Evidence F1', 'Claim Precision', 'Throughput']
+
+const results: MatrixResult[] = [
+  { id: 'r1', method: 'ClaimMiner (Ours)', metrics: { 'Evidence F1': '89.2%', 'Claim Precision': '94.7%', 'Throughput': '12.3 papers/min' }, isBest: true, source: 'EMNLP 2025' },
+  { id: 'r2', method: 'RAG-Paragraph', metrics: { 'Evidence F1': '77.1%', 'Claim Precision': '86.4%', 'Throughput': '18.7 papers/min' }, isBest: false, source: 'ACL 2024' },
+  { id: 'r3', method: 'SciBERT-base', metrics: { 'Evidence F1': '71.3%', 'Claim Precision': '81.2%', 'Throughput': '22.1 papers/min' }, isBest: false, source: 'NAACL 2023' },
 ]
 
 function handleEditRQ() {
-  // TODO: open RQ edit modal when backend is ready
   console.info('[Evidence Lab] Edit research question triggered')
 }
 </script>
@@ -54,8 +88,8 @@ function handleEditRQ() {
       <EvidenceRQHeader
         question="How does claim-level granularity affect retrieval-augmented generation accuracy?"
         description="Investigating the trade-off between decomposition granularity and downstream retrieval quality in biomedical NLP."
-        :paper-count="12"
-        :claim-count="47"
+        :paper-count="paperCount"
+        :claim-count="claimCount"
         @edit="handleEditRQ"
       />
 

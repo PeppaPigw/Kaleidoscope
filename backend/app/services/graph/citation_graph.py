@@ -186,7 +186,11 @@ class CitationGraphService:
 
     async def get_stats(self) -> dict:
         """Get graph statistics."""
-        result = await neo4j_driver.run_query(Q.GRAPH_STATS)
+        try:
+            result = await neo4j_driver.run_query(Q.GRAPH_STATS)
+        except Exception as exc:
+            logger.warning("graph_stats_unavailable", error=str(exc))
+            return {"paper_count": 0, "citation_count": 0, "author_count": 0}
         return result[0] if result else {"paper_count": 0, "citation_count": 0, "author_count": 0}
 
 
@@ -294,4 +298,3 @@ class RecommendationService:
                           "co_cite": len(co_cite_ranked),
                           "vector": len(vector_ranked)})
         return fused[:limit]
-

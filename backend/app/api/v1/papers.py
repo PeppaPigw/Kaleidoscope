@@ -6,10 +6,13 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db, get_current_user_id
+from app.models.author import PaperAuthor
 from app.models.paper import Paper
 from app.schemas.paper import (
+    AuthorBrief,
     BatchImportResult,
     ImportResult,
     PaperBatchImportRequest,
@@ -144,7 +147,9 @@ async def get_paper(
 ):
     """Get full paper details by ID."""
     result = await db.execute(
-        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+        select(Paper)
+        .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+        .where(Paper.id == paper_id, Paper.deleted_at.is_(None))
     )
     paper = result.scalar_one_or_none()
     if not paper:
@@ -172,6 +177,16 @@ async def get_paper(
         highlights=paper.highlights,
         contributions=paper.contributions,
         limitations=paper.limitations,
+        authors=[
+            AuthorBrief(
+                id=paper_author.author.id,
+                display_name=paper_author.author.display_name,
+                position=paper_author.position,
+                is_corresponding=paper_author.is_corresponding,
+            )
+            for paper_author in sorted(paper.authors, key=lambda item: item.position)
+            if paper_author.author is not None
+        ],
         created_at=paper.created_at,
         updated_at=paper.updated_at,
     )
@@ -398,4 +413,3 @@ async def deduplicate_library(
                                    "paper_ids": [str(p1.id), str(p2.id)], "confidence": 0.9})
 
     return {"sample_size": len(papers), "duplicate_groups_found": len(suspected), "suspected_duplicates": suspected}
-

@@ -7,13 +7,17 @@ import type { ThemeCluster } from '~/components/synthesis/ThemeClusters.vue'
 
 definePageMeta({ layout: 'default' })
 
+const CLUSTER_COLORS = ['var(--color-primary)', 'var(--color-accent-decorative)', '#6366f1', '#ec4899', '#f59e0b', '#10b981']
+
 const { t } = useTranslation()
+const { getTrendTopics } = useApi()
 
 useHead({
   title: 'Synthesis Studio — Kaleidoscope',
   meta: [{ name: 'description', content: 'Cross-paper comparison and thematic synthesis.' }],
 })
 
+// Selected-paper comparison remains a stub until a user-driven comparison API exists.
 const papers: ComparisonPaper[] = [
   { id: 'p1', title: 'ClaimMiner', shortName: 'ClaimMiner' },
   { id: 'p2', title: 'FactNet', shortName: 'FactNet' },
@@ -28,12 +32,26 @@ const features: ComparisonFeature[] = [
   { id: 'f5', name: 'BioASQ Evaluation', category: 'Benchmark', values: { p1: true, p2: false, p3: true } },
 ]
 
-const clusters: ThemeCluster[] = [
-  { id: 'cl1', name: 'Claim Decomposition', paperCount: 8, color: 'var(--color-primary)', keywords: ['atomic claims', 'NLI', 'decomposition', 'verification'] },
-  { id: 'cl2', name: 'Evidence Retrieval', paperCount: 12, color: 'var(--color-accent-decorative)', keywords: ['RAG', 'retrieval', 'alignment', 'grounding'] },
-  { id: 'cl3', name: 'Biomedical NLP', paperCount: 6, color: '#6366f1', keywords: ['SciBERT', 'BioASQ', 'PubMed', 'clinical'] },
-  { id: 'cl4', name: 'Fact Checking', paperCount: 5, color: '#ec4899', keywords: ['verification', 'hallucination', 'faithfulness'] },
-]
+const clusters = ref<ThemeCluster[]>([])
+const isLoading = ref(true)
+const loadError = ref(false)
+
+onMounted(async () => {
+  try {
+    const topicData = await getTrendTopics()
+    clusters.value = topicData.topics.map((topic, index) => ({
+      id: topic.id,
+      name: topic.label,
+      paperCount: topic.paper_count,
+      color: CLUSTER_COLORS[index % CLUSTER_COLORS.length] ?? CLUSTER_COLORS[0]!,
+      keywords: topic.keywords.slice(0, 4),
+    }))
+  } catch {
+    loadError.value = true
+  } finally {
+    isLoading.value = false
+  }
+})
 
 function handleClusterClick(cluster: ThemeCluster) {
   navigateTo(`/search?cluster=${cluster.id}`)
@@ -45,7 +63,19 @@ function handleClusterClick(cluster: ThemeCluster) {
     <KsPageHeader :title="t('synthesis')" :subtitle="t('synthesisSubtitle')" />
 
     <div class="ks-synthesis__content">
-      <SynthesisThemeClusters :clusters="clusters" @cluster-click="handleClusterClick" />
+      <div v-if="isLoading" class="ks-synthesis__state">
+        <KsSkeleton variant="paragraph" :lines="4" />
+      </div>
+      <KsEmptyState
+        v-else-if="loadError || !clusters.length"
+        title="Theme clusters unavailable"
+        description="Topic cluster data could not be loaded from the trends API."
+      />
+      <SynthesisThemeClusters v-else :clusters="clusters" @cluster-click="handleClusterClick" />
+
+      <p class="ks-type-body-sm ks-synthesis__note">
+        Comparison matrix remains a selected-paper stub until user-driven comparison APIs are available.
+      </p>
       <SynthesisComparisonMatrix :papers="papers" :features="features" />
     </div>
   </div>
@@ -63,6 +93,15 @@ function handleClusterClick(cluster: ThemeCluster) {
   padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+}
+
+.ks-synthesis__state {
+  padding: 24px 0 8px;
+}
+
+.ks-synthesis__note {
+  color: var(--color-secondary);
+  margin-top: -8px;
 }
 </style>

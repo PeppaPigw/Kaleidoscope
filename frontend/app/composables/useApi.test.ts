@@ -12,7 +12,7 @@ describe('useApi.searchPapers', () => {
 
   beforeEach(() => {
     vi.stubGlobal('useRuntimeConfig', () => ({
-      public: { apiUrl: 'http://localhost:8000' },
+      public: { apiUrl: 'http://127.0.0.1:8000' },
     }))
     vi.stubGlobal('$fetch', fetchMock)
   })
@@ -62,7 +62,7 @@ describe('useApi.listRecentPapers', () => {
 
   beforeEach(() => {
     vi.stubGlobal('useRuntimeConfig', () => ({
-      public: { apiUrl: 'http://localhost:8000' },
+      public: { apiUrl: 'http://127.0.0.1:8000' },
     }))
     vi.stubGlobal('$fetch', fetchMock)
   })
@@ -112,7 +112,7 @@ describe('useApi.collections', () => {
 
   beforeEach(() => {
     vi.stubGlobal('useRuntimeConfig', () => ({
-      public: { apiUrl: 'http://localhost:8000' },
+      public: { apiUrl: 'http://127.0.0.1:8000' },
     }))
     vi.stubGlobal('$fetch', fetchMock)
   })
@@ -174,5 +174,29 @@ describe('useApi.collections', () => {
       headers: { 'Content-Type': 'application/json' },
     }))
     expect(result).toEqual(response)
+  })
+
+  it('fetches collection detail, collection papers, and researcher profile endpoints', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ id: 'collection-3', name: 'Detail' })
+      .mockResolvedValueOnce([{ paper_id: 'paper-9', title: 'Mapped Paper' }])
+      .mockResolvedValueOnce({ id: 'author-1', display_name: 'Ada Researcher' })
+
+    const api = useApi()
+    const collection = await api.getCollection('collection-3')
+    const papers = await api.getCollectionPapers('collection-3')
+    const profile = await api.getResearcherProfile('author-1')
+
+    expect(new URL(fetchMock.mock.calls[0]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-3')
+    expect(new URL(fetchMock.mock.calls[1]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-3/papers')
+    expect(new URL(fetchMock.mock.calls[2]?.[0] as string).pathname)
+      .toBe('/api/v1/researchers/author-1/profile')
+    expect(collection).toEqual({ id: 'collection-3', name: 'Detail' })
+    expect(papers).toEqual({
+      papers: [{ paper_id: 'paper-9', title: 'Mapped Paper', id: 'paper-9' }],
+    })
+    expect(profile).toEqual({ id: 'author-1', display_name: 'Ada Researcher' })
   })
 })

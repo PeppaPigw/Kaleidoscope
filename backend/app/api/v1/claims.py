@@ -40,6 +40,44 @@ async def list_claims(
     return {"paper_id": paper_id, "claims": await svc.list_claims(paper_id)}
 
 
+@router.get("/stats")
+async def claims_stats(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return aggregate claim statistics for the evidence lab header."""
+    from collections import Counter
+
+    from sqlalchemy import func, select
+
+    from app.models.claim import Claim, EvidenceLink
+
+    total = await db.scalar(select(func.count()).select_from(Claim))
+    rows = await db.execute(
+        select(Claim.id, EvidenceLink.is_sufficient).outerjoin(
+            EvidenceLink,
+            EvidenceLink.claim_id == Claim.id,
+        )
+    )
+
+    claim_flags: dict[str, list[bool | None]] = {}
+    for claim_id, is_sufficient in rows:
+        claim_flags.setdefault(str(claim_id), []).append(is_sufficient)
+
+    by_status = Counter()
+    for flags in claim_flags.values():
+        if any(flag is False for flag in flags):
+            by_status["disputed"] += 1
+        elif any(flag is True for flag in flags):
+            by_status["verified"] += 1
+        else:
+            by_status["unverified"] += 1
+
+    return {
+        "total_claims": total or 0,
+        "by_status": dict(by_status),
+    }
+
+
 @router.post("/papers/{paper_id}/assess")
 async def assess_evidence(
     paper_id: str,

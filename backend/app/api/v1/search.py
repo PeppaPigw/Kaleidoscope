@@ -79,6 +79,35 @@ async def search_papers(
         page=page,
         per_page=per_page,
         query=q,
-        mode=mode,
+        mode=result.get("mode", mode),
+        mode_used=result.get("mode_used", result.get("mode", mode)),
         processing_time_ms=result.get("processing_time_ms", 0.0),
     )
+
+
+@router.get("/health")
+async def search_health():
+    """Check availability of search backend services."""
+    status = {
+        "keyword": "unknown",
+        "semantic": "unknown",
+        "degraded_mode": False,
+    }
+
+    try:
+        _hybrid_service.keyword.health_check()
+        status["keyword"] = "ok"
+    except Exception:
+        status["keyword"] = "unavailable"
+
+    try:
+        _hybrid_service.vector.health_check()
+        status["semantic"] = "ok"
+    except Exception:
+        status["semantic"] = "unavailable"
+
+    status["degraded_mode"] = not (
+        status["keyword"] == "ok" and status["semantic"] == "ok"
+    )
+
+    return status

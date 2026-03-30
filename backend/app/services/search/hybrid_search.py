@@ -53,43 +53,96 @@ class HybridSearchService:
         start = time.monotonic()
 
         if mode == "keyword":
-            result = self.keyword.search(query, filters, page, per_page, sort_by, order)
-            result["mode"] = "keyword"
-            return result
+            try:
+                result = self.keyword.search(query, filters, page, per_page, sort_by, order)
+                result["mode"] = "keyword"
+                result["mode_used"] = "keyword"
+                return result
+            except Exception as exc:
+                logger.error("keyword_search_failed", error=str(exc)[:200])
+                return {
+                    "hits": [],
+                    "total": 0,
+                    "page": page,
+                    "per_page": per_page,
+                    "mode": "degraded",
+                    "mode_used": "degraded",
+                    "processing_time_ms": 0.0,
+                }
 
         if mode == "semantic":
-            vector_results = self.vector.search(query, top_k=per_page * page, filters=filters)
-            # Paginate vector results
-            start_idx = (page - 1) * per_page
-            page_results = vector_results[start_idx : start_idx + per_page]
+            try:
+                vector_results = self.vector.search(query, top_k=per_page * page, filters=filters)
+                start_idx = (page - 1) * per_page
+                page_results = vector_results[start_idx : start_idx + per_page]
 
+                return {
+                    "hits": [
+                        {
+                            "paper_id": r["paper_id"],
+                            "score": r["score"],
+                            "title": r.get("payload", {}).get("title", ""),
+                            **{k: v for k, v in (r.get("payload") or {}).items() if k != "paper_id"},
+                        }
+                        for r in page_results
+                    ],
+                    "total": len(vector_results),
+                    "page": page,
+                    "per_page": per_page,
+                    "mode": "semantic",
+                    "mode_used": "semantic",
+                    "processing_time_ms": (time.monotonic() - start) * 1000,
+                }
+            except Exception as exc:
+                logger.error("semantic_search_failed", error=str(exc)[:200])
+                return {
+                    "hits": [],
+                    "total": 0,
+                    "page": page,
+                    "per_page": per_page,
+                    "mode": "degraded",
+                    "mode_used": "degraded",
+                    "processing_time_ms": 0.0,
+                }
+
+        # --- Hybrid mode: RRF fusion ---
+        fetch_size = per_page * 3
+
+        kw_hits = []
+        kw_ok = False
+        try:
+            kw_result = self.keyword.search(query, filters, 1, fetch_size, sort_by=None, order="desc")
+            kw_hits = kw_result.get("hits", [])
+            kw_ok = True
+        except Exception as exc:
+            logger.warning("hybrid_search_keyword_failed", error=str(exc)[:200])
+
+        vec_hits = []
+        vec_ok = False
+        try:
+            vec_hits = self.vector.search(query, top_k=fetch_size, filters=filters)
+            vec_ok = True
+        except Exception as exc:
+            logger.warning("hybrid_search_vector_failed", error=str(exc)[:200])
+
+        if not kw_ok and not vec_ok:
+            logger.error("hybrid_search_all_services_failed", query=query[:50])
             return {
-                "hits": [
-                    {
-                        "paper_id": r["paper_id"],
-                        "score": r["score"],
-                        "title": r.get("payload", {}).get("title", ""),
-                        **{k: v for k, v in (r.get("payload") or {}).items() if k != "paper_id"},
-                    }
-                    for r in page_results
-                ],
-                "total": len(vector_results),
+                "hits": [],
+                "total": 0,
                 "page": page,
                 "per_page": per_page,
-                "mode": "semantic",
+                "mode": "degraded",
+                "mode_used": "degraded",
                 "processing_time_ms": (time.monotonic() - start) * 1000,
             }
 
-        # --- Hybrid mode: RRF fusion ---
-        # Fetch more results than needed for better fusion
-        fetch_size = per_page * 3
-
-        # 1. Keyword search
-        kw_result = self.keyword.search(query, filters, 1, fetch_size, sort_by=None, order="desc")
-        kw_hits = kw_result.get("hits", [])
-
-        # 2. Vector search
-        vec_hits = self.vector.search(query, top_k=fetch_size, filters=filters)
+        if kw_ok and not vec_ok:
+            actual_mode = "keyword_fallback"
+        elif vec_ok and not kw_ok:
+            actual_mode = "semantic_fallback"
+        else:
+            actual_mode = "hybrid"
 
         # 3. RRF Fusion
         scores: dict[str, float] = {}
@@ -134,6 +187,7 @@ class HybridSearchService:
         logger.info(
             "hybrid_search_complete",
             query=query[:50],
+            mode_used=actual_mode,
             kw_hits=len(kw_hits),
             vec_hits=len(vec_hits),
             rrf_total=len(sorted_ids),
@@ -145,6 +199,7 @@ class HybridSearchService:
             "total": len(sorted_ids),
             "page": page,
             "per_page": per_page,
-            "mode": "hybrid",
+            "mode": actual_mode,
+            "mode_used": actual_mode,
             "processing_time_ms": elapsed,
         }

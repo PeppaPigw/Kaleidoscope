@@ -33,7 +33,51 @@ useHead({
   ],
 })
 
-// ─── Mock data ────────────────────────────────────────────────
+// ─── API state ─────────────────────────────────────────────────
+const recommendations = ref<RecommendedPaper[]>([])
+const venueItems = ref<VenueItem[]>([])
+const isLoadingRecs = ref(true)
+
+onMounted(async () => {
+  const { searchPapers, getAnalyticsCategories } = useApi()
+
+  // Fetch recent papers as discovery feed
+  try {
+    const result = await searchPapers('', { mode: 'keyword', per_page: 12 })
+    recommendations.value = (result.hits ?? []).map(h => ({
+      id: String(h.paper_id ?? ''),
+      eyebrow: String(h.venue ?? 'Research'),
+      title: String(h.title ?? 'Untitled'),
+      abstract: String(h.abstract ?? ''),
+      venue: `${h.venue ?? ''} ${h.published_at ? new Date(h.published_at).getFullYear() : ''}`.trim(),
+      score: Number(h.score ?? 0.8),
+      tags: [],
+      strong: Number(h.citation_count ?? 0) > 10,
+    }))
+  } catch {
+    recommendations.value = []
+  } finally {
+    isLoadingRecs.value = false
+  }
+
+  // Fetch top venues from analytics
+  try {
+    const cats = await getAnalyticsCategories(10)
+    venueItems.value = (cats.categories ?? []).map((c, i) => ({
+      id: `ven-${i}`,
+      name: c.name,
+      count: c.count,
+    }))
+  } catch {
+    venueItems.value = [
+      { id: 'ven-1', name: 'ACL 2025', count: 18 },
+      { id: 'ven-2', name: 'NeurIPS 2025', count: 14 },
+      { id: 'ven-3', name: 'Nature Machine Intelligence', count: 6 },
+    ]
+  }
+})
+
+// ─── Static scaffolding (not yet API-driven) ─────────────────
 const topicCovers: TopicCover[] = [
   {
     id: 'tc-1',
@@ -115,80 +159,9 @@ const facetGroups = ref<FacetGroup[]>([
   },
 ])
 
-const recommendations: RecommendedPaper[] = [
-  {
-    id: 'rec-1',
-    eyebrow: 'Evidence Rich',
-    title: 'ClaimMiner: Atomic Claim Extraction for Biomedical Papers with Evidence Alignment',
-    abstract:
-      'A pipeline for decomposing biomedical papers into atomic, verifiable claims linked to supporting evidence sentences.',
-    venue: 'EMNLP 2025',
-    score: 0.94,
-    tags: ['Code', 'Human eval'],
-    strong: true,
-  },
-  {
-    id: 'rec-2',
-    eyebrow: 'Benchmark',
-    title: 'RAGBench-Sci: Failure Modes of Citation-Grounded Retrieval',
-    abstract:
-      'Systematic analysis of where citation-grounded RAG fails: hallucinated citations, partial quotes, and context window overflow.',
-    venue: 'ACL 2025',
-    score: 0.89,
-    tags: ['Open data'],
-    strong: false,
-  },
-  {
-    id: 'rec-3',
-    eyebrow: 'Clinical',
-    title: 'MedJudge-External: Reassessing Medical QA with Hospital-held Data',
-    abstract:
-      'External validation study showing 60% of MedQA leaderboard gains disappear under hospital-held test sets.',
-    venue: 'Nature MI 2025',
-    score: 0.86,
-    tags: ['External eval'],
-    strong: true,
-  },
-  {
-    id: 'rec-4',
-    eyebrow: 'Agents',
-    title: 'ToolChain Scholar: Agents under Long-Context Constraints',
-    abstract:
-      'Evaluating tool-augmented scientific agents when context windows are constrained to 4K tokens.',
-    venue: 'NeurIPS 2025',
-    score: 0.81,
-    tags: ['Code'],
-    strong: false,
-  },
-  {
-    id: 'rec-5',
-    eyebrow: 'Survey',
-    title: 'Citation Graphs Meet Retrieval: A Comprehensive Survey',
-    abstract:
-      'A survey covering graph-augmented retrieval for academic search, covering 180+ papers from 2020-2025.',
-    venue: 'ACM Computing Surveys',
-    score: 0.78,
-    tags: [],
-    strong: false,
-  },
-  {
-    id: 'rec-6',
-    eyebrow: 'Negative Result',
-    title: 'When More Context Hurts: Failure Analysis for 128K Scientific QA',
-    abstract:
-      'Documenting systematic performance drops when scaling context beyond 32K tokens in scientific QA benchmarks.',
-    venue: 'EMNLP 2025 Findings',
-    score: 0.76,
-    tags: ['Reproducible'],
-    strong: false,
-  },
-]
 
-const venueItems: VenueItem[] = [
-  { id: 'ven-1', name: 'ACL 2025', count: 18 },
-  { id: 'ven-2', name: 'NeurIPS 2025', count: 14 },
-  { id: 'ven-3', name: 'Nature Machine Intelligence', count: 6 },
-]
+
+// venueItems: fetched in onMounted above
 
 const graphNodes: GraphNode[] = [
   { id: 'center', label: 'Citation-grounded agents', cx: 132, cy: 76, r: 10, type: 'primary' },

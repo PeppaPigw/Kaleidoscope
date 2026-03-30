@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 
+from fastapi import Request
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -38,13 +39,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-def get_current_user_id() -> str:
+def get_current_user_id(request: Request) -> str:
     """
-    FastAPI dependency: return the current user's ID.
+    FastAPI dependency: extract user ID from JWT Bearer token.
 
-    Currently returns the sentinel DEFAULT_USER_ID for single-user mode.
-    When auth is added, replace this with JWT/session extraction.
-    This is the SINGLE injection point for user identity across all APIs.
+    Falls back to DEFAULT_USER_ID in single-user / no-auth mode.
+    Set KALEIDOSCOPE_JWT_SECRET env var to enable real auth.
     """
+    from app.auth import decode_access_token
     from app.models.collection import DEFAULT_USER_ID
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[len("Bearer ") :]
+        user_id = decode_access_token(token)
+        if user_id:
+            return user_id
     return DEFAULT_USER_ID

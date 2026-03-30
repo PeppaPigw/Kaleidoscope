@@ -1,6 +1,6 @@
 """Server-Sent Events (SSE) stream for real-time paper notifications.
 
-Feature 42: SSE /events — push paper.indexed, alert.matched events to browser
+Feature 42: SSE /sse — push paper.indexed, alert.matched events to browser
 clients without requiring a WebSocket.
 """
 
@@ -22,7 +22,7 @@ from app.models.governance import AuditLog
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(prefix="/events", tags=["events"])
+router = APIRouter(prefix="/sse", tags=["events"])
 
 # ---------------------------------------------------------------------------
 # In-process event bus (single-worker deployments).
@@ -99,7 +99,7 @@ async def event_stream(
 
     Usage (JavaScript):
     ```js
-    const es = new EventSource('/api/v1/events');
+    const es = new EventSource('/api/v1/sse');
     es.onmessage = (e) => console.log(JSON.parse(e.data));
     ```
     """

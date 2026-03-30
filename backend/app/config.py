@@ -1,5 +1,6 @@
 """Application settings via pydantic-settings, loaded from .env."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     # --- Application ---
     app_name: str = "Kaleidoscope"
     debug: bool = False
+    # Override with KALEIDOSCOPE_ALLOWED_ORIGINS=http://app.example.com,http://localhost:3000
+    allowed_origins: list[str] = ["*"]
 
     # --- PostgreSQL ---
     database_url: str = "postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope"
@@ -62,6 +65,18 @@ class Settings(BaseSettings):
 
     # --- RSS ---
     rss_poll_interval_minutes: int = 30
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, value):
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return ["*"]
+            if raw.startswith("["):
+                return value
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        return value
 
 
 settings = Settings()

@@ -57,6 +57,19 @@ export interface SearchResponse {
   processing_time_ms: number
 }
 
+export interface HealthResponse {
+  status: string
+  version?: string
+  timestamp?: string
+  services?: Record<string, string>
+}
+
+export interface SearchHealthResponse {
+  keyword: string
+  semantic: string
+  degraded_mode: boolean
+}
+
 export interface RecentPaperQueueItem {
   id: string
   title: string
@@ -91,9 +104,9 @@ export interface PaperContent {
     paragraphs: string[]
   }>
   figures: Array<{
-    label?: string
+    figure_id?: string
     caption?: string
-    type?: string
+    image_url?: string
     page?: number
   }>
 }
@@ -147,6 +160,52 @@ export interface ImportStatusResponse {
   error_message?: string | null
 }
 
+export interface Comment {
+  id: string
+  paper_id: string
+  user_id: string
+  content: string
+  created_at: string
+}
+
+export interface Task {
+  id: string
+  title: string
+  description?: string
+  completed: boolean
+  created_at: string
+}
+
+export interface Alert {
+  id: string
+  title: string
+  message: string
+  is_read: boolean
+  created_at: string
+  alert_type?: string
+}
+
+export interface AlertRule {
+  id: string
+  name: string
+  condition: string
+  is_active: boolean
+}
+
+export interface GraphStats {
+  paper_count: number
+  citation_count: number
+  author_count: number
+}
+
+export interface ContradictionPair {
+  id: string
+  claimA: { id?: string, text: string, paper_id?: string, paper?: string, year?: number }
+  claimB: { id?: string, text: string, paper_id?: string, paper?: string, year?: number }
+  severity: 'high' | 'medium' | 'low'
+  resolved: boolean
+}
+
 // ─── Composable ────────────────────────────────────────────────
 
 export function useApi() {
@@ -160,13 +219,25 @@ export function useApi() {
     path: string,
     options: Parameters<typeof $fetch>[1] = {},
   ): Promise<T> {
+    const token = import.meta.client ? localStorage.getItem('ks_access_token') : null
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(token && token !== 'single-user-mode'
+        ? { Authorization: `Bearer ${token}` }
+        : {}),
+      ...((options.headers as Record<string, string> | undefined) ?? {}),
+    }
     return await $fetch<T>(`${baseUrl}${path}`, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     })
+  }
+
+  async function rawFetch<T>(
+    path: string,
+    options: Parameters<typeof $fetch>[1] = {},
+  ): Promise<T> {
+    return $fetch<T>(`${config.public.apiUrl}${path}`, options)
   }
 
   // ── Papers ──────────────────────────────────────────────────
@@ -249,6 +320,14 @@ export function useApi() {
     return apiFetch(`/search?${searchParams.toString()}`)
   }
 
+  async function getHealth(): Promise<HealthResponse> {
+    return rawFetch('/health')
+  }
+
+  async function getSearchHealth(): Promise<SearchHealthResponse> {
+    return rawFetch('/api/v1/search/health')
+  }
+
   // ── Collections ─────────────────────────────────────────────
 
   async function listCollections(): Promise<Collection[]> {
@@ -263,6 +342,23 @@ export function useApi() {
       method: 'POST',
       body: req,
     })
+  }
+
+  async function getCollection(collectionId: string): Promise<Collection> {
+    return apiFetch(`/collections/${collectionId}`)
+  }
+
+  async function getCollectionPapers(collectionId: string): Promise<{ papers: Paper[] }> {
+    const papers = await apiFetch<Array<Paper & { paper_id?: string }>>(
+      `/collections/${collectionId}/papers`,
+    )
+    return {
+      papers: papers.map(paper => ({ ...paper, id: paper.id || paper.paper_id || '' })),
+    }
+  }
+
+  async function getResearcherProfile(researcherId: string): Promise<unknown> {
+    return apiFetch(`/researchers/${researcherId}/profile`)
   }
 
   // ── Intelligence ────────────────────────────────────────────
@@ -294,6 +390,163 @@ export function useApi() {
     })
   }
 
+  // ── Trends & Claims ────────────────────────────────────────
+
+  async function getTrendingKeywords(limit = 10): Promise<{
+    keywords: Array<{
+      keyword: string
+      total_count: number
+      growth_rate: number
+      trend: string
+    }>
+  }> {
+    return apiFetch(`/trends/hot-keywords?limit=${limit}`)
+  }
+
+  async function getTrendTopics(limit = 20): Promise<{
+    topics: Array<{
+      id: string
+      label: string
+      keywords: string[]
+      paper_count: number
+      trend_direction: string
+    }>
+  }> {
+    return apiFetch(`/trends/topics?limit=${limit}`)
+  }
+
+  async function getClaimsStats(): Promise<{
+    total_claims: number
+    by_status: Record<string, number>
+  }> {
+    return apiFetch('/claims/stats')
+  }
+
+  function normalizeTask(task: {
+    id: string
+    title?: string
+    description?: string | null
+    completed?: boolean
+    created_at: string
+    task_type?: string
+    notes?: string | null
+    status?: string
+  }): Task {
+    return {
+      id: task.id,
+      title: task.title || task.task_type || 'Task',
+      description: task.description || task.notes || undefined,
+      completed: task.completed ?? task.status === 'done',
+      created_at: task.created_at,
+    }
+  }
+
+  async function getComments(paperId: string): Promise<{ comments: Comment[] }> {
+    const response = await apiFetch<{ comments?: Comment[] } | Comment[]>(
+      `/collaboration/comments/${paperId}`,
+    )
+    return { comments: Array.isArray(response) ? response : (response.comments ?? []) }
+  }
+
+  async function addComment(paperId: string, content: string): Promise<Comment> {
+    return apiFetch('/collaboration/comments', {
+      method: 'POST',
+      body: { paper_id: paperId, content },
+    })
+  }
+
+  async function listTasks(): Promise<{ tasks: Task[] }> {
+    const response = await apiFetch<{ tasks?: Task[] } | Task[]>(
+      '/collaboration/tasks',
+    )
+    const tasks = Array.isArray(response) ? response : (response.tasks ?? [])
+    return { tasks: tasks.map(normalizeTask) }
+  }
+
+  async function createTask(title: string, description?: string): Promise<Task> {
+    const task = await apiFetch<Task>('/collaboration/tasks', {
+      method: 'POST',
+      body: { title, description },
+    })
+    return normalizeTask(task)
+  }
+
+  async function completeTask(taskId: string): Promise<void> {
+    await apiFetch(`/collaboration/tasks/${taskId}/complete`, { method: 'PATCH' })
+  }
+
+  async function getAlerts(
+    unreadOnly = false,
+    limit = 50,
+  ): Promise<{ alerts: Alert[]; unread_count: number }> {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (unreadOnly) query.set('unread', 'true')
+    const response = await apiFetch<{
+      alerts: Array<Alert & { body?: string }>
+      unread_count?: number
+    }>(`/alerts?${query.toString()}`)
+    return {
+      unread_count: response.unread_count ?? 0,
+      alerts: (response.alerts ?? []).map(alert => ({
+        ...alert,
+        message: alert.message || alert.body || '',
+      })),
+    }
+  }
+
+  async function createAlertRule(input: {
+    name: string
+    keywords: string[]
+  }): Promise<AlertRule> {
+    const rule = await apiFetch<AlertRule & { condition: unknown }>('/alerts/rules', {
+      method: 'POST',
+      body: {
+        name: input.name,
+        rule_type: 'keyword_match',
+        condition: { keywords: input.keywords },
+        actions: ['in_app'],
+      },
+    })
+    return {
+      ...rule,
+      condition: typeof rule.condition === 'string'
+        ? rule.condition
+        : JSON.stringify(rule.condition ?? {}),
+    }
+  }
+
+  async function getGraphStats(): Promise<GraphStats> {
+    return apiFetch('/graph/stats')
+  }
+
+  async function markAlertRead(alertId: string): Promise<void> {
+    await apiFetch(`/alerts/${alertId}/read`, { method: 'PATCH' })
+  }
+
+  async function markAllAlertsRead(): Promise<void> {
+    await apiFetch('/alerts/mark-all-read', { method: 'POST' })
+  }
+
+  async function getAlertRules(): Promise<{ rules: AlertRule[] }> {
+    const response = await apiFetch<{ rules: Array<AlertRule & { condition: unknown }> }>(
+      '/alerts/rules',
+    )
+    return {
+      rules: (response.rules ?? []).map(rule => ({
+        ...rule,
+        condition: typeof rule.condition === 'string'
+          ? rule.condition
+          : JSON.stringify(rule.condition ?? {}),
+      })),
+    }
+  }
+
+  async function getContradictions(
+    limit = 20,
+  ): Promise<{ contradictions: ContradictionPair[] }> {
+    return apiFetch(`/cross-paper/contradictions?limit=${limit}`)
+  }
+
   // ── Analytics ───────────────────────────────────────────────
 
   async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
@@ -321,6 +574,7 @@ export function useApi() {
   }
 
   return {
+    rawFetch,
     // Papers
     listPapers,
     getPaper,
@@ -333,14 +587,38 @@ export function useApi() {
     getImportStatus,
     // Search
     searchPapers,
+    getHealth,
+    getSearchHealth,
     // Collections
     listCollections,
     createCollection,
+    getCollection,
+    getCollectionPapers,
+    getResearcherProfile,
     // Intelligence
     getPaperHighlights,
     getSimilarPapers,
     summarizePaper,
     askAboutPaper,
+    // Trends & Claims
+    getTrendingKeywords,
+    getTrendTopics,
+    getClaimsStats,
+    // Collaboration
+    getComments,
+    addComment,
+    listTasks,
+    createTask,
+    completeTask,
+    // Alerts
+    getAlerts,
+    createAlertRule,
+    markAlertRead,
+    markAllAlertsRead,
+    getAlertRules,
+    getGraphStats,
+    // Cross-paper
+    getContradictions,
     // Analytics
     getAnalyticsOverview,
     getAnalyticsTimeline,

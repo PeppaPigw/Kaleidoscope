@@ -148,3 +148,7 @@ class KeywordSearchService:
         self._ensure_index()
         index = self.client.index(PAPERS_INDEX)
         index.delete_document(paper_id)
+
+    def health_check(self) -> None:
+        """Perform a lightweight Meilisearch connectivity check."""
+        self.client.health()

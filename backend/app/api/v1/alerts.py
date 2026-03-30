@@ -124,12 +124,14 @@ async def delete_alert_rule(
 async def list_alerts(
     limit: int = Query(50, ge=1, le=200),
     unread_only: bool = Query(False),
+    unread: bool | None = Query(None, alias="unread"),
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """List alerts/notifications for the current user."""
     svc = AlertService(db, user_id)
-    alerts = await svc.list_alerts(limit=limit, unread_only=unread_only)
+    only_unread = unread if unread is not None else unread_only
+    alerts = await svc.list_alerts(limit=limit, unread_only=only_unread)
     unread_count = await svc.get_unread_count()
     return {"alerts": alerts, "unread_count": unread_count}
 

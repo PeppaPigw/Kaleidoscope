@@ -240,3 +240,7 @@ class VectorSearchService:
             points=points,
         )
         logger.info("qdrant_batch_indexed", count=len(points))
+
+    def health_check(self) -> None:
+        """Perform a lightweight Qdrant connectivity check."""
+        self.client.get_collections()

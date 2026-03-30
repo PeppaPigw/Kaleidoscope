@@ -9,23 +9,43 @@ import type { NoteCard } from '~/components/knowledge/NoteWall.vue'
 definePageMeta({ layout: 'default' })
 
 const { t } = useTranslation()
+const { getAnalyticsKeywordCloud } = useApi()
 
 useHead({
   title: 'Knowledge Garden — Kaleidoscope',
   meta: [{ name: 'description', content: 'Organize research notes, concepts, and learning materials.' }],
 })
 
-const notes = ref<NoteCard[]>([
+const MANUAL_NOTES: NoteCard[] = [
   { id: 'n1', title: 'Atomic Claims vs. Paragraphs', excerpt: 'Key insight: decomposing at the claim level provides finer-grained evidence alignment, but introduces complexity in maintaining coherence across decomposed units. The trade-off between granularity and semantic completeness is central to effective claim extraction pipelines.', tags: ['claims', 'RAG'], backlinkCount: 5, updatedAt: '2h ago' },
   { id: 'n2', title: 'NLI Filtering Pipeline', excerpt: 'NLI (Natural Language Inference) can be used as a post-processing step to filter out claims that are contradicted or not entailed by the original text. This reduces noise by approximately 34% in decomposition pipelines, improving downstream retrieval precision significantly.', tags: ['NLI', 'pipeline'], backlinkCount: 3, updatedAt: '1d ago' },
   { id: 'n3', title: 'BioASQ Benchmark Notes', excerpt: 'BioASQ provides biomedical semantic indexing and question answering data. The Claims extension adds 12K manually annotated atomic claims across 256 biomedical papers. Performance on this benchmark correlates well with downstream RAG quality metrics.', tags: ['benchmark', 'biomedical'], backlinkCount: 7, updatedAt: '3d ago' },
   { id: 'n4', title: 'Cross-Domain Transfer Limitations', excerpt: 'Current models trained on biomedical text show significant performance drops when applied to legal or financial domains. Fine-tuning helps but requires domain-specific claim annotation data that is expensive to produce.', tags: ['transfer', 'limitations'], backlinkCount: 2, updatedAt: '5d ago' },
   { id: 'n5', title: 'Hallucination in RAG Systems', excerpt: 'Claim-level retrieval can reduce hallucination by providing more targeted evidence, but may introduce retrieval noise when claims are decontextualized. A balanced approach uses both paragraph-level and claim-level retrieval.', tags: ['hallucination', 'safety'], backlinkCount: 4, updatedAt: '1w ago' },
   { id: 'n6', title: 'SciBERT Architecture', excerpt: 'SciBERT builds on BERT with pre-training on 1.14M scientific papers from Semantic Scholar, using a domain-specific vocabulary of 30K tokens. It achieves improvements over BERT on scientific NLP tasks including NER, relation extraction, and claim verification.', tags: ['model', 'BERT'], backlinkCount: 6, updatedAt: '2w ago' },
-])
+]
+
+const notes = ref<NoteCard[]>([...MANUAL_NOTES])
 
 const selectedNote = ref<NoteCard | null>(null)
 const showDrawer = ref(false)
+
+onMounted(async () => {
+  try {
+    const keywordData = await getAnalyticsKeywordCloud(12)
+    const apiNotes: NoteCard[] = keywordData.keywords.map(k => ({
+      id: `kw-${k.keyword}`,
+      title: k.keyword,
+      excerpt: `Found in ${k.count} papers in your library. Click to search related papers.`,
+      tags: ['auto', 'keyword'],
+      backlinkCount: k.count,
+      updatedAt: 'from library',
+    }))
+    notes.value = [...apiNotes, ...MANUAL_NOTES]
+  } catch {
+    notes.value = [...MANUAL_NOTES]
+  }
+})
 
 function handleNoteClick(note: NoteCard) {
   selectedNote.value = note
@@ -283,4 +303,3 @@ function getLinkedNotes(note: NoteCard): string[] {
   opacity: 0;
 }
 </style>
-

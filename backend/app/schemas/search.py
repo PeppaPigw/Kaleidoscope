@@ -56,4 +56,5 @@ class SearchResponse(BaseModel):
     per_page: int
     query: str
     mode: str
+    mode_used: str | None = None
     processing_time_ms: float

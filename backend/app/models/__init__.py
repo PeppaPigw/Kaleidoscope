@@ -17,6 +17,7 @@ from app.models.knowledge import Annotation, GlossaryTerm, KnowledgeCard, Readin
 from app.models.knowledge_graph import ReadingPathCache
 from app.models.paper import MetadataProvenance, Paper, PaperReference, PaperVersion
 from app.models.topic import PaperTopic, Topic
+from app.models.user import User, UserRole
 from app.models.venue import Venue
 
 __all__ = [
@@ -38,6 +39,8 @@ __all__ = [
     # P2 models
     "Topic",
     "PaperTopic",
+    "User",
+    "UserRole",
     "AlertRule",
     "Alert",
     "Digest",

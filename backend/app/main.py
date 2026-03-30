@@ -1,9 +1,11 @@
 """FastAPI application factory with middleware, exception handlers, and router registration."""
 
+import time as _time
 from datetime import datetime, timezone
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException as FastAPIHTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -34,11 +36,36 @@ def create_app() -> FastAPI:
     # --- CORS ---
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # TODO: Restrict in production
+        allow_origins=getattr(settings, "allowed_origins", ["*"]),
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = _time.monotonic()
+        response = await call_next(request)
+        elapsed = _time.monotonic() - start
+        elapsed_ms = elapsed * 1000
+        if elapsed > 5.0:
+            route_path = request.scope.get("path", "")
+            if "reparse" in route_path or "graph" in route_path:
+                logger.warning(
+                    "slow_operation_detected",
+                    path=route_path,
+                    elapsed_s=round(elapsed, 2),
+                    method=request.method,
+                )
+        if not request.url.path.startswith("/health"):
+            logger.info(
+                "http_request",
+                method=request.method,
+                path=request.url.path,
+                status=response.status_code,
+                duration_ms=f"{elapsed_ms:.1f}",
+            )
+        return response
 
     # --- Exception Handlers ---
 
@@ -85,7 +112,45 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.exception_handler(FastAPIHTTPException)
+    async def http_exception_handler(request: Request, exc: FastAPIHTTPException):
+        if isinstance(exc.detail, dict):
+            detail = exc.detail
+            content = {
+                "code": detail.get("code", f"HTTP_{exc.status_code}"),
+                "message": detail.get("message")
+                or detail.get("detail")
+                or "An error occurred.",
+            }
+            for key, value in detail.items():
+                if key not in {"code", "message"}:
+                    content[key] = value
+        else:
+            content = {
+                "code": f"HTTP_{exc.status_code}",
+                "message": str(exc.detail) if exc.detail else "An error occurred.",
+            }
+        return JSONResponse(status_code=exc.status_code, content=content)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
+        errors = exc.errors()
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "VALIDATION_ERROR",
+                "message": "Request validation failed.",
+                "details": [
+                    {"field": ".".join(str(l) for l in e["loc"]), "msg": e["msg"]}
+                    for e in errors
+                ],
+            },
+        )
+
     # --- Register Routers ---
+    from app.api.v1.imports import router as imports_router
     from app.api.v1.papers import router as papers_router
     from app.api.v1.search import router as search_router
     from app.api.v1.feeds import router as feeds_router
@@ -110,8 +175,10 @@ def create_app() -> FastAPI:
     from app.api.v1.knowledge_ext import router as knowledge_ext_router
     from app.api.v1.quality import router as quality_router
     from app.api.v1.researchers import router as researchers_router
+    from app.api.v1.auth import router as auth_router
 
     app.include_router(papers_router, prefix="/api/v1")
+    app.include_router(imports_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(feeds_router, prefix="/api/v1")
     app.include_router(collections_router, prefix="/api/v1")
@@ -127,6 +194,7 @@ def create_app() -> FastAPI:
     app.include_router(trend_ext_router, prefix="/api/v1")
     app.include_router(writing_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
+    app.include_router(auth_router, prefix="/api/v1")
     # P3 routers
     app.include_router(claims_router, prefix="/api/v1")
     app.include_router(cross_paper_router, prefix="/api/v1")

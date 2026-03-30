@@ -4,29 +4,53 @@
  */
 import type { BurstTopic } from '~/components/graph/BurstMoments.vue'
 import type { Opportunity } from '~/components/graph/OpportunityLens.vue'
+import type { GraphStats } from '~/composables/useApi'
 
 definePageMeta({ layout: 'default' })
 
 const { t } = useTranslation()
+const { getTrendingKeywords, getGraphStats } = useApi()
 
 useHead({
   title: 'Insights Landscape — Kaleidoscope',
   meta: [{ name: 'description', content: 'Research trends, burst detection, and opportunity analysis.' }],
 })
 
-const burstTopics: BurstTopic[] = [
-  { id: 'b1', topic: 'Atomic Claim Extraction', paperCount: 34, growth: 280, period: 'Q4 2024–Q1 2025', trending: true },
-  { id: 'b2', topic: 'Retrieval-Augmented Generation', paperCount: 412, growth: 85, period: '2024', trending: true },
-  { id: 'b3', topic: 'Scientific Fact Verification', paperCount: 67, growth: 45, period: '2024–2025', trending: false },
-  { id: 'b4', topic: 'Long-Context LLM Failures', paperCount: 28, growth: 190, period: 'Q1 2025', trending: true },
-  { id: 'b5', topic: 'Biomedical Knowledge Graphs', paperCount: 156, growth: 12, period: '2024', trending: false },
-]
+const burstTopics = ref<BurstTopic[]>([])
+const graphStats = ref<GraphStats | null>(null)
+const isLoading = ref(true)
+const loadError = ref(false)
 
+// Static until a dedicated opportunities endpoint exists.
 const opportunities: Opportunity[] = [
   { id: 'o1', title: 'Claim-Level RAG for Legal Documents', description: 'While claim extraction has been proven for biomedical text, legal domain remains largely unexplored despite similar structural properties.', gapType: 'unexplored', relevantPapers: 8, confidence: 0.87 },
   { id: 'o2', title: 'Multi-Lingual Claim Extraction', description: 'Current methods are English-only. Cross-lingual claim decomposition could unlock access to non-English scientific literature.', gapType: 'underdeveloped', relevantPapers: 3, confidence: 0.79 },
   { id: 'o3', title: 'Long-Context vs. Atomic Retrieval', description: 'Contradictory findings on whether finer granularity always helps — systematic comparison needed.', gapType: 'contradictory', relevantPapers: 12, confidence: 0.92 },
 ]
+
+onMounted(async () => {
+  try {
+    const keywordData = await getTrendingKeywords(10)
+    burstTopics.value = keywordData.keywords.map(keyword => ({
+      id: keyword.keyword,
+      topic: keyword.keyword,
+      paperCount: keyword.total_count,
+      growth: Math.round(keyword.growth_rate * 100),
+      period: '2024–2025',
+      trending: keyword.trend === 'rising',
+    }))
+  } catch {
+    loadError.value = true
+  } finally {
+    isLoading.value = false
+  }
+
+  try {
+    graphStats.value = await getGraphStats()
+  } catch {
+    graphStats.value = null
+  }
+})
 
 function handleTopicClick(topic: BurstTopic) {
   navigateTo(`/search?topic=${encodeURIComponent(topic.topic)}`)
@@ -42,8 +66,26 @@ function handleOpportunityClick(opportunity: Opportunity) {
     <KsPageHeader :title="t('insights')" :subtitle="t('insightsSubtitle')" />
 
     <div class="ks-insights__content">
-      <GraphBurstMoments :topics="burstTopics" @topic-click="handleTopicClick" />
+      <div v-if="isLoading" class="ks-insights__state">
+        <KsSkeleton variant="paragraph" :lines="4" />
+      </div>
+      <KsEmptyState
+        v-else-if="loadError || !burstTopics.length"
+        title="Trend data is unavailable"
+        description="Hot keywords could not be loaded from the trends API right now."
+      />
+      <GraphBurstMoments v-else :topics="burstTopics" @topic-click="handleTopicClick" />
+
       <GraphOpportunityLens :opportunities="opportunities" @opportunity-click="handleOpportunityClick" />
+
+      <section v-if="graphStats" class="ks-card ks-insights__stats">
+        <span class="ks-type-eyebrow">Graph Stats</span>
+        <div class="ks-insights__stats-grid">
+          <span class="ks-type-data">Papers {{ graphStats.paper_count }}</span>
+          <span class="ks-type-data">Citations {{ graphStats.citation_count }}</span>
+          <span class="ks-type-data">Authors {{ graphStats.author_count }}</span>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -61,5 +103,21 @@ function handleOpportunityClick(opportunity: Opportunity) {
   display: flex;
   flex-direction: column;
   gap: 32px;
+}
+
+.ks-insights__state {
+  padding: 24px 0;
+}
+
+.ks-insights__stats {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.ks-insights__stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 </style>

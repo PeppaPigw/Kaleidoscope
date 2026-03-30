@@ -9,6 +9,7 @@ ensuring the downstream task always sees the updated row.
 import asyncio
 
 import structlog
+from celery.exceptions import MaxRetriesExceededError
 
 from app.worker import celery_app
 
@@ -86,6 +87,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
     """
     log = logger.bind(identifier=identifier, id_type=id_type, task_id=self.request.id)
     log.info("ingest_paper_start")
+    task_state: dict[str, str | None] = {"paper_id": None}
 
     async def _ingest():
         from app.dependencies import async_session_factory
@@ -160,6 +162,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
                     )
                     await session.commit()
                     paper_id = dedup_result.existing_paper_id
+                    task_state["paper_id"] = str(paper_id)
                     # Re-process: commit done, now safe to queue
                     acquire_fulltext.delay(paper_id)
                     return {"status": "restored", "paper_id": paper_id}
@@ -179,6 +182,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
             session.add(paper)
             await session.flush()  # Get the ID
             paper_id = str(paper.id)
+            task_state["paper_id"] = paper_id
 
             # ── 4. Enrich metadata ───────────────────────────────
             try:
@@ -210,7 +214,16 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
         return _run_async(_ingest())
     except Exception as exc:
         log.error("ingest_paper_failed", error=str(exc))
-        self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        try:
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        except MaxRetriesExceededError:
+            logger.error(
+                "ingest_failed_permanently",
+                task_id=self.request.id,
+                paper_id=task_state["paper_id"] or identifier,
+                error=str(exc),
+            )
+            raise
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -513,6 +526,12 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                 return {"status": "parsed", "parser": paper.parser_version}
 
             except Exception as e:
+                logger.warning(
+                    "parser_failure",
+                    paper_id=paper_id,
+                    stage=content_type,
+                    error=str(e),
+                )
                 log.error("parse_failed", error=str(e))
                 paper.ingestion_status = "parse_failed"
                 paper.ingestion_error = str(e)[:500]
@@ -732,6 +751,11 @@ def parse_via_mineru(self, paper_id: str, url: str, is_html: bool = False):
     try:
         return _run_async(_parse())
     except Exception as exc:
+        logger.warning(
+            "parser_failure",
+            paper_id=paper_id,
+            stage="mineru",
+            error=str(exc),
+        )
         log.error("parse_via_mineru_failed", error=str(exc))
         self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
-

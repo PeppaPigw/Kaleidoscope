@@ -3,7 +3,7 @@
 P3 WS-2: §20 (#165-176)
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,3 +82,81 @@ async def bridge_papers(
 
     svc = CrossPaperService(db)
     return {"papers": await svc.find_bridge_papers(req.paper_ids)}
+
+
+@router.get("/contradictions")
+async def find_contradictions(
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Find potentially contradicting claim pairs across papers."""
+    from sqlalchemy import select
+
+    from app.models.claim import Claim
+
+    stmt = select(Claim).limit(limit * 4)
+    result = await db.execute(stmt)
+    claims = result.scalars().all()
+
+    negation_terms = {
+        "not",
+        "no",
+        "never",
+        "fails",
+        "worse",
+        "lower",
+        "decreases",
+        "reduces",
+    }
+    positive_terms = {
+        "improves",
+        "better",
+        "higher",
+        "increases",
+        "achieves",
+        "outperforms",
+    }
+
+    contradictions: list[dict] = []
+    seen_pairs: set[tuple[str, str]] = set()
+
+    for index, claim_a in enumerate(claims):
+        for claim_b in claims[index + 1 :]:
+            if claim_a.paper_id == claim_b.paper_id:
+                continue
+            text_a = (claim_a.text or "").lower()
+            text_b = (claim_b.text or "").lower()
+            has_neg_a = any(term in text_a for term in negation_terms)
+            has_pos_a = any(term in text_a for term in positive_terms)
+            has_neg_b = any(term in text_b for term in negation_terms)
+            has_pos_b = any(term in text_b for term in positive_terms)
+            pair_key = tuple(sorted((str(claim_a.id), str(claim_b.id))))
+            if not ((has_pos_a and has_neg_b) or (has_neg_a and has_pos_b)):
+                continue
+            if pair_key in seen_pairs:
+                continue
+
+            seen_pairs.add(pair_key)
+            contradictions.append(
+                {
+                    "id": f"contra-{len(contradictions) + 1}",
+                    "claimA": {
+                        "id": str(claim_a.id),
+                        "text": claim_a.text or "",
+                        "paper_id": str(claim_a.paper_id),
+                    },
+                    "claimB": {
+                        "id": str(claim_b.id),
+                        "text": claim_b.text or "",
+                        "paper_id": str(claim_b.paper_id),
+                    },
+                    "severity": "high" if (has_neg_a or has_neg_b) else "medium",
+                    "resolved": False,
+                }
+            )
+            if len(contradictions) >= limit:
+                break
+        if len(contradictions) >= limit:
+            break
+
+    return {"contradictions": contradictions, "total": len(contradictions)}

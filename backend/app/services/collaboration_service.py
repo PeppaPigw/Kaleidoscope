@@ -161,6 +161,9 @@ class CollaborationService:
         return {
             "id": str(t.id),
             "paper_id": str(t.paper_id),
+            "title": t.task_type,
+            "description": t.notes,
+            "completed": t.status == "done",
             "task_type": t.task_type,
             "status": t.status,
             "priority": t.priority,

@@ -110,6 +110,7 @@ class AlertService:
                 "id": str(a.id),
                 "alert_type": a.alert_type,
                 "title": a.title,
+                "message": a.body,
                 "body": a.body,
                 "is_read": a.is_read,
                 "paper_id": str(a.paper_id) if a.paper_id else None,

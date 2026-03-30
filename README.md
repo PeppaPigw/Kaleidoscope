@@ -88,8 +88,6 @@ Kaleidoscope/
 │   └── package.json
 │
 ├── docs/                       # Project documentation
-│   ├── design/                 # UI/UX design specs (5 rounds)
-│   └── memo/                   # Feasibility analysis, feature specs
 │
 ├── docker-compose.yml          # → backend/docker/docker-compose.yml
 ├── Makefile                    # Development shortcuts
@@ -150,15 +148,15 @@ python -m app.scripts.seed_feeds     # Load 65 RSS feed sources
 
 ## Makefile Commands
 
-| Command | Description |
-|---------|-------------|
-| `make dev` | Start backend + frontend in parallel |
-| `make infra` | Docker compose up (all services) |
-| `make seed` | Run arXiv seeder (50 papers) |
-| `make migrate` | Run Alembic migrations |
-| `make lint` | Lint backend (ruff) + frontend (eslint) |
-| `make test` | Run all tests |
-| `make clean` | Remove caches and build artifacts |
+| Command        | Description                             |
+| -------------- | --------------------------------------- |
+| `make dev`     | Start backend + frontend in parallel    |
+| `make infra`   | Docker compose up (all services)        |
+| `make seed`    | Run arXiv seeder (50 papers)            |
+| `make migrate` | Run Alembic migrations                  |
+| `make lint`    | Lint backend (ruff) + frontend (eslint) |
+| `make test`    | Run all tests                           |
+| `make clean`   | Remove caches and build artifacts       |
 
 ---
 
@@ -166,16 +164,16 @@ python -m app.scripts.seed_feeds     # Load 65 RSS feed sources
 
 All endpoints are under `/api/v1/`. Key groups:
 
-| Group | Prefix | Description |
-|-------|--------|-------------|
-| Papers | `/papers` | CRUD, search, content retrieval |
-| Content | `/papers/{id}/content` | Markdown reader data |
-| Analytics | `/analytics` | Library statistics & insights |
-| Collections | `/collections` | Paper organization |
-| Search | `/search` | Multi-modal search |
-| Knowledge | `/knowledge` | Note graph |
-| Feeds | `/feeds` | RSS management |
-| Intelligence | `/intelligence` | AI-powered insights |
+| Group        | Prefix                 | Description                     |
+| ------------ | ---------------------- | ------------------------------- |
+| Papers       | `/papers`              | CRUD, search, content retrieval |
+| Content      | `/papers/{id}/content` | Markdown reader data            |
+| Analytics    | `/analytics`           | Library statistics & insights   |
+| Collections  | `/collections`         | Paper organization              |
+| Search       | `/search`              | Multi-modal search              |
+| Knowledge    | `/knowledge`           | Note graph                      |
+| Feeds        | `/feeds`               | RSS management                  |
+| Intelligence | `/intelligence`        | AI-powered insights             |
 
 Interactive docs available at `http://localhost:8000/docs` when backend is running.
 
@@ -183,16 +181,16 @@ Interactive docs available at `http://localhost:8000/docs` when backend is runni
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Nuxt 3, Vue 3, TypeScript, Lucide Icons, GSAP |
-| Backend | FastAPI, SQLAlchemy 2, Celery, Pydantic v2 |
-| Database | PostgreSQL 16, Redis 7 |
-| Search | Meilisearch, Qdrant (vector) |
-| Graph | Neo4j 5 |
-| Storage | MinIO (S3-compatible) |
-| PDF Parser | GROBID, MinerU API |
-| AI | LLM integration (configurable endpoint) |
+| Layer      | Technology                                    |
+| ---------- | --------------------------------------------- |
+| Frontend   | Nuxt 3, Vue 3, TypeScript, Lucide Icons, GSAP |
+| Backend    | FastAPI, SQLAlchemy 2, Celery, Pydantic v2    |
+| Database   | PostgreSQL 16, Redis 7                        |
+| Search     | Meilisearch, Qdrant (vector)                  |
+| Graph      | Neo4j 5                                       |
+| Storage    | MinIO (S3-compatible)                         |
+| PDF Parser | GROBID, MinerU API                            |
+| AI         | LLM integration (configurable endpoint)       |
 
 ---
 

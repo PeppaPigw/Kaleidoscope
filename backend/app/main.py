@@ -1,7 +1,7 @@
 """FastAPI application factory with middleware, exception handlers, and router registration."""
 
 import time as _time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import FastAPI, Request
@@ -143,7 +143,7 @@ def create_app() -> FastAPI:
                 "code": "VALIDATION_ERROR",
                 "message": "Request validation failed.",
                 "details": [
-                    {"field": ".".join(str(l) for l in e["loc"]), "msg": e["msg"]}
+                    {"field": ".".join(str(loc) for loc in e["loc"]), "msg": e["msg"]}
                     for e in errors
                 ],
             },
@@ -163,6 +163,7 @@ def create_app() -> FastAPI:
     from app.api.v1.filters import router as filters_router
     from app.api.v1.local_pdf import router as local_pdf_router
     from app.api.v1.analysis import router as analysis_router
+    from app.api.v1 import ragflow as ragflow_router
     from app.api.v1.trends import router as trends_router
     from app.api.v1.trend_ext import router as trend_ext_router
     from app.api.v1.writing import router as writing_router
@@ -190,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(filters_router, prefix="/api/v1")
     app.include_router(local_pdf_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
+    app.include_router(ragflow_router.router, prefix="/api/v1")
     app.include_router(trends_router, prefix="/api/v1")
     app.include_router(trend_ext_router, prefix="/api/v1")
     app.include_router(writing_router, prefix="/api/v1")
@@ -220,6 +222,9 @@ def create_app() -> FastAPI:
     from app.api.v1.sse import router as sse_router
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(sse_router, prefix="/api/v1")
+    # RAGFlow evaluation / observability
+    from app.api.v1.evaluation import router as eval_router
+    app.include_router(eval_router, prefix="/api/v1")
 
     # --- Health Check ---
 
@@ -229,7 +234,7 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "version": "1.0.0",
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "services": {
                 "database": "unknown",
             },

@@ -46,7 +46,9 @@ def get_current_user_id(request: Request) -> str:
     Falls back to DEFAULT_USER_ID in single-user / no-auth mode.
     Set KALEIDOSCOPE_JWT_SECRET env var to enable real auth.
     """
-    from app.auth import decode_access_token
+    from fastapi import HTTPException
+
+    from app.auth import JWT_SECRET, decode_access_token
     from app.models.collection import DEFAULT_USER_ID
 
     auth_header = request.headers.get("Authorization", "")
@@ -55,4 +57,8 @@ def get_current_user_id(request: Request) -> str:
         user_id = decode_access_token(token)
         if user_id:
             return user_id
+        if JWT_SECRET:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if JWT_SECRET:
+        raise HTTPException(status_code=401, detail="Authentication required")
     return DEFAULT_USER_ID

@@ -8,6 +8,11 @@ celery_app = Celery(
     "kaleidoscope",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
+    include=[
+        "app.tasks.graph_tasks",
+        "app.tasks.ingest_tasks",
+        "app.services.ragflow.ragflow_sync_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -19,11 +24,17 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,  # Acknowledge after completion (not before)
     worker_prefetch_multiplier=1,  # One task at a time per worker
+    imports=(
+        "app.tasks.graph_tasks",
+        "app.tasks.ingest_tasks",
+        "app.services.ragflow.ragflow_sync_tasks",
+    ),
     # Task routing
     task_routes={
         "app.tasks.ingest_tasks.*": {"queue": "ingestion"},
         "app.tasks.parse_tasks.*": {"queue": "parsing"},
         "app.tasks.index_tasks.*": {"queue": "indexing"},
+        "app.services.ragflow.ragflow_sync_tasks.*": {"queue": "ragflow"},
     },
     # Beat schedule for periodic tasks
     beat_schedule={

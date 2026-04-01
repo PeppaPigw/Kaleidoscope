@@ -14,9 +14,12 @@ export interface VenueItem {
 
 export interface VenueShelfProps {
   venues: VenueItem[]
+  title?: string
 }
 
-defineProps<VenueShelfProps>()
+const props = withDefaults(defineProps<VenueShelfProps>(), {
+  title: 'Top Venues',
+})
 
 defineEmits<{
   'venue-click': [venue: VenueItem]
@@ -30,7 +33,7 @@ const uid = useId()
     class="ks-venue-shelf ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-2"
     :aria-labelledby="`${uid}-title`"
   >
-    <h4 :id="`${uid}-title`" class="ks-type-section-title">Top Venues</h4>
+    <h4 :id="`${uid}-title`" class="ks-type-section-title">{{ props.title }}</h4>
     <ul class="ks-venue-shelf__list">
       <li
         v-for="(v, i) in venues"

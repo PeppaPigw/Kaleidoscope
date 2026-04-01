@@ -3,13 +3,26 @@
 P3 WS-2: §20 (#165-176)
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 
 router = APIRouter(prefix="/cross-paper", tags=["cross-paper"])
+
+
+def _raise_cross_paper_error(result: dict) -> None:
+    error = result.get("error")
+    if not error:
+        return
+    detail = str(error)
+    if "not found" in detail.lower() or detail.lower() == "no papers found":
+        raise HTTPException(status_code=404, detail=detail)
+    raise HTTPException(
+        status_code=502,
+        detail=f"Cross-paper service error: {detail[:200]}",
+    )
 
 
 class SynthesisRequest(BaseModel):
@@ -40,7 +53,18 @@ async def synthesize(
 
     svc = CrossPaperService(db)
     try:
-        return await svc.synthesize(req.paper_ids, req.topic)
+        result = await svc.synthesize(req.paper_ids, req.topic)
+        _raise_cross_paper_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Cross-paper service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -55,7 +79,18 @@ async def build_timeline(
 
     svc = CrossPaperService(db)
     try:
-        return await svc.build_timeline(req.paper_ids)
+        result = await svc.build_timeline(req.paper_ids)
+        _raise_cross_paper_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Cross-paper service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 

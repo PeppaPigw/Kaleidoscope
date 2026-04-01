@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 from collections import Counter
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -261,6 +262,37 @@ async def test_keyword_cooccurrence_min_filter():
     edge_pairs = [(e["keyword_a"], e["keyword_b"]) for e in edges]
     assert ("a", "b") in edge_pairs
     assert ("a", "c") not in edge_pairs
+
+
+@pytest.mark.asyncio
+async def test_get_top_venues_endpoint_returns_ranked_venues(async_client):
+    from app.dependencies import get_db
+    from app.main import app
+
+    fake_rows = [
+        SimpleNamespace(name="NeurIPS", count=12),
+        SimpleNamespace(name="ICML", count=8),
+    ]
+
+    async def mock_db():
+        db = MagicMock()
+        db.execute = AsyncMock(return_value=SimpleNamespace(all=lambda: fake_rows))
+        yield db
+
+    app.dependency_overrides[get_db] = mock_db
+    try:
+        response = await async_client.get("/api/v1/analytics/venues?limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert data == {
+            "venues": [
+                {"name": "NeurIPS", "count": 12},
+                {"name": "ICML", "count": 8},
+            ],
+            "total": 2,
+        }
+    finally:
+        app.dependency_overrides.clear()
 
 
 # ─── ResearcherService unit tests ────────────────────────────────

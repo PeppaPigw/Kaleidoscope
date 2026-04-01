@@ -100,6 +100,13 @@ function handleEditRQ() {
       />
 
       <EvidenceContradictionsPanel :contradictions="contradictions" />
+
+      <section class="ks-card ks-evidence-lab__ragflow">
+        <span class="ks-type-eyebrow">RAGFlow Evidence Retrieval</span>
+        <RagflowQAPanel
+          placeholder="Search for evidence across your corpus..."
+        />
+      </section>
     </div>
   </div>
 </template>

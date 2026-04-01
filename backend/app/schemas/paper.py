@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Request Schemas ---
@@ -78,11 +78,12 @@ class PaperResponse(BaseModel):
     contributions: list[str] | None = None
     limitations: list[str] | None = None
     authors: list[AuthorBrief] = []
-    venue: VenueBrief | None = None
+    venue: str | None = None
+    raw_metadata: dict | None = None
     created_at: datetime
     updated_at: datetime | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaperBriefResponse(BaseModel):

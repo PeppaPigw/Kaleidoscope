@@ -26,6 +26,15 @@ const result = ref<{
 const showAdvanced = ref(false)
 let pollInterval: ReturnType<typeof setInterval> | null = null
 let pollCount = 0
+const TERMINAL_STATES = new Set([
+  'ready',
+  'error',
+  'indexed',
+  'index_partial',
+  'index_failed',
+  'parse_failed',
+  'parsed',
+])
 
 const isValidUrl = computed(() => {
   try {
@@ -66,11 +75,7 @@ async function pollStatus(paperId: string) {
       const status = await api.getImportStatus(paperId)
       importStatus.value = status.ingestion_status
       importError.value = status.error_message ?? null
-      if (
-        status.ingestion_status === 'ready' ||
-        status.ingestion_status === 'error' ||
-        pollCount >= 10
-      ) {
+      if (TERMINAL_STATES.has(status.ingestion_status) || pollCount >= 20) {
         clearPollInterval()
       }
     } catch {

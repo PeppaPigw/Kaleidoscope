@@ -1,5 +1,7 @@
 """Application settings via pydantic-settings, loaded from .env."""
 
+from typing import Any
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,7 +56,21 @@ class Settings(BaseSettings):
     wiley_token: str = ""
     springer_api_key: str = ""
     openai_api_key: str = ""
-    open_base_url: str = "https://api.openai.com/v1"
+    open_base_url: str = "https://api.openai.com/v1"  # legacy name kept for .env compat
+
+    # --- BLSC / OpenAI-compatible LLM API ---
+    llm_api_key: str = ""
+    llm_base_url: str = "https://llmapi.blsc.cn"
+    llm_model: str = "Qwen3-235B-A22B"
+    embed_model: str = "Doubao-Embedding-Large-Text"
+    rerank_model: str = "GLM-Rerank"
+
+    # --- RAGFlow Sidecar ---
+    ragflow_api_url: str = "http://localhost:9380"
+    ragflow_api_key: str = ""
+    ragflow_dataset_papers: str = ""
+    ragflow_sync_enabled: bool = False
+    ragflow_sync_freshness_minutes: int = 15
 
     # --- MinerU ---
     mineru_api_token: str = ""
@@ -68,13 +84,13 @@ class Settings(BaseSettings):
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
-    def parse_allowed_origins(cls, value):
+    def parse_allowed_origins(cls, value: Any) -> Any:
         if isinstance(value, str):
             raw = value.strip()
             if not raw:
                 return ["*"]
             if raw.startswith("["):
-                return value
+                return raw
             return [item.strip() for item in raw.split(",") if item.strip()]
         return value
 

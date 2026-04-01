@@ -1,6 +1,8 @@
 """API integration tests for papers endpoints."""
 
 import asyncio
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock
 
@@ -83,6 +85,63 @@ def test_get_paper_not_found():
 
         response = asyncio.run(run_test())
         assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_paper_includes_venue_and_raw_metadata():
+    """Test getting a paper includes venue name and raw metadata payload."""
+    from app.dependencies import get_db
+    from app.main import app
+
+    paper_id = uuid4()
+    paper = SimpleNamespace(
+        id=paper_id,
+        doi="10.1000/test",
+        arxiv_id="2501.00001",
+        pmid=None,
+        title="Venue-aware paper",
+        abstract="A paper abstract.",
+        published_at=date(2025, 1, 15),
+        paper_type="article",
+        oa_status="gold",
+        language="en",
+        keywords=["agents", "retrieval"],
+        citation_count=7,
+        has_full_text=True,
+        ingestion_status="indexed",
+        summary="Summary",
+        highlights=["Highlight"],
+        contributions=["Contribution"],
+        limitations=["Limitation"],
+        authors=[],
+        venue=SimpleNamespace(name="ICML 2025"),
+        raw_metadata={"pdf_url": "https://example.com/paper.pdf"},
+        created_at=datetime(2025, 1, 15, tzinfo=timezone.utc),
+        updated_at=datetime(2025, 1, 16, tzinfo=timezone.utc),
+    )
+
+    async def mock_db():
+        db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = paper
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = mock_db
+    try:
+        async def run_test():
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                return await client.get(f"/api/v1/papers/{paper_id}")
+
+        response = asyncio.run(run_test())
+        assert response.status_code == 200
+        data = response.json()
+        assert data["venue"] == "ICML 2025"
+        assert data["raw_metadata"] == {"pdf_url": "https://example.com/paper.pdf"}
     finally:
         app.dependency_overrides.clear()
 

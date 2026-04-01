@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db
 from app.models.paper import Paper, PaperReference
 from app.models.author import Author, PaperAuthor
+from app.models.venue import Venue
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -54,6 +55,16 @@ class CategoryItem(BaseModel):
 
 class CategoriesResponse(BaseModel):
     categories: list[CategoryItem]
+    total: int
+
+
+class VenueCountItem(BaseModel):
+    name: str
+    count: int
+
+
+class TopVenuesResponse(BaseModel):
+    venues: list[VenueCountItem]
     total: int
 
 
@@ -239,6 +250,27 @@ async def get_categories(
     top = counter.most_common(limit)
     items = [CategoryItem(name=k, count=v) for k, v in top]
     return CategoriesResponse(categories=items, total=len(counter))
+
+
+@router.get("/venues", response_model=TopVenuesResponse)
+async def get_top_venues(
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return top venues by paper count."""
+    result = await db.execute(
+        select(Venue.name, func.count(Paper.id).label("count"))
+        .join(Paper, Paper.venue_id == Venue.id)
+        .where(Paper.deleted_at.is_(None), Venue.name.is_not(None))
+        .group_by(Venue.name)
+        .order_by(func.count(Paper.id).desc())
+        .limit(limit)
+    )
+    rows = result.all()
+    return TopVenuesResponse(
+        venues=[VenueCountItem(name=row.name, count=row.count) for row in rows],
+        total=len(rows),
+    )
 
 
 @router.get("/top-authors", response_model=TopAuthorsResponse)

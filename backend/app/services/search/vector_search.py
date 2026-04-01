@@ -1,5 +1,10 @@
-"""Vector semantic search via Qdrant."""
+"""Vector semantic search via Qdrant.
 
+Embeddings: Doubao-Embedding-Large-Text via BLSC API (default).
+Fallback:   local allenai/specter2_base (set USE_LOCAL_EMBEDDER=true in .env).
+"""
+
+import asyncio
 import time
 import uuid
 
@@ -12,9 +17,11 @@ logger = structlog.get_logger(__name__)
 
 # Collection configurations following database-guidelines.md
 PAPER_COLLECTION = "paper_embeddings"
-PAPER_VECTOR_DIM = 768  # SPECTER2 output dimension
+# Doubao-Embedding-Large-Text produces 2048-d vectors.
+# The actual dim is confirmed on first embed call; Qdrant collection is created lazily.
+PAPER_VECTOR_DIM = 2048
 CHUNK_COLLECTION = "chunk_embeddings"
-CHUNK_VECTOR_DIM = 1024  # BGE-M3 output dimension
+CHUNK_VECTOR_DIM = 2048  # same model for chunks
 
 
 class VectorSearchService:
@@ -28,17 +35,83 @@ class VectorSearchService:
 
     def __init__(self) -> None:
         self.client = QdrantClient(url=settings.qdrant_url)
-        self._encoder = None  # Lazy-loaded
+        self._encoder = None          # lazy local model (fallback only)
+        self._llm: "LLMClient | None" = None     # API embedder
+        self._use_local = False       # set USE_LOCAL_EMBEDDER=true to prefer local
         self._collections_initialized = False
+        # Check env flag
+        import os
+        self._use_local = os.getenv("USE_LOCAL_EMBEDDER", "").lower() in ("1", "true", "yes")
 
-    def _ensure_collections(self) -> None:
+    def _get_llm(self):
+        """Lazy-init the LLMClient used for API embeddings."""
+        if self._llm is None:
+            from app.clients.llm_client import LLMClient
+            self._llm = LLMClient()
+        return self._llm
+
+    def _get_encoder(self):
+        """Lazy-load local sentence-transformer (fallback only)."""
+        if self._encoder is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+                self._encoder = SentenceTransformer("allenai/specter2_base")
+                logger.info("embedding_model_loaded", model="specter2_base")
+            except ImportError:
+                raise RuntimeError(
+                    "sentence-transformers is required for local embedding. "
+                    "Install with: pip install sentence-transformers, "
+                    "or set USE_LOCAL_EMBEDDER=false to use the API."
+                )
+        return self._encoder
+
+    async def encode_text_async(self, text: str) -> list[float]:
+        """Encode one text string via the Doubao embedding API (async)."""
+        llm = self._get_llm()
+        results = await llm.embed([text], model=settings.embed_model)
+        return results[0]
+
+    def encode_text(self, text: str) -> list[float]:
+        """
+        Synchronous embedding (used by non-async callers such as index_paper).
+
+        Runs the async API call in the current event loop if one is running,
+        otherwise creates a new one.  Falls back to the local SPECTER2 model
+        when USE_LOCAL_EMBEDDER=true.
+        """
+        if self._use_local:
+            encoder = self._get_encoder()
+            embedding = encoder.encode(text, normalize_embeddings=True)
+            return embedding.tolist()
+
+        # API path — run async embed synchronously
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Inside an async context (e.g. Celery with asyncio loop)
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, self.encode_text_async(text))
+                    return future.result()
+            else:
+                return loop.run_until_complete(self.encode_text_async(text))
+        except Exception as e:
+            logger.warning("api_embed_failed_fallback_local", error=str(e))
+            # Last resort: local model
+            encoder = self._get_encoder()
+            embedding = encoder.encode(text, normalize_embeddings=True)
+            return embedding.tolist()
+
+
+    def _ensure_collections(self, dim: int | None = None) -> None:
         """Create Qdrant collections if they don't exist."""
         if self._collections_initialized:
             return
 
-        for name, dim in [
-            (PAPER_COLLECTION, PAPER_VECTOR_DIM),
-            (CHUNK_COLLECTION, CHUNK_VECTOR_DIM),
+        effective_dim = dim or PAPER_VECTOR_DIM
+        for name, d in [
+            (PAPER_COLLECTION, effective_dim),
+            (CHUNK_COLLECTION, effective_dim),
         ]:
             try:
                 self.client.get_collection(name)
@@ -46,34 +119,13 @@ class VectorSearchService:
                 self.client.create_collection(
                     collection_name=name,
                     vectors_config=models.VectorParams(
-                        size=dim,
+                        size=d,
                         distance=models.Distance.COSINE,
                     ),
                 )
-                logger.info("qdrant_collection_created", name=name, dim=dim)
+                logger.info("qdrant_collection_created", name=name, dim=d)
 
         self._collections_initialized = True
-
-    def _get_encoder(self):
-        """Lazy-load the sentence transformer model."""
-        if self._encoder is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-                self._encoder = SentenceTransformer("allenai/specter2_base")
-                logger.info("embedding_model_loaded", model="specter2_base")
-            except ImportError:
-                logger.error("sentence_transformers_not_installed")
-                raise RuntimeError(
-                    "sentence-transformers is required for vector search. "
-                    "Install with: pip install sentence-transformers"
-                )
-        return self._encoder
-
-    def encode_text(self, text: str) -> list[float]:
-        """Encode text into a vector embedding."""
-        encoder = self._get_encoder()
-        embedding = encoder.encode(text, normalize_embeddings=True)
-        return embedding.tolist()
 
     def search(
         self,

@@ -27,7 +27,21 @@ async def get_similar_papers(
     paper = await svc._get_paper(str(paper_id))
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    return await svc.get_similar_papers(str(paper_id), top_k=top_k)
+    raw = await svc.get_similar_papers(str(paper_id), top_k=top_k)
+    return {
+        "similar_papers": [
+            {
+                "paper_id": item.get("id", ""),
+                "title": item.get("title", ""),
+                "score": item.get("similarity_score", 0),
+                "doi": item.get("doi"),
+                "published_at": item.get("published_at"),
+                "citation_count": item.get("citation_count", 0),
+                "reason": item.get("reason", ""),
+            }
+            for item in raw
+        ]
+    }
 
 
 @router.get("/papers/{paper_id}/reading-order")
@@ -140,6 +154,7 @@ async def get_agent_summary(
     - `links.pdf`, `links.doi`, `links.arxiv`
     """
     from sqlalchemy import select
+
     from app.models.paper import Paper
     from app.services.quality_service import QualityService
 

@@ -8,7 +8,7 @@
  * Fetches paper content as markdown from the backend API and renders
  * it in a styled, scrollable reading view.
  */
-import type { PaperHighlights } from '~/composables/useApi'
+import type { PaperContent, PaperHighlights } from '~/composables/useApi'
 import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
 import type { Annotation } from '~/components/reader/Marginalia.vue'
 import type { SemanticHighlight } from '~/components/reader/SemanticHighlights.vue'
@@ -17,7 +17,7 @@ import type { ParagraphQuestion } from '~/components/reader/ParagraphQA.vue'
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
-const { getPaperHighlights, askAboutPaper } = useApi()
+const { apiFetch, getPaperHighlights, askAboutPaper } = useApi()
 const paperId = computed(() => {
   const p = route.params.paperId
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
@@ -30,18 +30,11 @@ useHead({
   meta: [{ name: 'description', content: 'Read and annotate papers with AI-powered analysis.' }],
 })
 
-const activeTab = ref<'outline' | 'annotations' | 'highlights' | 'qa'>('outline')
+const activeTab = ref<'outline' | 'annotations' | 'highlights' | 'qa' | 'ragflow'>('outline')
 
-// Fetch paper content from API
-const apiUrl = useRuntimeConfig().public.apiUrl
-const { data: paperContent, pending: contentPending } = useFetch<{
-  title: string | null
-  abstract: string | null
-  has_full_text: boolean
-  sections: Array<{ title: string; level: number; paragraphs: string[] }>
-  format: string
-  remote_urls?: Array<{ url: string; source: string; type: string }> | null
-}>(() => `${apiUrl}/api/v1/papers/${paperId.value}/content`)
+const paperContent = ref<PaperContent | null>(null)
+const contentPending = ref(true)
+const contentError = ref<string | null>(null)
 
 // Dynamic paper title
 const paperTitle = computed(() =>
@@ -87,6 +80,7 @@ const sidebarTabs = [
   { key: 'annotations' as const, label: 'Notes' },
   { key: 'highlights' as const, label: 'AI' },
   { key: 'qa' as const, label: 'Q&A' },
+  { key: 'ragflow' as const, label: 'Ask AI' },
 ]
 
 function handleSectionClick(section: OutlineSection) {
@@ -147,6 +141,37 @@ watch(
   { immediate: true },
 )
 
+async function loadPaperContent() {
+  if (!paperId.value) {
+    paperContent.value = null
+    contentPending.value = false
+    contentError.value = null
+    return
+  }
+
+  contentPending.value = true
+  contentError.value = null
+
+  try {
+    paperContent.value = await apiFetch<PaperContent>(`/papers/${paperId.value}/content`)
+  } catch (error) {
+    paperContent.value = null
+    contentError.value = error instanceof Error ? error.message : 'Failed to load paper content'
+  } finally {
+    contentPending.value = false
+  }
+}
+
+onMounted(() => {
+  void loadPaperContent()
+})
+
+watch(paperId, (currentPaperId, previousPaperId) => {
+  if (previousPaperId && currentPaperId !== previousPaperId) {
+    void loadPaperContent()
+  }
+})
+
 async function handleAskQuestion() {
   const q = qaQuestion.value.trim()
   if (!q || qaLoading.value) return
@@ -205,8 +230,10 @@ async function handleAskQuestion() {
     <div class="ks-reader__layout">
       <div class="ks-reader__main">
         <ReaderMarkdownCanvas
-          :paper-id="paperId"
           :title="paperTitle"
+          :content="paperContent"
+          :pending="contentPending"
+          :error="contentError"
         />
       </div>
 
@@ -273,6 +300,12 @@ async function handleAskQuestion() {
             </form>
             <ReaderParagraphQA :questions="questions" />
           </div>
+
+          <RagflowQAPanel
+            v-if="activeTab === 'ragflow'"
+            :paper-id="paperId"
+            placeholder="Ask this paper with RAGFlow..."
+          />
         </div>
       </aside>
     </div>

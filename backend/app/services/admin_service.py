@@ -70,8 +70,8 @@ class AdminService:
         queued_ids: list[str] = []
         for paper in papers:
             try:
-                from app.tasks.ingest_tasks import parse_paper_task  # local to avoid circ. import
-                parse_paper_task.delay(str(paper.id))
+                from app.tasks.ingest_tasks import ingest_paper  # local to avoid circ. import
+                ingest_paper.delay(str(paper.id), "doi" if paper.doi else "arxiv")
                 queued_ids.append(str(paper.id))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("reprocess_queue_failed", paper_id=str(paper.id), error=str(exc))

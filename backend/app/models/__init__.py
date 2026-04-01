@@ -19,6 +19,7 @@ from app.models.paper import MetadataProvenance, Paper, PaperReference, PaperVer
 from app.models.topic import PaperTopic, Topic
 from app.models.user import User, UserRole
 from app.models.venue import Venue
+from app.services.ragflow.dataset_registry import RagflowDocumentMapping
 
 __all__ = [
     "Base",
@@ -57,4 +58,5 @@ __all__ = [
     "UserCorrection",
     "ReproductionAttempt",
     "ReadingPathCache",
+    "RagflowDocumentMapping",
 ]

@@ -2,13 +2,16 @@
 /**
  * MarkdownCanvas — renders paper full-text as styled markdown.
  *
- * Fetches content from /api/v1/papers/{id}/content and renders
- * the markdown with a table of contents sidebar navigation.
+ * Renders pre-fetched paper markdown with a table of contents sidebar
+ * navigation. The page owns the API request so content is fetched once.
  */
+import type { PaperContent } from '~/composables/useApi'
 
 export interface MarkdownCanvasProps {
-  paperId: string
   title: string
+  content: PaperContent | null
+  pending?: boolean
+  error?: string | null
 }
 
 const props = defineProps<MarkdownCanvasProps>()
@@ -16,11 +19,9 @@ const uid = useId()
 
 const fontSize = ref(16)
 const activeSection = ref('')
-
-// Fetch markdown content from API
-const { data: content, pending, error } = useFetch(() =>
-  `${useRuntimeConfig().public.apiUrl}/api/v1/papers/${props.paperId}/content`
-)
+const content = computed(() => props.content)
+const pending = computed(() => props.pending ?? false)
+const errorMessage = computed(() => props.error ?? null)
 
 // Parse table of contents from sections
 const toc = computed(() => {
@@ -132,8 +133,8 @@ function scrollToSection(sectionId: string) {
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="ks-mc__error">
-      <KsErrorAlert :message="error.message || 'Failed to load paper content'" />
+    <div v-else-if="errorMessage" class="ks-mc__error">
+      <KsErrorAlert :message="errorMessage || 'Failed to load paper content'" />
     </div>
 
     <!-- Content -->

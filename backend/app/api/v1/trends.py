@@ -3,30 +3,33 @@
 P2 WS-2: §10 (#73-80) from FeasibilityAnalysis.md
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
-from app.services.analysis.trend_service import TopicService, TrendService
 from app.schemas.trends import (
     HotKeywordsResponse,
-    KeywordTimeseriesResponse,
     KeywordCooccurrenceResponse,
-    TopicsResponse,
-    TopicDetailResponse,
+    KeywordTimeseriesResponse,
     SleepingPapersResponse,
+    TopicDetailResponse,
+    TopicsResponse,
 )
+from app.services.analysis.trend_service import TopicService, TrendService
 
 router = APIRouter(prefix="/trends", tags=["trends"])
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 # ─── Topics ──────────────────────────────────────────────────────
 
 @router.get("/topics", response_model=TopicsResponse)
 async def list_topics(
+    db: DbSession,
     limit: int = Query(50, ge=1, le=200),
     sort_by: str = Query("paper_count", description="paper_count, label, trend"),
-    db: AsyncSession = Depends(get_db),
 ):
     """List discovered research topics with paper counts and trend direction."""
     svc = TopicService(db)
@@ -37,7 +40,7 @@ async def list_topics(
 @router.get("/topics/{topic_id}", response_model=TopicDetailResponse)
 async def get_topic(
     topic_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ):
     """Get topic detail with keywords and representative papers."""
     svc = TopicService(db)
@@ -49,7 +52,7 @@ async def get_topic(
 
 @router.post("/topics/refresh")
 async def refresh_topics(
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ):
     """
     Re-run BERTopic clustering on all paper abstracts (admin).
@@ -65,9 +68,10 @@ async def refresh_topics(
 
 @router.get("/hot-keywords", response_model=HotKeywordsResponse)
 async def hot_keywords(
-    top_k: int = Query(30, ge=1, le=100),
+    db: DbSession,
+    top_k: int | None = Query(None, ge=1, le=100),
+    limit: int | None = Query(None, ge=1, le=100),
     years_back: int = Query(3, ge=1, le=10),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Discover hot keywords by frequency growth rate.
@@ -76,15 +80,16 @@ async def hot_keywords(
     Includes per-year breakdown and trend direction.
     """
     svc = TrendService(db)
-    keywords = await svc.hot_keywords(top_k=top_k, years_back=years_back)
+    resolved_top_k = top_k if top_k is not None else limit if limit is not None else 30
+    keywords = await svc.hot_keywords(top_k=resolved_top_k, years_back=years_back)
     return HotKeywordsResponse(keywords=keywords)
 
 
 @router.get("/keywords/timeseries", response_model=KeywordTimeseriesResponse)
 async def keyword_timeseries(
+    db: DbSession,
     keywords: str = Query(..., description="Comma-separated keywords to track"),
     years_back: int = Query(5, ge=1, le=15),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Year-by-year paper counts for specific keywords.
@@ -104,10 +109,10 @@ async def keyword_timeseries(
 
 @router.get("/keywords/cooccurrence", response_model=KeywordCooccurrenceResponse)
 async def keyword_cooccurrence(
+    db: DbSession,
     top_keywords: int = Query(30, ge=5, le=100, description="Top N keywords to include"),
     years_back: int = Query(3, ge=1, le=10),
     min_cooccurrence: int = Query(2, ge=1, le=50),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Keyword co-occurrence graph edges.
@@ -132,9 +137,9 @@ async def keyword_cooccurrence(
     summary="[Deprecated] Use GET /researchers/emerging instead",
 )
 async def emerging_authors(
+    db: DbSession,
     top_k: int = Query(20, ge=1, le=100),
     recent_years: int = Query(2, ge=1, le=5),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     **Deprecated** — use `GET /api/v1/researchers/emerging` for the canonical,
@@ -151,8 +156,8 @@ async def emerging_authors(
 
 @router.get("/sleeping-papers", response_model=SleepingPapersResponse)
 async def sleeping_papers(
+    db: DbSession,
     top_k: int = Query(10, ge=1, le=50),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Find 'sleeping beauty' papers: old papers gaining recent attention.
@@ -168,13 +173,10 @@ async def sleeping_papers(
 
 @router.get("/sleeping-beauties", response_model=SleepingPapersResponse)
 async def sleeping_beauties_alias(
+    db: DbSession,
     top_k: int = Query(10, ge=1, le=50),
-    db: AsyncSession = Depends(get_db),
 ):
     """Alias for /sleeping-papers (backward compatibility)."""
     svc = TrendService(db)
     papers = await svc.sleeping_beauties(top_k=top_k)
     return SleepingPapersResponse(papers=papers)
-
-
-

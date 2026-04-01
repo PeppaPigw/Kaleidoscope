@@ -1,9 +1,6 @@
 """Collaboration API — comments, tasks, screening (§8)."""
 
-from datetime import datetime, timezone
-from uuid import uuid4
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,14 +75,11 @@ async def list_comments(
 async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
-    if not body.paper_id:
-        return {
-            "id": f"draft-{uuid4()}",
-            "title": body.title or body.task_type,
-            "description": body.description or body.notes,
-            "completed": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
+    if not body.paper_id or not body.paper_id.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="paper_id is required to persist a task",
+        )
     result = await svc.create_task(
         paper_id=body.paper_id,
         task_type=body.title or body.task_type,

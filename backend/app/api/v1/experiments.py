@@ -72,29 +72,7 @@ async def list_experiments(
     return [_ser_experiment(e) for e in result.scalars().all()]
 
 
-@router.get("/{experiment_id}")
-async def get_experiment(experiment_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Experiment).where(Experiment.id == experiment_id))
-    exp = result.scalar_one_or_none()
-    if not exp:
-        raise HTTPException(404, "Experiment not found")
-    return _ser_experiment(exp)
-
-
 # ─── Method endpoints ────────────────────────────────────────────
-
-@router.post("/methods")
-async def create_method(body: MethodCreate, db: AsyncSession = Depends(get_db)):
-    method = Method(
-        name=body.name,
-        category=body.category,
-        description=body.description,
-        typical_params=body.typical_params,
-    )
-    db.add(method)
-    await db.flush()
-    return _ser_method(method)
-
 
 @router.get("/methods")
 async def list_methods(
@@ -109,7 +87,33 @@ async def list_methods(
     return [_ser_method(m) for m in result.scalars().all()]
 
 
+@router.post("/methods")
+async def create_method(body: MethodCreate, db: AsyncSession = Depends(get_db)):
+    method = Method(
+        name=body.name,
+        category=body.category,
+        description=body.description,
+        typical_params=body.typical_params,
+    )
+    db.add(method)
+    await db.flush()
+    return _ser_method(method)
+
+
 # ─── Dataset endpoints ───────────────────────────────────────────
+
+@router.get("/datasets")
+async def list_datasets(
+    domain: str | None = None,
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Dataset).order_by(Dataset.paper_count.desc()).limit(limit)
+    if domain:
+        query = query.where(Dataset.domain == domain)
+    result = await db.execute(query)
+    return [_ser_dataset(d) for d in result.scalars().all()]
+
 
 @router.post("/datasets")
 async def create_dataset(body: DatasetCreate, db: AsyncSession = Depends(get_db)):
@@ -126,17 +130,13 @@ async def create_dataset(body: DatasetCreate, db: AsyncSession = Depends(get_db)
     return _ser_dataset(ds)
 
 
-@router.get("/datasets")
-async def list_datasets(
-    domain: str | None = None,
-    limit: int = Query(50, le=200),
-    db: AsyncSession = Depends(get_db),
-):
-    query = select(Dataset).order_by(Dataset.paper_count.desc()).limit(limit)
-    if domain:
-        query = query.where(Dataset.domain == domain)
-    result = await db.execute(query)
-    return [_ser_dataset(d) for d in result.scalars().all()]
+@router.get("/{experiment_id}")
+async def get_experiment(experiment_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Experiment).where(Experiment.id == experiment_id))
+    exp = result.scalar_one_or_none()
+    if not exp:
+        raise HTTPException(404, "Experiment not found")
+    return _ser_experiment(exp)
 
 
 # ─── Serializers ─────────────────────────────────────────────────

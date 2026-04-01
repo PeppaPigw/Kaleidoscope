@@ -35,7 +35,7 @@ async def fetch_arxiv_papers(category: str, max_results: int) -> list[dict]:
     """Fetch recent papers from arXiv API for a given category."""
     import httpx
 
-    url = "http://export.arxiv.org/api/query"
+    url = "https://export.arxiv.org/api/query"
     params = {
         "search_query": f"cat:{category}",
         "sortBy": "submittedDate",
@@ -43,7 +43,7 @@ async def fetch_arxiv_papers(category: str, max_results: int) -> list[dict]:
         "max_results": max_results,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
 

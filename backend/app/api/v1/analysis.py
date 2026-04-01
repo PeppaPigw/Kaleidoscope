@@ -3,14 +3,27 @@
 P2 WS-5: §11 (#81-88) from FeasibilityAnalysis.md
 """
 
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.services.analysis.deep_analysis import DeepAnalysisService
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
+
+
+def _raise_analysis_error(result: dict) -> None:
+    error = result.get("error")
+    if not error:
+        return
+    detail = str(error)
+    if "not found" in detail.lower():
+        raise HTTPException(status_code=404, detail=detail)
+    raise HTTPException(
+        status_code=502,
+        detail=f"Analysis service error: {detail[:200]}",
+    )
 
 
 class CompareRequest(BaseModel):
@@ -34,7 +47,18 @@ async def analyze_innovation(
     """
     svc = DeepAnalysisService(db)
     try:
-        return await svc.analyze_innovation(paper_id)
+        result = await svc.analyze_innovation(paper_id)
+        _raise_analysis_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Analysis service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -52,7 +76,18 @@ async def extract_experiments(
     """
     svc = DeepAnalysisService(db)
     try:
-        return await svc.extract_experiments(paper_id)
+        result = await svc.extract_experiments(paper_id)
+        _raise_analysis_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Analysis service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -73,7 +108,18 @@ async def analyze_validity(
     """
     svc = DeepAnalysisService(db)
     try:
-        return await svc.analyze_validity(paper_id)
+        result = await svc.analyze_validity(paper_id)
+        _raise_analysis_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Analysis service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -91,6 +137,17 @@ async def compare_papers(
     """
     svc = DeepAnalysisService(db)
     try:
-        return await svc.compare_papers(body.paper_id_a, body.paper_id_b)
+        result = await svc.compare_papers(body.paper_id_a, body.paper_id_b)
+        _raise_analysis_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Analysis service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()

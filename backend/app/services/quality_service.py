@@ -284,6 +284,10 @@ class QualityService:
         )
         return result.scalar_one_or_none()
 
+    async def score_metadata(self, paper_id: str) -> dict:
+        """Alias for get_metadata_score — used by agent-summary endpoint."""
+        return await self.get_metadata_score(paper_id)
+
     @staticmethod
     def _is_present(field_name: str, value: object) -> bool:
         if field_name == "citation_count":

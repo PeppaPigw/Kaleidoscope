@@ -11,7 +11,7 @@ definePageMeta({ layout: 'default' })
 const { t } = useTranslation()
 
 const route = useRoute()
-const { rawFetch, listTasks, completeTask } = useApi()
+const { apiFetch, listTasks, completeTask } = useApi()
 const workspaceId = computed(() => {
   const p = route.params.workspaceId
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
@@ -33,14 +33,8 @@ type CollectionPaper = {
   raw_metadata?: { author_names?: string[] } | null
 }
 
-const { data: collection } = await useFetch<CollectionData>(
-  () => `/api/v1/collections/${workspaceId.value}`,
-  { $fetch: rawFetch as typeof $fetch, retry: 0 },
-)
-const { data: papers } = await useFetch<CollectionPaper[]>(
-  () => `/api/v1/collections/${workspaceId.value}/papers`,
-  { $fetch: rawFetch as typeof $fetch, retry: 0 },
-)
+const collection = ref<CollectionData | null>(null)
+const papers = ref<CollectionPaper[]>([])
 
 const mockPapers: CorpusPaper[] = [
   { id: 'p1', title: 'ClaimMiner: Atomic Claim Extraction for Biomedical Papers', authors: 'Liu et al.', year: 2025, status: 'annotated' },
@@ -99,7 +93,20 @@ async function handleTaskToggle(task: Task) {
   task.completed = true
 }
 
-onMounted(loadTasks)
+async function loadWorkspace() {
+  try {
+    collection.value = await apiFetch<CollectionData>(`/collections/${workspaceId.value}`)
+    papers.value = await apiFetch<CollectionPaper[]>(`/collections/${workspaceId.value}/papers`)
+  } catch {
+    collection.value = null
+    papers.value = []
+  }
+}
+
+onMounted(() => {
+  void loadWorkspace()
+  void loadTasks()
+})
 </script>
 
 <template>
@@ -127,6 +134,14 @@ onMounted(loadTasks)
             </label>
           </li>
         </ul>
+      </section>
+
+      <section class="ks-card ks-workspace__ask">
+        <span class="ks-type-eyebrow">Ask this Workspace</span>
+        <RagflowQAPanel
+          :collection-id="workspaceId"
+          placeholder="Ask a question about the papers in this workspace..."
+        />
       </section>
     </div>
   </div>
@@ -165,5 +180,11 @@ onMounted(loadTasks)
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.ks-workspace__ask {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
 }
 </style>

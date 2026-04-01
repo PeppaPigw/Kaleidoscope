@@ -646,12 +646,23 @@ def index_paper_task(self, paper_id: str):
             if paper.ingestion_status == "indexed":
                 try:
                     from app.models.collection import DEFAULT_USER_ID
+                    from app.api.v1.sse import broadcast_event as _broadcast
                     from app.services.monitoring.alert_service import AlertService
                     alert_svc = AlertService(session, user_id=DEFAULT_USER_ID)
                     fired = await alert_svc.evaluate_rules(paper)
                     if fired:
                         await session.commit()
                         log.info("alerts_fired", count=len(fired))
+                        for alert in fired:
+                            try:
+                                _broadcast("alert.matched", {
+                                    "alert_id": str(getattr(alert, "id", "")),
+                                    "paper_id": paper_id,
+                                    "title": paper.title,
+                                    "rule_name": str(getattr(alert, "rule_name", "")),
+                                })
+                            except Exception:
+                                pass
                 except Exception as e:
                     log.warning("alert_evaluation_failed", error=str(e))
 

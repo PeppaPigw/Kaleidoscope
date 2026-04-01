@@ -14,11 +14,13 @@ export interface Paper {
   doi?: string | null
   arxiv_id?: string | null
   published_at?: string | null
+  venue?: string | null
   citation_count?: number | null
   reading_status?: string
   has_full_text?: boolean
   ingestion_status?: string
   remote_urls?: Array<{ url: string; source: string; type: string }>
+  raw_metadata?: Record<string, unknown> | null
   keywords?: string[]
   summary?: string | null
   highlights?: string[]
@@ -561,6 +563,10 @@ export function useApi() {
     return apiFetch(`/analytics/categories?limit=${limit}`)
   }
 
+  async function getAnalyticsVenues(limit = 20): Promise<AnalyticsVenues> {
+    return apiFetch(`/analytics/venues?limit=${limit}`)
+  }
+
   async function getAnalyticsTopAuthors(limit = 20): Promise<AnalyticsTopAuthors> {
     return apiFetch(`/analytics/top-authors?limit=${limit}`)
   }
@@ -574,6 +580,7 @@ export function useApi() {
   }
 
   return {
+    apiFetch,
     rawFetch,
     // Papers
     listPapers,
@@ -623,6 +630,7 @@ export function useApi() {
     getAnalyticsOverview,
     getAnalyticsTimeline,
     getAnalyticsCategories,
+    getAnalyticsVenues,
     getAnalyticsTopAuthors,
     getAnalyticsKeywordCloud,
     getAnalyticsCitationNetwork,
@@ -648,6 +656,11 @@ export interface AnalyticsTimeline {
 
 export interface AnalyticsCategories {
   categories: Array<{ name: string; count: number }>
+  total: number
+}
+
+export interface AnalyticsVenues {
+  venues: Array<{ name: string; count: number }>
   total: number
 }
 

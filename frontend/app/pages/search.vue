@@ -208,8 +208,14 @@ async function runSearch(query: string) {
 
   isLoading.value = true
   try {
+    // Map UI mode names to backend values
+    const backendMode = searchMode.value === 'keyword'
+      ? 'keyword'
+      : searchMode.value === 'semantic'
+        ? 'semantic'
+        : 'hybrid'
     const response = await api.searchPapers(normalizedQuery, {
-      mode: 'hybrid',
+      mode: backendMode,
       page: 1,
       per_page: 20,
     })

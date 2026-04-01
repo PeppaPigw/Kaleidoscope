@@ -36,23 +36,24 @@ useHead({
 // ─── API state ─────────────────────────────────────────────────
 const recommendations = ref<RecommendedPaper[]>([])
 const venueItems = ref<VenueItem[]>([])
+const venueShelfTitle = ref('Top Venues')
 const isLoadingRecs = ref(true)
 
 onMounted(async () => {
-  const { searchPapers, getAnalyticsCategories } = useApi()
+  const { listPapers, getAnalyticsCategories, getAnalyticsVenues } = useApi()
 
   // Fetch recent papers as discovery feed
   try {
-    const result = await searchPapers('', { mode: 'keyword', per_page: 12 })
-    recommendations.value = (result.hits ?? []).map(h => ({
-      id: String(h.paper_id ?? ''),
-      eyebrow: String(h.venue ?? 'Research'),
-      title: String(h.title ?? 'Untitled'),
-      abstract: String(h.abstract ?? ''),
-      venue: `${h.venue ?? ''} ${h.published_at ? new Date(h.published_at).getFullYear() : ''}`.trim(),
-      score: Number(h.score ?? 0.8),
+    const result = await listPapers({ limit: 12 })
+    recommendations.value = (result.items ?? []).map(p => ({
+      id: String(p.id ?? ''),
+      eyebrow: 'Recent',
+      title: String(p.title ?? 'Untitled'),
+      abstract: String(p.abstract ?? ''),
+      venue: p.published_at ? new Date(p.published_at).getFullYear().toString() : '',
+      score: 0.8,
       tags: [],
-      strong: Number(h.citation_count ?? 0) > 10,
+      strong: Number(p.citation_count ?? 0) > 10,
     }))
   } catch {
     recommendations.value = []
@@ -60,20 +61,32 @@ onMounted(async () => {
     isLoadingRecs.value = false
   }
 
-  // Fetch top venues from analytics
+  // Fetch top venues from analytics, falling back to keywords if unavailable
   try {
-    const cats = await getAnalyticsCategories(10)
-    venueItems.value = (cats.categories ?? []).map((c, i) => ({
+    const venues = await getAnalyticsVenues(10)
+    venueShelfTitle.value = 'Top Venues'
+    venueItems.value = (venues.venues ?? []).map((venue, i) => ({
       id: `ven-${i}`,
-      name: c.name,
-      count: c.count,
+      name: venue.name,
+      count: venue.count,
     }))
   } catch {
-    venueItems.value = [
-      { id: 'ven-1', name: 'ACL 2025', count: 18 },
-      { id: 'ven-2', name: 'NeurIPS 2025', count: 14 },
-      { id: 'ven-3', name: 'Nature Machine Intelligence', count: 6 },
-    ]
+    try {
+      const cats = await getAnalyticsCategories(10)
+      venueShelfTitle.value = 'Top Keywords'
+      venueItems.value = (cats.categories ?? []).map((category, i) => ({
+        id: `kw-${i}`,
+        name: category.name,
+        count: category.count,
+      }))
+    } catch {
+      venueShelfTitle.value = 'Top Keywords'
+      venueItems.value = [
+        { id: 'kw-1', name: 'evidence tracing', count: 18 },
+        { id: 'kw-2', name: 'citation grounding', count: 14 },
+        { id: 'kw-3', name: 'benchmark leakage', count: 6 },
+      ]
+    }
   }
 })
 
@@ -222,6 +235,10 @@ function handleQuerySubmit(query: string) {
 }
 
 function handleVenueClick(venue: VenueItem) {
+  if (venueShelfTitle.value === 'Top Keywords') {
+    navigateTo(`/search?q=${encodeURIComponent(venue.name)}`)
+    return
+  }
   navigateTo(`/search?venue=${encodeURIComponent(venue.name)}`)
 }
 
@@ -268,6 +285,7 @@ function handleExplorationReopen(exploration: SavedExploration) {
       <!-- Right sidebar stack -->
       <div class="ks-discover__sidebar-right">
         <DiscoverVenueShelf
+          :title="venueShelfTitle"
           :venues="venueItems"
           @venue-click="handleVenueClick"
         />

@@ -148,7 +148,10 @@ async def get_paper(
     """Get full paper details by ID."""
     result = await db.execute(
         select(Paper)
-        .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+        .options(
+            selectinload(Paper.authors).selectinload(PaperAuthor.author),
+            selectinload(Paper.venue),
+        )
         .where(Paper.id == paper_id, Paper.deleted_at.is_(None))
     )
     paper = result.scalar_one_or_none()
@@ -187,6 +190,8 @@ async def get_paper(
             for paper_author in sorted(paper.authors, key=lambda item: item.position)
             if paper_author.author is not None
         ],
+        venue=paper.venue.name if paper.venue else None,
+        raw_metadata=paper.raw_metadata,
         created_at=paper.created_at,
         updated_at=paper.updated_at,
     )

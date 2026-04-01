@@ -3,14 +3,27 @@
 P2 WS-3: §22 (#189-200) from FeasibilityAnalysis.md
 """
 
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.services.writing.writing_service import WritingService
 
 router = APIRouter(prefix="/writing", tags=["writing"])
+
+
+def _raise_writing_error(result: dict) -> None:
+    error = result.get("error")
+    if not error:
+        return
+    detail = str(error)
+    if "not found" in detail.lower() or detail.lower() == "no papers found":
+        raise HTTPException(status_code=404, detail=detail)
+    raise HTTPException(
+        status_code=502,
+        detail=f"Writing service error: {detail[:200]}",
+    )
 
 
 # ─── Schemas ─────────────────────────────────────────────────────
@@ -55,11 +68,22 @@ async def generate_related_work(
     """
     svc = WritingService(db)
     try:
-        return await svc.generate_related_work(
+        result = await svc.generate_related_work(
             paper_ids=body.paper_ids,
             style=body.style,
             format=body.format,
         )
+        _raise_writing_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Writing service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -76,10 +100,21 @@ async def generate_annotated_bibliography(
     """
     svc = WritingService(db)
     try:
-        return await svc.generate_annotated_bibliography(
+        result = await svc.generate_annotated_bibliography(
             paper_ids=body.paper_ids,
             annotation_depth=body.annotation_depth,
         )
+        _raise_writing_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Writing service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -97,10 +132,21 @@ async def analyze_research_gaps(
     """
     svc = WritingService(db)
     try:
-        return await svc.analyze_gaps(
+        result = await svc.analyze_gaps(
             paper_ids=body.paper_ids,
             research_question=body.research_question,
         )
+        _raise_writing_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Writing service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()
 
@@ -117,9 +163,20 @@ async def draft_rebuttal(
     """
     svc = WritingService(db)
     try:
-        return await svc.draft_rebuttal(
+        result = await svc.draft_rebuttal(
             paper_id=body.paper_id,
             reviewer_comments=body.reviewer_comments,
         )
+        _raise_writing_error(result)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Writing service error: {str(e)[:200]}",
+        ) from e
     finally:
         await svc.close()

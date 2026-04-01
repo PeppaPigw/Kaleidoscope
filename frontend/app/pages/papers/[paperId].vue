@@ -19,7 +19,7 @@ definePageMeta({ layout: 'default' })
 const { t } = useTranslation()
 
 const route = useRoute()
-const { getClaimsForPaper, getPaperContent, getPaperHighlights, getSimilarPapers } = useApi()
+const { apiFetch, getClaimsForPaper, getPaperContent, getPaperHighlights, getSimilarPapers } = useApi()
 const paperId = computed(() => route.params.paperId as string)
 
 useHead({
@@ -30,7 +30,6 @@ useHead({
 })
 
 // ─── Fetch paper data from API ───────────────────────────────
-const apiUrl = useRuntimeConfig().public.apiUrl
 type PaperDetailAuthor = {
   id?: string
   display_name?: string
@@ -62,19 +61,7 @@ type PaperDetailResponse = {
   raw_metadata?: PaperRawMetadata | null
 }
 
-const { data: paperData } = useFetch<{
-  id: string
-  title: string
-  abstract?: string | null
-  doi?: string | null
-  arxiv_id?: string | null
-  published_at?: string | null
-  citation_count?: number
-  venue?: string
-  has_full_text?: boolean
-  authors?: PaperDetailAuthor[] | null
-  raw_metadata?: PaperDetailResponse['raw_metadata']
-}>(() => `${apiUrl}/api/v1/papers/${paperId.value}`)
+const paperData = ref<PaperDetailResponse | null>(null)
 
 const claims = ref<PaperClaim[]>([])
 const figures = ref<PaperFigure[]>([])
@@ -252,6 +239,29 @@ watch(paperId, async id => {
     ? highlightsResult.value
     : null
 }, { immediate: true })
+
+async function loadPaperData() {
+  if (!paperId.value) {
+    paperData.value = null
+    return
+  }
+
+  try {
+    paperData.value = await apiFetch<PaperDetailResponse>(`/papers/${paperId.value}`)
+  } catch {
+    paperData.value = null
+  }
+}
+
+onMounted(() => {
+  void loadPaperData()
+})
+
+watch(paperId, (currentPaperId, previousPaperId) => {
+  if (previousPaperId && currentPaperId !== previousPaperId) {
+    void loadPaperData()
+  }
+})
 
 // ─── Handlers ────────────────────────────────────────────────
 function handleRead() {

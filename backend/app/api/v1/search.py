@@ -1,8 +1,10 @@
 """Search API routes — keyword, semantic, and hybrid search."""
 
 import structlog
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies import get_db
 from app.schemas.search import SearchHit, SearchResponse
 from app.services.search.instances import hybrid_service as _hybrid_service
 
@@ -83,6 +85,44 @@ async def search_papers(
         mode_used=result.get("mode_used", result.get("mode", mode)),
         processing_time_ms=result.get("processing_time_ms", 0.0),
     )
+
+
+@router.get("/browse")
+async def browse_papers(
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Browse latest papers as a discovery feed (no query required)."""
+    from sqlalchemy import desc, select
+
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper)
+        .where(Paper.deleted_at.is_(None))
+        .order_by(desc(Paper.created_at))
+        .limit(limit)
+    )
+    papers = result.scalars().all()
+    return {
+        "hits": [
+            {
+                "paper_id": str(p.id),
+                "title": p.title,
+                "abstract": p.abstract,
+                "doi": p.doi,
+                "arxiv_id": p.arxiv_id,
+                "published_at": str(p.published_at) if p.published_at else None,
+                "citation_count": p.citation_count,
+                "authors": [],
+                "venue": None,
+                "score": 1.0,
+            }
+            for p in papers
+        ],
+        "total": len(papers),
+        "mode": "browse",
+    }
 
 
 @router.get("/health")

@@ -53,6 +53,7 @@ logs/
 .repo/
 .claude/
 .worktrees/
+.worktrees/
 skills/
 AGENTS.md
 

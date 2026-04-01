@@ -14,6 +14,17 @@ async def test_list_tasks_returns_list(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_create_task_requires_paper_id(async_client: AsyncClient):
+    resp = await async_client.post(
+        "/api/v1/collaboration/tasks",
+        json={"title": "Review task"},
+    )
+    assert resp.status_code == 422
+    data = resp.json()
+    assert data["message"] == "paper_id is required to persist a task"
+
+
+@pytest.mark.asyncio
 async def test_get_alerts_returns_list(async_client: AsyncClient):
     resp = await async_client.get("/api/v1/alerts")
     assert resp.status_code == 200

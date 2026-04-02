@@ -26,7 +26,7 @@ Paper Title: {title}
 Abstract: {abstract}
 Full Text (if available): {fulltext}"""
 
-SUMMARIZE_EXECUTIVE = """Write an executive summary (600-800 words) of this paper for a research lead.
+SUMMARIZE_EXECUTIVE = """Write an executive summary (400-600 words) of this paper for a research lead.
 Cover:
 1. The problem and its importance
 2. The proposed approach and its novelty
@@ -38,7 +38,7 @@ Paper Title: {title}
 Abstract: {abstract}
 Full Text (if available): {fulltext}"""
 
-SUMMARIZE_DETAILED = """Write a comprehensive summary (1500-2000 words) of this paper.
+SUMMARIZE_DETAILED = """Write a comprehensive summary (1000-1500 words) of this paper.
 Include:
 1. Introduction and motivation
 2. Related work context
@@ -133,29 +133,35 @@ Instructions:
 # ─── Full-Spectrum Paper Analyst ─────────────────────────────────
 
 PAPER_ANALYST_SYSTEM = """\
-You are a highly rigorous senior researcher with exceptional attention to detail and evidence.
-You act as a Socratic analysis partner whose goal is NOT to summarize, but to:
-- maximize information density
-- extract verifiable details
-- identify true scientific novelty
+You are a world-class senior researcher and science communicator with deep expertise across ML, NLP, and adjacent fields.
+You act as an elite Socratic analysis partner. Your goal is NOT to summarize — it is to:
+- maximise information density and depth
+- extract every verifiable detail, number, and design choice
+- identify true scientific novelty versus incremental work
+- explain difficult concepts so deeply that a senior PhD student gains genuine insight
 
 Core Principles:
 - NO meta-discourse (e.g., "this paper proposes…", "the authors argue…")
-- Output only facts, data, and structured insights
-- Prioritize information density over readability
-- Every claim MUST be supported by concrete evidence
-- External knowledge is allowed when necessary (clearly distinguish it)"""
+- Output ONLY facts, data, structured insights, and evidence
+- EVERY claim must cite a concrete number, quote, or experiment from the paper
+- External knowledge is allowed when it contextualises a claim (mark with [EXT])
+- Length is a virtue here: thorough, exhaustive analysis is always preferred over brevity
+- Aim for at least 15,000 characters of output total"""
 
 PAPER_ANALYST_PROMPT = """\
-Perform a full-spectrum, structured analysis of the given paper.
+Perform an exhaustive, full-spectrum structured analysis of the given paper.
+TARGET LENGTH: at least 15,000 characters. Do NOT stop early. Fill every section completely.
 
 ---
 
-## Part 1: Overview
-Summarize in 100–200 words:
-- core contribution
-- research domain
-- positioning (incremental / moderate / breakthrough)
+## Part 1: Overview  (300–500 words)
+Write a substantial overview covering:
+- The precise research problem and why it matters now
+- Core technical contribution (be specific: what method/dataset/framework/insight)
+- Research domain and sub-domain
+- Positioning relative to the field: incremental / moderate / breakthrough — justify with specific comparison
+- Key quantitative claims (headline numbers)
+- Who benefits from this work and how
 
 ---
 
@@ -163,69 +169,96 @@ Summarize in 100–200 words:
 Start with:
 《{title}》 ({authors}, {year})
 
-Then summarize:
-- Background (problem + motivation)
-- Method (core idea + technical approach)
-- Results (key findings)
-- Discussion (interpretation / implications)
-- Limitations (specific constraints)
-- Conclusion (main takeaway)
-
-Constraint: Each section = 1–3 sentences, high-density.
+For each section below, write 4–6 dense sentences. Include at least one concrete number or quote per section:
+- **Background**: research gap, prior art shortcomings, why this problem is unsolved
+- **Method**: full technical pipeline — architecture, training setup, key hyperparameters, datasets used
+- **Results**: ALL headline metrics with baselines, delta improvements, statistical context
+- **Discussion**: what the results prove, surprising findings, failure modes observed
+- **Limitations**: specific failure cases, out-of-scope scenarios, computational costs
+- **Conclusion**: what changes in the field after this work
 
 ---
 
 ## Part 3: Section-by-Section Deep Condensing
-Follow the ORIGINAL section structure of the paper.
+Follow the ORIGINAL section numbering and titles from the paper exactly.
 
-Requirements (STRICT):
-1. Full Coverage — do NOT omit any key point. Include: methodology, experiments, ablations, comparisons.
-2. Evidence-driven — each point MUST include: sample size (n=), metrics (accuracy, F1, etc.), \
-statistical significance (p-values), model details / parameters.
-3. Direct Quotes (MANDATORY) — include original English quotes. Format: *"..."*. Must directly support the claim.
-4. Format — each point must contain: **Bold title (Sentence case)**, dense explanation, \
-embedded quote, highlight key terms in **bold**.
+Requirements (STRICT — violating any of these is unacceptable):
+1. **Full Coverage** — every subsection, every table, every ablation, every experiment must be represented.
+2. **Evidence-driven** — each bullet MUST include at least one of: sample size (n=), metric value, percentage, p-value, model size, dataset name.
+3. **Direct Quotes** (MANDATORY, min 2 per section) — use original English from the paper. Format: *"…"*
+4. **Technical Depth** — explain WHY each design choice was made, not just WHAT was done.
+5. **Comparisons** — for every result, name the baseline and the delta (e.g., "+4.2 F1 vs. BERT-base").
+6. **Format** — use: **Bold subsection title**, dense prose, embedded quote, bolded key terms.
+7. **Minimum length** — each major section must be at least 200 words.
 
 ---
 
 ## Part 4: Understanding & Nuance
 
-### 1. Terminology (3–5 items)
-For each:
-- definition
-- difference from similar terms
-- meaning in THIS paper
+### 1. Terminology (6–8 items)
+For each term used in this paper:
+- Precise definition (1–2 sentences)
+- How it differs from the most commonly confused alternative
+- Exact role and meaning in THIS paper's context
+- If mathematical: write the core formula
 
-### 2. Difficult Concepts
-Select 1–3. Explain at a senior PhD level:
-- intuition
-- underlying logic / math
-- design rationale
+### 2. Difficult Concepts (3–5 items)
+Select the most technically demanding ideas. For each, explain at senior PhD level:
+- Intuitive explanation (what is actually happening, mechanistically)
+- Underlying mathematics or algorithm (show key equations/pseudocode if useful)
+- Design rationale: why this specific choice vs. alternatives
+- What breaks if this component is removed or changed
+
+### 3. Experimental Design Analysis
+- Were the baselines fair and representative?
+- Are the evaluation metrics appropriate for the claimed contribution?
+- What confounds or biases might exist in the results?
+- What experiments are missing that would have strengthened the claims?
 
 ---
 
-## Part 5: Synthesis & Novelty
+## Part 5: Critical Evaluation
+
+### 1. Strengths
+List 4–6 specific, evidence-backed strengths (not generic praise). Each must cite a result or design decision.
+
+### 2. Weaknesses & Gaps
+List 4–6 specific weaknesses:
+- What claims are under-supported?
+- Where do the experiments fail to isolate the contribution?
+- What edge cases or domains are untested?
+
+### 3. Reproducibility Assessment
+- Are hyperparameters fully reported?
+- Is the code/data released?
+- What would a replication attempt need?
+
+---
+
+## Part 6: Synthesis & Novelty
 
 ### 1. Novelty Assessment
-Compared to work in the past 2–5 years:
-- What is new?
-- Level: incremental / moderate / significant
-- Does it solve a real bottleneck?
+Compared to the 5 most relevant prior works (name them):
+- What is strictly new (not just combined or applied)?
+- Level: incremental / moderate / significant — justify in 3+ sentences
+- Does it solve a real, previously unsolved bottleneck?
 
 ### 2. Method Classification
-- new method / improvement / engineering optimization
+Classify precisely: new architecture / new training objective / new inference technique / new evaluation protocol / engineering optimisation / new dataset / theoretical insight
 
-### 3. Impact
-- potential influence on the field
-- scalability / generalization
+### 3. Impact & Future Directions
+- Concrete expected influence on the field (cite related open problems it closes or opens)
+- Which future research lines does this work directly enable?
+- Scalability: does the method hold at 10×, 100× scale?
+- Generalization: what domains beyond the paper's scope could benefit?
 
 ---
 
 ## Output Constraints
-- No vague statements
-- No generic praise (e.g., "performs well")
-- Every section MUST contain concrete details
-- Highly structured, clearly layered output
+- No vague statements ("it performs well" → specify the metric and number)
+- No generic praise
+- Every section MUST be fully populated — do NOT write placeholder sentences
+- Total output MUST be at least 15,000 characters — keep writing until all sections are complete
 
 ---
 

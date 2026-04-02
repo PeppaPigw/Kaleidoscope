@@ -222,6 +222,36 @@ export interface ContradictionPair {
   resolved: boolean
 }
 
+export interface WritingDocument {
+  id: string
+  user_id: string
+  title: string
+  markdown_content: string
+  plain_text_excerpt: string
+  word_count: number
+  cover_image_url?: string | null
+  created_at: string
+  updated_at: string
+  last_opened_at?: string | null
+}
+
+export interface WritingDocumentListResponse {
+  items: WritingDocument[]
+  total: number
+}
+
+export interface WritingDocumentUpdateInput {
+  title?: string
+  markdown_content?: string
+}
+
+export interface WritingImageUploadResponse {
+  url: string
+  width?: number | null
+  height?: number | null
+  alt?: string | null
+}
+
 // ─── Composable ────────────────────────────────────────────────
 
 export function useApi() {
@@ -236,13 +266,16 @@ export function useApi() {
     options: Parameters<typeof $fetch>[1] = {},
   ): Promise<T> {
     const token = import.meta.client ? localStorage.getItem('ks_access_token') : null
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData
+    const baseHeaders: Record<string, string> = {
       ...(token && token !== 'single-user-mode'
         ? { Authorization: `Bearer ${token}` }
         : {}),
       ...((options.headers as Record<string, string> | undefined) ?? {}),
     }
+    const headers = isFormDataBody
+      ? baseHeaders
+      : { 'Content-Type': 'application/json', ...baseHeaders }
     return await $fetch<T>(`${baseUrl}${path}`, {
       ...options,
       headers,
@@ -375,6 +408,49 @@ export function useApi() {
 
   async function getResearcherProfile(researcherId: string): Promise<unknown> {
     return apiFetch(`/researchers/${researcherId}/profile`)
+  }
+
+  // ── Writing ────────────────────────────────────────────────
+
+  async function listWritingDocuments(): Promise<WritingDocumentListResponse> {
+    return apiFetch('/writing/documents')
+  }
+
+  async function createWritingDocument(): Promise<WritingDocument> {
+    return apiFetch('/writing/documents', {
+      method: 'POST',
+    })
+  }
+
+  async function getWritingDocument(documentId: string): Promise<WritingDocument> {
+    return apiFetch(`/writing/documents/${documentId}`)
+  }
+
+  async function updateWritingDocument(
+    documentId: string,
+    input: WritingDocumentUpdateInput,
+  ): Promise<WritingDocument> {
+    return apiFetch(`/writing/documents/${documentId}`, {
+      method: 'PATCH',
+      body: input,
+    })
+  }
+
+  async function deleteWritingDocument(documentId: string): Promise<void> {
+    await apiFetch(`/writing/documents/${documentId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async function uploadWritingImage(file: File): Promise<WritingImageUploadResponse> {
+    const body = new FormData()
+    body.append('file', file)
+
+    return apiFetch('/writing/images', {
+      method: 'POST',
+      body,
+      headers: {},
+    })
   }
 
   // ── Intelligence ────────────────────────────────────────────
@@ -616,6 +692,13 @@ export function useApi() {
     getCollection,
     getCollectionPapers,
     getResearcherProfile,
+    // Writing
+    listWritingDocuments,
+    createWritingDocument,
+    getWritingDocument,
+    updateWritingDocument,
+    deleteWritingDocument,
+    uploadWritingImage,
     // Intelligence
     getPaperHighlights,
     getSimilarPapers,

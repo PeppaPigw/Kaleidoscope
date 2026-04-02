@@ -6,6 +6,7 @@ Provides:
 - POST /papers/{id}/reparse — re-parse existing paper via MinerU
 """
 
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db
 
 router = APIRouter(prefix="/papers", tags=["content"])
+
+
+def _fire_analysis_bg(paper_id: str) -> None:
+    """Fire-and-forget: deep-analyse a single paper in the background after import/reparse."""
+    async def _run():
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.models.author import PaperAuthor
+        from app.services.analysis.paper_analyst import PaperAnalystService
+        from sqlalchemy.orm import selectinload
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(
+                    select(Paper).where(Paper.id == paper_id)
+                    .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+                )
+                paper = r.scalar_one_or_none()
+                if paper and not paper.deep_analysis:
+                    svc = PaperAnalystService(db)
+                    await svc.analyse_and_persist(paper, db)
+                    await db.commit()
+                    await svc.close()
+        except Exception:
+            pass  # analysis is best-effort; don't crash import flow
+
+    asyncio.create_task(_run())
+
+
+def _fire_label_bg(paper_id: str) -> None:
+    """Fire-and-forget: label a single paper in the background after import/reparse."""
+    async def _run():
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.analysis.labeling_service import LabelingService
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if paper and not paper.paper_labels:
+                    svc = LabelingService(db)
+                    await svc.label_paper(paper)
+                    await db.commit()
+                    await svc.close()
+        except Exception:
+            pass  # labeling is best-effort; don't crash import flow
+
+    asyncio.create_task(_run())
 
 
 def _normalize_record_list(value: object) -> list[dict]:
@@ -200,6 +248,10 @@ async def import_from_url(
     # NOTE: Intentional explicit commit for import completion.
     await db.commit()
 
+    # Fire labeling + deep analysis in the background (non-blocking)
+    _fire_label_bg(str(paper.id))
+    _fire_analysis_bg(str(paper.id))
+
     return ImportUrlResponse(
         paper_id=str(paper.id),
         title=paper.title,
@@ -274,6 +326,10 @@ async def reparse_paper(
 
     # NOTE: Intentional explicit commit for import completion.
     await db.commit()
+
+    # Fire labeling + deep analysis in the background (non-blocking)
+    _fire_label_bg(str(paper_id))
+    _fire_analysis_bg(str(paper_id))
 
     return ImportUrlResponse(
         paper_id=str(paper_id),
@@ -369,6 +425,32 @@ async def generate_paper_labels(
         labeled_at=paper.paper_labels_at.isoformat() if paper.paper_labels_at else None,
         text_source=text_source,
     )
+
+
+@router.get("/{paper_id}/deep-analysis")
+async def get_deep_analysis(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return deep LLM analysis for a paper."""
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if not paper.deep_analysis or paper.deep_analysis.get("status") != "ok":
+        raise HTTPException(status_code=404, detail="Deep analysis not available")
+
+    return {
+        "paper_id": str(paper.id),
+        "analysis": paper.deep_analysis.get("analysis", ""),
+        "generated_at": paper.deep_analysis.get("generated_at"),
+        "model": paper.deep_analysis.get("model"),
+        "fulltext_chars": paper.deep_analysis.get("fulltext_chars"),
+    }
 
 
 @router.get("/{paper_id}/import-status")

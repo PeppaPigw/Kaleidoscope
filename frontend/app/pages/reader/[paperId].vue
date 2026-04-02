@@ -34,7 +34,7 @@ useHead({
   meta: [{ name: 'description', content: 'Read and annotate papers with AI-powered analysis.' }],
 })
 
-const activeTab = ref<'outline' | 'annotations' | 'highlights' | 'qa' | 'ragflow' | 'labels'>('outline')
+const activeTab = ref<'outline' | 'labels' | 'annotations' | 'highlights' | 'ragflow'>('outline')
 
 const paperContent = ref<PaperContent | null>(null)
 const contentPending = ref(true)
@@ -90,13 +90,13 @@ const highlights = ref<SemanticHighlight[]>([])
 const questions = ref<ParagraphQuestion[]>([])
 const qaQuestion = ref('')
 const qaLoading = ref(false)
+// Note: QA tab removed from sidebar. State kept for future use.
 
 const sidebarTabs = [
   { key: 'outline' as const, label: 'Outline' },
   { key: 'labels' as const, label: 'Labels' },
   { key: 'annotations' as const, label: 'Notes' },
   { key: 'highlights' as const, label: 'AI' },
-  { key: 'qa' as const, label: 'Q&A' },
   { key: 'ragflow' as const, label: 'Ask AI' },
 ]
 
@@ -405,48 +405,13 @@ async function handleAskQuestion() {
             @highlight-click="handleHighlightClick"
           />
 
-          <div v-if="activeTab === 'qa'" class="ks-reader__qa-wrap">
-            <form class="ks-reader__qa-form" @submit.prevent="handleAskQuestion">
-              <input
-                v-model="qaQuestion"
-                type="text"
-                class="ks-reader__qa-input"
-                placeholder="Ask a question about this paper..."
-                :disabled="qaLoading"
-                aria-label="Ask a question about this paper"
-              >
-              <button
-                type="submit"
-                class="ks-reader__qa-btn"
-                :disabled="qaLoading || !qaQuestion.trim()"
-              >
-                {{ qaLoading ? '...' : 'Ask' }}
-              </button>
-            </form>
-            <ReaderParagraphQA :questions="questions" />
-          </div>
-
-          <RagflowQAPanel
-            v-if="activeTab === 'ragflow'"
-            :paper-id="paperId"
-            placeholder="Ask this paper with RAGFlow..."
-          />
-
           <!-- Labels panel -->
           <div v-if="activeTab === 'labels'" class="ks-reader__labels">
-            <div v-if="labelsLoading" class="ks-reader__labels-loading">
-              Loading labels…
-            </div>
-            <div v-else-if="!paperLabels" class="ks-reader__labels-empty">
-              Labels not yet generated for this paper.
-            </div>
+            <div v-if="labelsLoading" class="ks-reader__labels-loading">Loading labels…</div>
+            <div v-else-if="!paperLabels" class="ks-reader__labels-empty">Labels not yet generated for this paper.</div>
             <template v-else>
-              <div
-                v-for="dim in LABEL_DIMS"
-                :key="dim.key"
-                class="ks-reader__label-group"
-              >
-                <span class="ks-reader__label-dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+              <div v-for="dim in LABEL_DIMS" :key="dim.key" class="ks-reader__label-group">
+                <span class="ks-reader__label-dim-name" :style="{ color: dim.color }">{{ dim.label }}</span>
                 <div class="ks-reader__label-chips">
                   <span
                     v-for="tag in (paperLabels[dim.key] as string[])"
@@ -458,12 +423,8 @@ async function handleAskQuestion() {
                 </div>
               </div>
               <div class="ks-reader__label-divider" />
-              <div
-                v-for="dim in META_DIMS"
-                :key="dim.key"
-                class="ks-reader__label-group"
-              >
-                <span class="ks-reader__label-dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+              <div v-for="dim in META_DIMS" :key="dim.key" class="ks-reader__label-group">
+                <span class="ks-reader__label-dim-name" :style="{ color: dim.color }">{{ dim.label }}</span>
                 <div class="ks-reader__label-chips">
                   <span
                     v-for="tag in (paperLabels.meta[dim.key] as string[])"
@@ -476,6 +437,12 @@ async function handleAskQuestion() {
               </div>
             </template>
           </div>
+
+          <RagflowQAPanel
+            v-if="activeTab === 'ragflow'"
+            :paper-id="paperId"
+            placeholder="Ask this paper with RAGFlow..."
+          />
         </div>
       </aside>
     </div>
@@ -719,7 +686,7 @@ async function handleAskQuestion() {
   cursor: not-allowed;
 }
 
-/* ── Labels panel ─────────────────────────────── */
+/* ── Labels sidebar panel ─────────────────────── */
 .ks-reader__labels {
   display: flex;
   flex-direction: column;
@@ -741,7 +708,7 @@ async function handleAskQuestion() {
   gap: 5px;
 }
 
-.ks-reader__label-dim {
+.ks-reader__label-dim-name {
   font: 600 0.6875rem / 1 var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -772,4 +739,5 @@ async function handleAskQuestion() {
   background: var(--color-border);
   margin: 2px 0;
 }
+
 </style>

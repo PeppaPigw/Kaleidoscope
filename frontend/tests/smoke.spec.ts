@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-const baseUrl = 'http://127.0.0.1:3000'
+const runtimeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+const runtimeBuffer = (globalThis as unknown as {
+  Buffer: {
+    from: (value: string, encoding: string) => any
+  }
+}).Buffer
+const baseUrl = runtimeProcess?.env?.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000'
+const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9VE7s2kAAAAASUVORK5CYII='
 
 test.describe('Frontend smoke', () => {
   test('dashboard renders hero content and a monitor ribbon', async ({ page }) => {
@@ -481,5 +488,125 @@ test.describe('Frontend smoke', () => {
     await expect(supplementRail).toContainText('Hugging Face Weights')
     await expect(supplementRail).toContainText('PDF')
     await expect(supplementRail).toContainText('arXiv')
+  })
+
+  test('writing studio loads a document, autosaves markdown, and inserts uploaded images', async ({ page }) => {
+    let savedPayload: { title?: string, markdown_content?: string } | null = null
+    let uploadCount = 0
+
+    await page.route('http://127.0.0.1:8000/api/v1/writing/documents', async route => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          json: {
+            items: [
+              {
+                id: 'doc-1',
+                user_id: 'user-1',
+                title: 'Draft One',
+                markdown_content: '# Draft One\n\nA starting paragraph.',
+                plain_text_excerpt: 'Draft One A starting paragraph.',
+                word_count: 5,
+                cover_image_url: null,
+                created_at: '2026-04-02T12:00:00Z',
+                updated_at: '2026-04-02T12:00:00Z',
+                last_opened_at: '2026-04-02T12:00:00Z',
+              },
+            ],
+            total: 1,
+          },
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/writing/documents/doc-1', async route => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          json: {
+            id: 'doc-1',
+            user_id: 'user-1',
+            title: 'Draft One',
+            markdown_content: '# Draft One\n\nA starting paragraph.',
+            plain_text_excerpt: 'Draft One A starting paragraph.',
+            word_count: 5,
+            cover_image_url: null,
+            created_at: '2026-04-02T12:00:00Z',
+            updated_at: '2026-04-02T12:00:00Z',
+            last_opened_at: '2026-04-02T12:00:00Z',
+          },
+        })
+        return
+      }
+
+      if (route.request().method() === 'PATCH') {
+        savedPayload = route.request().postDataJSON() as { title?: string, markdown_content?: string }
+        await route.fulfill({
+          json: {
+            id: 'doc-1',
+            user_id: 'user-1',
+            title: savedPayload.title ?? 'Draft One',
+            markdown_content: savedPayload.markdown_content ?? '',
+            plain_text_excerpt: 'Updated excerpt',
+            word_count: 8,
+            cover_image_url: null,
+            created_at: '2026-04-02T12:00:00Z',
+            updated_at: '2026-04-02T12:00:05Z',
+            last_opened_at: '2026-04-02T12:00:05Z',
+          },
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/writing/images', async route => {
+      uploadCount += 1
+      await route.fulfill({
+        status: 201,
+        json: {
+          url: `data:image/png;base64,${tinyPngBase64}`,
+          alt: 'figure',
+        },
+      })
+    })
+
+    await page.goto(`${baseUrl}/writing`)
+
+    await expect(page.getByRole('heading', { name: 'Writing Studio' })).toBeVisible()
+    await expect(page.getByTestId('writing-document-item-doc-1')).toHaveText('Draft One')
+    await expect(page.getByLabel('Document title')).toHaveValue('Draft One')
+    await expect(page.getByTestId('writing-sidepanel-outline')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('writing-outline')).toContainText('Draft One')
+    const leftRailSpacing = await page.evaluate(() => {
+      const head = document.querySelector('.ks-writing-studio__rail-head')
+      const firstItem = document.querySelector('.ks-writing-studio__document-item')
+      if (!head || !firstItem)
+        return null
+
+      return firstItem.getBoundingClientRect().top - head.getBoundingClientRect().bottom
+    })
+    expect(leftRailSpacing).not.toBeNull()
+    expect(leftRailSpacing!).toBeGreaterThan(12)
+    await page.getByTestId('writing-sidepanel-preview').click()
+    await expect(page.getByTestId('writing-preview')).toContainText('A starting paragraph.')
+    await page.getByTestId('writing-sidepanel-outline').click()
+
+    await page.getByLabel('Document title').fill('Draft One Revised')
+    await expect.poll(() => savedPayload?.title ?? null).toBe('Draft One Revised')
+    await expect(page.locator('.ks-writing-studio__status-pill.is-saved')).toBeVisible()
+
+    await page.setInputFiles('[data-testid="writing-image-input"]', {
+      name: 'figure.png',
+      mimeType: 'image/png',
+      buffer: runtimeBuffer.from(tinyPngBase64, 'base64'),
+    })
+
+    await expect.poll(() => uploadCount).toBe(1)
+    await expect(page.locator('.tiptap img[src^="data:image/png;base64,"]')).toBeVisible()
+    await page.getByTestId('writing-sidepanel-preview').click()
+    await expect(page.getByTestId('writing-preview').locator('img[alt="figure"]')).toBeVisible()
   })
 })

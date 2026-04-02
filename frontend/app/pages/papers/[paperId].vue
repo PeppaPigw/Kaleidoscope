@@ -5,7 +5,9 @@
  * Composes PaperFolio, ThesisLine, ClaimsLedger, MethodsResultsSlice,
  * FigureGallery, SupplementRail, ReproductionStatus, RelatedConstellation.
  */
-import type { PaperContent, PaperHighlights } from '~/composables/useApi'
+import type { PaperContent, PaperHighlights, PaperLabels } from '~/composables/useApi'
+import type { AnalysisItem } from '~/components/paper/DeepAnalysis.vue'
+import type { OutlineItem } from '~/components/paper/AnalysisOutline.vue'
 import type { PaperAuthor } from '~/components/paper/PaperFolio.vue'
 import type { PaperClaim } from '~/components/paper/ClaimsLedger.vue'
 import type { MethodItem, ResultItem } from '~/components/paper/MethodsResultsSlice.vue'
@@ -234,13 +236,137 @@ async function loadPaperData() {
 
 onMounted(() => {
   void loadPaperData()
+  if (paperId.value) {
+    void loadLabels(paperId.value)
+    void loadDeepAnalysis(paperId.value)
+  }
+  window.addEventListener('scroll', onPageScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onPageScroll)
+  if (rafId !== null) cancelAnimationFrame(rafId)
 })
 
 watch(paperId, (currentPaperId, previousPaperId) => {
   if (previousPaperId && currentPaperId !== previousPaperId) {
     void loadPaperData()
+    deepAnalysisText.value = null
+    analysisItems.value = []
+    activeOutlineIdx.value = 0
+    void loadLabels(currentPaperId)
+    void loadDeepAnalysis(currentPaperId)
   }
 })
+
+// ─── Labels ──────────────────────────────────────────────────
+const paperLabels = ref<PaperLabels | null>(null)
+
+const LABEL_DIMS = [
+  { key: 'domain', label: 'Domain', color: '#6366f1' },
+  { key: 'task', label: 'Task', color: '#0ea5e9' },
+  { key: 'method', label: 'Method', color: '#10b981' },
+  { key: 'data_object', label: 'Data / Object', color: '#f59e0b' },
+  { key: 'application', label: 'Application', color: '#ec4899' },
+] as const
+
+const META_DIMS = [
+  { key: 'paper_type', label: 'Paper Type', color: '#8b5cf6' },
+  { key: 'evaluation_quality', label: 'Evaluation', color: '#64748b' },
+  { key: 'resource_constraint', label: 'Resource', color: '#78716c' },
+] as const
+
+async function loadLabels(id: string) {
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const data = await $fetch<{ labels: PaperLabels }>(`${apiBase}/api/v1/papers/${id}/labels`)
+    paperLabels.value = data.labels
+  }
+  catch {
+    paperLabels.value = null
+  }
+}
+
+// ─── Deep Analysis + Full-page outline ──────────────────────────────────────
+const deepAnalysisText = ref<string | null>(null)
+const analysisItems = ref<AnalysisItem[]>([])
+
+// Page sections — must match the ids on the wrapper divs in the template
+const PAGE_SECTIONS: OutlineItem[] = [
+  { id: 'ks-sec-folio', title: 'Paper', level: 1 },
+  { id: 'ks-sec-thesis', title: 'Thesis', level: 1 },
+  { id: 'ks-sec-analysis', title: 'Deep Analysis', level: 1 },
+  { id: 'ks-sec-claims', title: 'Claims', level: 1 },
+  { id: 'ks-sec-methods', title: 'Methods & Results', level: 1 },
+  { id: 'ks-sec-figures', title: 'Figures', level: 1 },
+  { id: 'ks-sec-repro', title: 'Reproducibility', level: 1 },
+  { id: 'ks-sec-related', title: 'Related Papers', level: 1 },
+]
+
+// Combined flat list: page sections interleaved with analysis sub-headings
+const outlineItems = computed<OutlineItem[]>(() => {
+  const items: OutlineItem[] = []
+  for (const sec of PAGE_SECTIONS) {
+    // Skip analysis section if not loaded
+    if (sec.id === 'ks-sec-analysis' && !deepAnalysisText.value) continue
+    items.push(sec)
+    if (sec.id === 'ks-sec-analysis') {
+      for (const h of analysisItems.value) {
+        items.push({ id: h.id, title: h.title, level: h.level <= 2 ? 2 : 3 })
+      }
+    }
+  }
+  return items
+})
+
+// Scroll-based active tracking
+const activeOutlineIdx = ref(0)
+let rafId: number | null = null
+
+function updateActiveFromScroll() {
+  const threshold = window.scrollY + window.innerHeight * 0.28 + 72
+  const items = outlineItems.value
+  let newIdx = 0
+  for (let i = items.length - 1; i >= 0; i--) {
+    const el = document.getElementById(items[i].id)
+    if (!el) continue
+    const top = el.getBoundingClientRect().top + window.scrollY
+    if (top <= threshold) {
+      newIdx = i
+      break
+    }
+  }
+  activeOutlineIdx.value = newIdx
+}
+
+function onPageScroll() {
+  if (rafId !== null) return
+  rafId = requestAnimationFrame(() => {
+    rafId = null
+    updateActiveFromScroll()
+  })
+}
+
+// Re-evaluate when outline items change (analysis items load asynchronously)
+watch(outlineItems, () => { updateActiveFromScroll() })
+
+function handleOutlineJump(id: string) {
+  const el = document.getElementById(id)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function loadDeepAnalysis(id: string) {
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const data = await $fetch<{ analysis: string }>(`${apiBase}/api/v1/papers/${id}/deep-analysis`)
+    deepAnalysisText.value = data.analysis ?? null
+  }
+  catch {
+    deepAnalysisText.value = null
+  }
+}
 
 // ─── Handlers ────────────────────────────────────────────────
 function handleRead() {
@@ -288,60 +414,119 @@ function handleRelatedClick(paper: RelatedPaper) {
     <div class="ks-paper-profile__layout">
       <div class="ks-paper-profile__main">
         <!-- Hero -->
-        <PaperFolio
-          :title="paperData?.title || 'Loading...'"
-          :authors="authors"
-          :venue="paperData?.venue || ''"
-          :year="paperData?.published_at ? new Date(paperData.published_at).getFullYear() : 0"
-          :doi="paperData?.doi || undefined"
-          :open-access="true"
-          :abstract="paperData?.abstract || ''"
-          :cited-by="paperData?.citation_count || 0"
-          :references="0"
-          @read="handleRead"
-          @save="handleSave"
-          @cite="handleCite"
-          @author-click="handleAuthorClick"
-        />
+        <div id="ks-sec-folio">
+          <PaperFolio
+            :title="paperData?.title || 'Loading...'"
+            :authors="authors"
+            :venue="paperData?.venue || ''"
+            :year="paperData?.published_at ? new Date(paperData.published_at).getFullYear() : 0"
+            :doi="paperData?.doi || undefined"
+            :open-access="true"
+            :abstract="paperData?.abstract || ''"
+            :cited-by="paperData?.citation_count || 0"
+            :references="0"
+            @read="handleRead"
+            @save="handleSave"
+            @cite="handleCite"
+            @author-click="handleAuthorClick"
+          />
+        </div>
 
         <!-- Thesis -->
-        <PaperThesisLine
-          thesis="Claim-level granularity in scientific document processing enables significantly more accurate evidence retrieval and fact verification compared to traditional paragraph-level approaches."
-          :confidence="0.92"
-          model-source="Kaleidoscope Thesis-v3"
-          @show-provenance="handleShowProvenance"
-        />
+        <div id="ks-sec-thesis">
+          <PaperThesisLine
+            thesis="Claim-level granularity in scientific document processing enables significantly more accurate evidence retrieval and fact verification compared to traditional paragraph-level approaches."
+            :confidence="0.92"
+            model-source="Kaleidoscope Thesis-v3"
+            @show-provenance="handleShowProvenance"
+          />
+        </div>
+
+        <!-- Deep Analysis -->
+        <div v-if="deepAnalysisText" id="ks-sec-analysis">
+          <PaperDeepAnalysis
+            :analysis="deepAnalysisText"
+            @analysis-items-ready="analysisItems = $event"
+          />
+        </div>
 
         <!-- Claims -->
-        <PaperClaimsLedger :claims="claims" @claim-click="handleClaimClick" />
+        <div id="ks-sec-claims">
+          <PaperClaimsLedger :claims="claims" @claim-click="handleClaimClick" />
+        </div>
 
         <!-- Methods & Results -->
-        <PaperMethodsResultsSlice
-          :methods="methods"
-          :results="results"
-          :highlights="methodsResultHighlights"
-        />
+        <div id="ks-sec-methods">
+          <PaperMethodsResultsSlice
+            :methods="methods"
+            :results="results"
+            :highlights="methodsResultHighlights"
+          />
+        </div>
 
         <!-- Figures -->
-        <PaperFigureGallery :figures="figures" @figure-click="handleFigureClick" />
+        <div id="ks-sec-figures">
+          <PaperFigureGallery :figures="figures" @figure-click="handleFigureClick" />
+        </div>
 
         <!-- Reproducibility -->
-        <PaperReproductionStatus
-          overall-status="reproduced"
-          :attempts="reproAttempts"
-          :code-available="true"
-          :data-available="true"
-        />
+        <div id="ks-sec-repro">
+          <PaperReproductionStatus
+            overall-status="reproduced"
+            :attempts="reproAttempts"
+            :code-available="true"
+            :data-available="true"
+          />
+        </div>
 
         <!-- Related -->
-        <PaperRelatedConstellation :papers="relatedPapers" @paper-click="handleRelatedClick" />
+        <div id="ks-sec-related">
+          <PaperRelatedConstellation :papers="relatedPapers" @paper-click="handleRelatedClick" />
+        </div>
       </div>
 
       <!-- Sidebar -->
-      <div class="ks-paper-profile__sidebar">
+      <aside class="ks-paper-profile__sidebar">
         <PaperSupplementRail :items="supplements" />
-      </div>
+
+        <!-- Taxonomy Labels -->
+        <div v-if="paperLabels" class="ks-paper-labels">
+          <h4 class="ks-paper-labels__title">Labels</h4>
+          <div v-for="dim in LABEL_DIMS" :key="dim.key" class="ks-paper-labels__group">
+            <span class="ks-paper-labels__dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+            <div class="ks-paper-labels__chips">
+              <span
+                v-for="tag in (paperLabels[dim.key] as string[])"
+                :key="tag"
+                class="ks-paper-labels__chip"
+                :style="{ borderColor: dim.color, color: dim.color }"
+              >{{ tag }}</span>
+              <span v-if="!(paperLabels[dim.key] as string[]).length" class="ks-paper-labels__none">—</span>
+            </div>
+          </div>
+          <div class="ks-paper-labels__divider" />
+          <div v-for="dim in META_DIMS" :key="dim.key" class="ks-paper-labels__group">
+            <span class="ks-paper-labels__dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+            <div class="ks-paper-labels__chips">
+              <span
+                v-for="tag in (paperLabels.meta[dim.key] as string[])"
+                :key="tag"
+                class="ks-paper-labels__chip"
+                :style="{ borderColor: dim.color, color: dim.color }"
+              >{{ tag }}</span>
+              <span v-if="!(paperLabels.meta[dim.key] as string[]).length" class="ks-paper-labels__none">—</span>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
+
+    <!-- Grok-style full-page outline -->
+    <PaperAnalysisOutline
+      :items="outlineItems"
+      :active-idx="activeOutlineIdx"
+      @jump="handleOutlineJump"
+    />
   </div>
 </template>
 
@@ -370,6 +555,65 @@ function handleRelatedClick(paper: RelatedPaper) {
   position: sticky;
   top: 96px;
   height: fit-content;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ks-paper-labels {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface, rgba(30, 41, 59, 0.4));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ks-paper-labels__title {
+  font: 600 0.75rem / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-secondary);
+  margin: 0 0 2px;
+}
+
+.ks-paper-labels__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ks-paper-labels__dim {
+  font: 600 0.65rem / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.ks-paper-labels__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ks-paper-labels__chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 3px;
+  font: 400 0.72rem / 1.5 var(--font-sans);
+  background: transparent;
+}
+
+.ks-paper-labels__none {
+  font: 400 0.72rem / 1.5 var(--font-sans);
+  color: var(--color-secondary);
+}
+
+.ks-paper-labels__divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 2px 0;
 }
 
 @media (max-width: 960px) {

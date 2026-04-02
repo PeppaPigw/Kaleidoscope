@@ -1,16 +1,25 @@
-"""Writing Support API — related work, bibliography, gap analysis, rebuttal.
+"""Writing Support API — persisted documents plus AI writing utilities.
 
 P2 WS-3: §22 (#189-200) from FeasibilityAnalysis.md
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db
+from app.dependencies import get_current_user_id, get_db
+from app.schemas.writing import (
+    WritingDocumentListResponse,
+    WritingDocumentResponse,
+    WritingDocumentUpdateRequest,
+    WritingImageUploadResponse,
+)
+from app.services.writing.document_service import WritingDocumentService
 from app.services.writing.writing_service import WritingService
 
 router = APIRouter(prefix="/writing", tags=["writing"])
+
+MAX_WRITING_IMAGE_BYTES = 10 * 1024 * 1024
 
 
 def _raise_writing_error(result: dict) -> None:
@@ -50,7 +59,104 @@ class RebuttalRequest(BaseModel):
     reviewer_comments: str
 
 
-# ─── Endpoints ───────────────────────────────────────────────────
+# ─── Persisted Writing Documents ─────────────────────────────────
+
+
+@router.get("/documents", response_model=WritingDocumentListResponse)
+async def list_writing_documents(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """List all writing documents for the current user."""
+    svc = WritingDocumentService(db)
+    return await svc.list_documents(user_id=user_id)
+
+
+@router.post("/documents", response_model=WritingDocumentResponse, status_code=201)
+async def create_writing_document(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Create a new empty writing document."""
+    svc = WritingDocumentService(db)
+    return await svc.create_document(user_id=user_id)
+
+
+@router.get("/documents/{document_id}", response_model=WritingDocumentResponse)
+async def get_writing_document(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Load a single user-owned writing document."""
+    svc = WritingDocumentService(db)
+    document = await svc.get_document(document_id=document_id, user_id=user_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Writing document not found")
+    return document
+
+
+@router.patch("/documents/{document_id}", response_model=WritingDocumentResponse)
+async def update_writing_document(
+    document_id: str,
+    body: WritingDocumentUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update a user-owned writing document."""
+    svc = WritingDocumentService(db)
+    document = await svc.update_document(
+        document_id=document_id,
+        user_id=user_id,
+        title=body.title,
+        markdown_content=body.markdown_content,
+    )
+    if document is None:
+        raise HTTPException(status_code=404, detail="Writing document not found")
+    return document
+
+
+@router.delete("/documents/{document_id}", status_code=204)
+async def delete_writing_document(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Soft-delete a user-owned writing document."""
+    svc = WritingDocumentService(db)
+    deleted = await svc.delete_document(document_id=document_id, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Writing document not found")
+
+
+@router.post("/images", response_model=WritingImageUploadResponse, status_code=201)
+async def upload_writing_image(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Upload a writing image via the configured OSS image host."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image uploads are accepted")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > MAX_WRITING_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
+
+    svc = WritingDocumentService(db)
+    return await svc.upload_image(
+        user_id=user_id,
+        filename=file.filename,
+        content_type=file.content_type,
+        data=data,
+    )
+
+
+# ─── AI Writing Endpoints ───────────────────────────────────────
 
 
 @router.post("/related-work")

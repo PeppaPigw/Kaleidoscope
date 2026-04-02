@@ -269,7 +269,8 @@ watch(showSearch, (open) => {
 .ks-topbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  /* Keep topbar menus above page-level sticky headers and ribbons. */
+  z-index: 40;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -599,4 +600,3 @@ watch(showSearch, (open) => {
   text-align: center;
 }
 </style>
-

@@ -752,6 +752,30 @@ def index_paper_task(self, paper_id: str):
                 except Exception as e:
                     log.warning("smart_collection_eval_failed", error=str(e))
 
+                # ── Auto-label newly indexed paper ────────────────
+                try:
+                    from app.services.analysis.labeling_service import LabelingService
+
+                    label_svc = LabelingService(session)
+                    await label_svc.label_paper(paper)
+                    await session.commit()
+                    await label_svc.close()
+                    log.info("paper_labeled_on_index")
+                except Exception as e:
+                    log.warning("paper_label_on_index_failed", error=str(e))
+
+                # ── Auto deep-analyse newly indexed paper ─────────
+                try:
+                    from app.services.analysis.paper_analyst import PaperAnalystService
+
+                    analyst = PaperAnalystService(session)
+                    await analyst.analyse_and_persist(paper, session)
+                    await session.commit()
+                    await analyst.close()
+                    log.info("paper_analysed_on_index")
+                except Exception as e:
+                    log.warning("paper_analysis_on_index_failed", error=str(e))
+
             log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
             return {
                 "status": paper.ingestion_status,

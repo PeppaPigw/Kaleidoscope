@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white" alt="Python 3.12" />
   <img src="https://img.shields.io/badge/nuxt-3.19-00DC82?logo=nuxt.js&logoColor=white" alt="Nuxt 3" />
   <img src="https://img.shields.io/badge/fastapi-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+  <img src="https://img.shields.io/badge/license-KNCL%20v1.0-orange" alt="KNCL v1.0 License" />
 </p>
 
 ---
@@ -205,4 +205,6 @@ Interactive docs available at `http://localhost:8000/docs` when backend is runni
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+This project is licensed under the Kaleidoscope Non-Commercial License
+(KNCL) v1.0. Commercial use requires separate written permission or a
+commercial license. See [LICENSE](LICENSE) for details.

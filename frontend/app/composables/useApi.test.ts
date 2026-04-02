@@ -200,3 +200,128 @@ describe('useApi.collections', () => {
     expect(profile).toEqual({ id: 'author-1', display_name: 'Ada Researcher' })
   })
 })
+
+describe('useApi.writing', () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    vi.stubGlobal('useRuntimeConfig', () => ({
+      public: { apiUrl: 'http://127.0.0.1:8000' },
+    }))
+    vi.stubGlobal('$fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    fetchMock.mockReset()
+    vi.unstubAllGlobals()
+  })
+
+  it('lists, creates, updates, and deletes writing documents through the writing endpoints', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'doc-1',
+            user_id: 'user-1',
+            title: 'Draft One',
+            markdown_content: '# Draft One',
+            plain_text_excerpt: 'Draft One',
+            word_count: 2,
+            cover_image_url: null,
+            created_at: '2026-04-02T12:00:00Z',
+            updated_at: '2026-04-02T12:00:00Z',
+            last_opened_at: '2026-04-02T12:00:00Z',
+          },
+        ],
+        total: 1,
+      })
+      .mockResolvedValueOnce({
+        id: 'doc-2',
+        user_id: 'user-1',
+        title: 'Untitled',
+        markdown_content: '',
+        plain_text_excerpt: '',
+        word_count: 0,
+        cover_image_url: null,
+        created_at: '2026-04-02T12:00:00Z',
+        updated_at: '2026-04-02T12:00:00Z',
+        last_opened_at: '2026-04-02T12:00:00Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'doc-1',
+        user_id: 'user-1',
+        title: 'Draft One',
+        markdown_content: '# Draft One',
+        plain_text_excerpt: 'Draft One',
+        word_count: 2,
+        cover_image_url: null,
+        created_at: '2026-04-02T12:00:00Z',
+        updated_at: '2026-04-02T12:00:00Z',
+        last_opened_at: '2026-04-02T12:00:00Z',
+      })
+
+    const api = useApi()
+    const list = await api.listWritingDocuments()
+    const created = await api.createWritingDocument()
+    const updated = await api.updateWritingDocument('doc-1', {
+      title: 'Draft One',
+      markdown_content: '# Draft One',
+    })
+    await api.deleteWritingDocument('doc-1')
+
+    expect(new URL(fetchMock.mock.calls[0]?.[0] as string).pathname)
+      .toBe('/api/v1/writing/documents')
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    expect(new URL(fetchMock.mock.calls[1]?.[0] as string).pathname)
+      .toBe('/api/v1/writing/documents')
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    expect(new URL(fetchMock.mock.calls[2]?.[0] as string).pathname)
+      .toBe('/api/v1/writing/documents/doc-1')
+    expect(fetchMock.mock.calls[2]?.[1]).toEqual(expect.objectContaining({
+      method: 'PATCH',
+      body: {
+        title: 'Draft One',
+        markdown_content: '# Draft One',
+      },
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    expect(new URL(fetchMock.mock.calls[3]?.[0] as string).pathname)
+      .toBe('/api/v1/writing/documents/doc-1')
+    expect(fetchMock.mock.calls[3]?.[1]).toEqual(expect.objectContaining({
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    expect(list.total).toBe(1)
+    expect(created.id).toBe('doc-2')
+    expect(updated.title).toBe('Draft One')
+  })
+
+  it('uploads writing images as multipart form data without forcing a JSON content type', async () => {
+    fetchMock.mockResolvedValue({
+      url: 'https://img.example.com/writing/user-1/figure.png',
+    })
+
+    const api = useApi()
+    const file = new File(['png-bytes'], 'figure.png', { type: 'image/png' })
+    const result = await api.uploadWritingImage(file)
+
+    const [url, options] = fetchMock.mock.calls[0] ?? []
+
+    expect(new URL(url as string).pathname).toBe('/api/v1/writing/images')
+    expect(options).toEqual(expect.objectContaining({
+      method: 'POST',
+    }))
+    expect(options?.body).toBeInstanceOf(FormData)
+    expect(options?.headers).toEqual({})
+    expect(result.url).toBe('https://img.example.com/writing/user-1/figure.png')
+  })
+})

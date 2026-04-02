@@ -136,7 +136,9 @@ async def _background_label_papers() -> None:
 
         logger.info("label_startup_begin", count=len(paper_ids))
         done = errors = 0
-        sem = asyncio.Semaphore(50)
+        # Concurrency limited to 10 to stay within the DB connection pool (size=20+overflow=10)
+        # The LLM API supports higher parallelism but each task holds a DB session during the call
+        sem = asyncio.Semaphore(10)
 
         async def _one(paper_id) -> None:
             nonlocal done, errors
@@ -169,11 +171,81 @@ async def _background_label_papers() -> None:
         logger.warning("label_startup_failed", error=str(e))
 
 
+async def _background_analyse_papers() -> None:
+    """
+    Deep-analyse all papers that don't yet have deep_analysis.
+    Runs as a fire-and-forget background task on startup.
+    Concurrency=3: analysis holds a DB session + makes a long LLM call (~90s each),
+    so keep well below the pool limit (20+10=30).
+    Starts after labeling is well underway (15 minutes delay).
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.paper import Paper
+    from app.models.author import PaperAuthor
+    from app.dependencies import async_session_factory
+    from app.services.analysis.paper_analyst import PaperAnalystService
+
+    try:
+        await asyncio.sleep(900)  # 15 minutes — let labeling run first
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Paper.id)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.deep_analysis.is_(None),
+                )
+                .order_by(Paper.created_at.desc())
+            )
+            paper_ids = [row[0] for row in result.all()]
+
+        if not paper_ids:
+            logger.info("analysis_startup_skip", reason="all papers already analysed")
+            return
+
+        logger.info("analysis_startup_begin", count=len(paper_ids))
+        done = errors = 0
+        sem = asyncio.Semaphore(3)  # long LLM calls: keep DB sessions low
+
+        async def _one(paper_id) -> None:
+            nonlocal done, errors
+            async with sem:
+                try:
+                    async with async_session_factory() as db:
+                        r = await db.execute(
+                            select(Paper).where(Paper.id == paper_id)
+                            .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+                        )
+                        paper = r.scalar_one_or_none()
+                        if paper is None or paper.deep_analysis is not None:
+                            return
+                        svc = PaperAnalystService(db)
+                        await svc.analyse_and_persist(paper, db)
+                        await db.commit()
+                        await svc.close()
+                    done += 1
+                except Exception as e:
+                    errors += 1
+                    logger.warning(
+                        "analysis_bg_error",
+                        paper_id=str(paper_id),
+                        error=str(e)[:120],
+                    )
+
+        await asyncio.gather(*[_one(pid) for pid in paper_ids], return_exceptions=True)
+        logger.info("analysis_startup_done", done=done, errors=errors)
+
+    except Exception as e:
+        logger.warning("analysis_startup_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────
     asyncio.create_task(_background_enrich_authors())
     asyncio.create_task(_background_label_papers())
+    asyncio.create_task(_background_analyse_papers())
     yield
     # ── Shutdown ─────────────────────────────────────────────────
 

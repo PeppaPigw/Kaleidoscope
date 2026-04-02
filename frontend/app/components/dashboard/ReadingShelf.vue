@@ -8,6 +8,11 @@
  * Cards use `role="link"` with Space + Enter handling for screen readers.
  */
 
+export interface LabelDim {
+  value: string
+  color: string
+}
+
 export interface ReadingPick {
   id: string
   eyebrow: string
@@ -15,6 +20,7 @@ export interface ReadingPick {
   venue: string
   tags: string[]
   abstract: string
+  labelDims?: LabelDim[]
   /** Optional tab category to filter by */
   category?: 'for-you' | 'trending' | 'controversial'
 }
@@ -141,15 +147,18 @@ function handleCardAction(pick: ReadingPick) {
           {{ pick.abstract }}
         </p>
         <KsTranslateBtn :text="pick.abstract" />
-        <div class="ks-reading-shelf__card-meta">
+        <!-- Taxonomy label chips (one per dimension) — shown whenever labels object exists -->
+        <div v-if="pick.labelDims !== undefined" class="ks-reading-shelf__card-labels">
+          <span
+            v-for="dim in pick.labelDims"
+            :key="dim.value"
+            class="ks-reading-shelf__label-chip"
+            :style="{ borderColor: dim.color, color: dim.color }"
+          >{{ dim.value }}</span>
+        </div>
+        <!-- Fallback meta row only for papers without any labels data -->
+        <div v-else class="ks-reading-shelf__card-meta">
           <span class="ks-type-data">{{ pick.venue }}</span>
-          <KsTag
-            v-for="tag in pick.tags"
-            :key="tag"
-            variant="primary"
-          >
-            {{ tag }}
-          </KsTag>
         </div>
       </a>
     </div>
@@ -236,6 +245,25 @@ function handleCardAction(pick: ReadingPick) {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ks-reading-shelf__card-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.ks-reading-shelf__label-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 3px;
+  font: 400 0.72rem / 1.5 var(--font-sans);
+  background: transparent;
+  white-space: nowrap;
 }
 
 .ks-reading-shelf__card-meta {

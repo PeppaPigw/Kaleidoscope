@@ -69,7 +69,7 @@ class LLMClient:
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                timeout=120.0,
+                timeout=300.0,  # deep analysis generates 15k chars (~90-120s); 300s gives headroom
             )
         return self._client
 

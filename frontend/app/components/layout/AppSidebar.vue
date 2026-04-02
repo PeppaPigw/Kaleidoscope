@@ -14,6 +14,8 @@ import {
   ChevronLeft,
 } from 'lucide-vue-next'
 
+import { isSidebarItemActive } from './sidebarActive'
+
 const route = useRoute()
 const { t } = useTranslation()
 
@@ -39,8 +41,10 @@ const navDefinition: NavItem[] = [
   { labelKey: 'knowledge', icon: Flower2, to: '/knowledge' },
 ]
 
+const navPaths = navDefinition.map(item => item.to)
+
 function isActive(item: NavItem): boolean {
-  return route.path.startsWith(item.to)
+  return isSidebarItemActive(route.path, item.to, navPaths)
 }
 
 function getSectionBefore(index: number): string | undefined {
@@ -58,7 +62,7 @@ function getSectionBefore(index: number): string | undefined {
     <!-- Logo -->
     <div class="ks-sidebar__logo">
       <img
-        src="/brand/kaleidoscope-icon-mark.svg"
+        src="/brand/kaleidoscope-icon-mark.png"
         alt=""
         aria-hidden="true"
         class="ks-sidebar__logo-mark"

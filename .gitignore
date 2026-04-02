@@ -58,4 +58,10 @@ skills/
 AGENTS.md
 
 docs/
-.playwright-cli/.playwright-cli
+.playwright-cli/
+
+backend/tests
+frontend/tests
+frontend/test-results/*
+
+output/

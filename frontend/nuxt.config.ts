@@ -32,6 +32,7 @@ export default defineNuxtConfig({
     '@fontsource-variable/inter',
     '@fontsource/jetbrains-mono/400.css',
     '@fontsource/jetbrains-mono/500.css',
+    'katex/dist/katex.min.css',
     '~/assets/css/tokens.css',
     '~/assets/css/typography.css',
     '~/assets/css/editorial.css',
@@ -65,8 +66,8 @@ export default defineNuxtConfig({
         },
       ],
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/brand/kaleidoscope-icon-rounded.svg' },
         { rel: 'icon', type: 'image/png', href: '/brand/kaleidoscope-icon-rounded.png' },
+        { rel: 'shortcut icon', href: '/brand/kaleidoscope-icon-rounded.png' },
         { rel: 'apple-touch-icon', href: '/brand/kaleidoscope-icon-rounded.png' },
       ],
       htmlAttrs: { lang: 'en' },

@@ -74,11 +74,39 @@ class PaperAnalystService:
         log = logger.bind(paper_id=str(paper.id), title=paper.title[:80])
 
         # Build inputs
-        authors_str = _format_authors(
-            [a.display_name for a in paper.authors]
-            if hasattr(paper, "authors") and paper.authors
-            else paper.raw_metadata.get("authors", []) if paper.raw_metadata else []
-        )
+        # paper.authors is a list of PaperAuthor (junction) objects, not Author objects directly.
+        # Access the nested .author.display_name; fall back to raw_metadata if not loaded.
+        def _extract_name(pa) -> str | None:
+            if (
+                hasattr(pa, "author")
+                and pa.author
+                and hasattr(pa.author, "display_name")
+            ):
+                return pa.author.display_name
+            if hasattr(pa, "display_name"):
+                return pa.display_name
+            return None
+
+        author_names: list[str] = []
+        if hasattr(paper, "authors") and paper.authors:
+            try:
+                author_names = [n for pa in paper.authors if (n := _extract_name(pa))]
+            except Exception:
+                pass
+
+        if not author_names and paper.raw_metadata:
+            raw = paper.raw_metadata.get("authors", [])
+            author_names = [
+                (
+                    a
+                    if isinstance(a, str)
+                    else (a.get("display_name") or a.get("name") or "")
+                )
+                for a in raw
+            ]
+            author_names = [n for n in author_names if n]
+
+        authors_str = _format_authors(author_names)
         year = _extract_year(paper)
         fulltext = (paper.full_text_markdown or paper.abstract or "").strip()
         if len(fulltext) > MAX_FULLTEXT_CHARS:
@@ -103,7 +131,7 @@ class PaperAnalystService:
                 prompt=prompt,
                 system=PAPER_ANALYST_SYSTEM,
                 temperature=0.25,  # low temp → dense, consistent output
-                max_tokens=8192,  # enough for all 5 parts
+                max_tokens=16384,  # expanded for 6-part deep analysis (~15k chars target)
             )
         except Exception as exc:
             log.error("paper_analysis_llm_failed", error=str(exc)[:300])

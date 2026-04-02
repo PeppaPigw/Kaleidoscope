@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white" alt="Python 3.12" />
   <img src="https://img.shields.io/badge/nuxt-3.19-00DC82?logo=nuxt.js&logoColor=white" alt="Nuxt 3" />
   <img src="https://img.shields.io/badge/fastapi-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+  <img src="https://img.shields.io/badge/license-KNCL%20v1.0-orange" alt="KNCL v1.0 License" />
 </p>
 
 ---
@@ -150,16 +150,16 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 ## Makefile 命令
 
-| 命令 | 说明 |
-|------|------|
-| `make dev` | 同时启动后端和前端 |
-| `make infra` | 启动 Docker 基础设施 (所有服务) |
-| `make setup` | 完整项目初始化 (基础设施 + 依赖 + 迁移) |
-| `make seed` | 运行 arXiv 种子脚本 (50 篇论文) |
-| `make migrate` | 执行 Alembic 数据库迁移 |
-| `make lint` | 代码检查: 后端 (ruff) + 前端 (eslint) |
-| `make test` | 运行所有测试 |
-| `make clean` | 清理缓存和构建产物 |
+| 命令           | 说明                                    |
+| -------------- | --------------------------------------- |
+| `make dev`     | 同时启动后端和前端                      |
+| `make infra`   | 启动 Docker 基础设施 (所有服务)         |
+| `make setup`   | 完整项目初始化 (基础设施 + 依赖 + 迁移) |
+| `make seed`    | 运行 arXiv 种子脚本 (50 篇论文)         |
+| `make migrate` | 执行 Alembic 数据库迁移                 |
+| `make lint`    | 代码检查: 后端 (ruff) + 前端 (eslint)   |
+| `make test`    | 运行所有测试                            |
+| `make clean`   | 清理缓存和构建产物                      |
 
 运行 `make help` 查看所有可用命令。
 
@@ -169,16 +169,16 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 所有接口挂载在 `/api/v1/` 下，主要分组：
 
-| 分组 | 前缀 | 说明 |
-|------|------|------|
-| 论文 | `/papers` | 增删改查、搜索、内容获取 |
-| 内容 | `/papers/{id}/content` | Markdown 阅读器数据 |
-| 数据分析 | `/analytics` | 文库统计与洞察 |
-| 合集 | `/collections` | 论文组织管理 |
-| 搜索 | `/search` | 多模态搜索 |
-| 知识 | `/knowledge` | 笔记图谱 |
-| 订阅源 | `/feeds` | RSS 管理 |
-| 智能分析 | `/intelligence` | AI 驱动的深度洞察 |
+| 分组     | 前缀                   | 说明                     |
+| -------- | ---------------------- | ------------------------ |
+| 论文     | `/papers`              | 增删改查、搜索、内容获取 |
+| 内容     | `/papers/{id}/content` | Markdown 阅读器数据      |
+| 数据分析 | `/analytics`           | 文库统计与洞察           |
+| 合集     | `/collections`         | 论文组织管理             |
+| 搜索     | `/search`              | 多模态搜索               |
+| 知识     | `/knowledge`           | 笔记图谱                 |
+| 订阅源   | `/feeds`               | RSS 管理                 |
+| 智能分析 | `/intelligence`        | AI 驱动的深度洞察        |
 
 后端运行后，访问 `http://localhost:8000/docs` 查看交互式 API 文档。
 
@@ -186,16 +186,16 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | Nuxt 3, Vue 3, TypeScript, Lucide Icons, GSAP |
-| 后端 | FastAPI, SQLAlchemy 2, Celery, Pydantic v2 |
-| 数据库 | PostgreSQL 16, Redis 7 |
-| 搜索引擎 | Meilisearch, Qdrant (向量搜索) |
-| 图数据库 | Neo4j 5 |
-| 对象存储 | MinIO (S3 兼容) |
-| PDF 解析 | GROBID, MinerU API |
-| AI | LLM 集成 (可配置端点) |
+| 层级     | 技术                                          |
+| -------- | --------------------------------------------- |
+| 前端     | Nuxt 3, Vue 3, TypeScript, Lucide Icons, GSAP |
+| 后端     | FastAPI, SQLAlchemy 2, Celery, Pydantic v2    |
+| 数据库   | PostgreSQL 16, Redis 7                        |
+| 搜索引擎 | Meilisearch, Qdrant (向量搜索)                |
+| 图数据库 | Neo4j 5                                       |
+| 对象存储 | MinIO (S3 兼容)                               |
+| PDF 解析 | GROBID, MinerU API                            |
+| AI       | LLM 集成 (可配置端点)                         |
 
 ---
 
@@ -208,6 +208,7 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 ---
 
-## 开源许可
+## 许可协议
 
-本项目基于 MIT 许可证 — 详见 [LICENSE](LICENSE)。
+本项目采用 Kaleidoscope Non-Commercial License (KNCL) v1.0。
+商业使用需要单独获得书面许可或商业授权。详见 [LICENSE](LICENSE)。

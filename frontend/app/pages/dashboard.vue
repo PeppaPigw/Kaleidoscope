@@ -128,24 +128,36 @@ onMounted(async () => {
   // Wire reading shelf picks to newest papers
   try {
     const papersResp = await listPapers({ limit: 6, offset: 0 })
+    const DIM_COLORS: Record<string, string> = {
+      domain: '#6366f1',
+      task: '#0ea5e9',
+      method: '#10b981',
+      data_object: '#f59e0b',
+      application: '#ec4899',
+    }
     readingPicks.value = (papersResp.items ?? []).map((p) => {
       const lbl = p.paper_labels
-      const labelTags: string[] = lbl
-        ? [
-            lbl.domain[0],
-            lbl.task[0],
-            lbl.method[0],
-            lbl.data_object[0],
-            lbl.application[0],
-          ].filter((v): v is string => Boolean(v))
-        : (p.has_full_text ? ['Full Text'] : [])
+      const labelDims = lbl
+        ? (
+            [
+              { key: 'domain', v: lbl.domain[0] },
+              { key: 'task', v: lbl.task[0] },
+              { key: 'method', v: lbl.method[0] },
+              { key: 'data_object', v: lbl.data_object[0] },
+              { key: 'application', v: lbl.application[0] },
+            ] as { key: string; v: string | undefined }[]
+          )
+            .filter(d => Boolean(d.v))
+            .map(d => ({ value: d.v as string, color: DIM_COLORS[d.key]! }))
+        : undefined
       return {
         id: p.id,
         eyebrow: p.reading_status ?? 'New',
         title: p.title,
         venue: p.keywords?.slice(0, 2).join(' · ') ?? '',
-        tags: labelTags,
+        tags: p.has_full_text ? ['Full Text'] : [],
         abstract: p.abstract ?? '',
+        labelDims,
       }
     })
   } catch {

@@ -72,8 +72,16 @@ async def get_paper_content(
         raise HTTPException(status_code=404, detail="Paper not found")
 
     # Build content response with fallback chain
-    if paper.full_text_markdown:
-        markdown = paper.full_text_markdown
+    md = paper.full_text_markdown or ""
+    abs_len = len(paper.abstract or "")
+
+    if md and abs_len > 0 and len(md) >= abs_len * 3:
+        # Real full-text: at least 3× the abstract length
+        markdown = md
+        fmt = "markdown"
+    elif md and abs_len == 0 and len(md) > 2000:
+        # No abstract reference — trust it if it's reasonably long
+        markdown = md
         fmt = "markdown"
     elif paper.parsed_sections:
         # Reconstruct from parsed_sections
@@ -98,7 +106,7 @@ async def get_paper_content(
         paper_id=str(paper.id),
         title=paper.title,
         abstract=paper.abstract,
-        has_full_text=paper.has_full_text,
+        has_full_text=fmt == "markdown",
         markdown=markdown,
         format=fmt,
         remote_urls=paper.remote_urls,

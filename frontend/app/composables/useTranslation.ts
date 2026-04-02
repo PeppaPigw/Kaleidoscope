@@ -25,22 +25,24 @@ function _initLocale() {
       if (stored === "zh" || stored === "en") {
         locale.value = stored;
       }
-    } catch {}
+    } catch {
+      // Ignore storage access failures in restricted browser contexts.
+    }
     // Watch for changes and persist
     watch(locale, (v) => {
       try {
         localStorage.setItem("ks-locale", v);
-      } catch {}
+      } catch {
+        // Ignore storage write failures in restricted browser contexts.
+      }
     });
   }
 }
 
 // ─── API constants ──────────────────────────────────────────
-const TRANSLATE_API_URL =
-  "https://integrate.api.nvidia.com/v1/chat/completions";
-const TRANSLATE_API_KEY =
-  "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";
-const TRANSLATE_MODEL = "openai/gpt-oss-120b";
+// Translation is proxied through the backend — no API key in client code.
+const TRANSLATE_ENDPOINT = "/api/v1/translate";
+
 
 // ─── UI labels ──────────────────────────────────────────────
 export const UI_LABELS = {
@@ -60,6 +62,7 @@ export const UI_LABELS = {
     synthesis: "Synthesis",
     writing: "Writing",
     knowledge: "Knowledge Garden",
+    admin: "Admin Console",
     settings: "Settings",
     // Topbar
     notifications: "Notifications",
@@ -168,6 +171,7 @@ export const UI_LABELS = {
     synthesis: "综合分析",
     writing: "写作",
     knowledge: "知识花园",
+    admin: "管理控制台",
     settings: "设置",
     // Topbar
     notifications: "通知",
@@ -315,28 +319,18 @@ export function useTranslation() {
 
     const promise = (async () => {
       try {
-        const response = await $fetch<{
-          choices: Array<{ message: { content: string } }>;
-        }>(TRANSLATE_API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${TRANSLATE_API_KEY}`,
-          },
-          body: {
-            model: TRANSLATE_MODEL,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "你是一个论文翻译助手，使用最简洁准确的语言翻译下面的内容。不允许任何其他额外输出",
-              },
-              { role: "user", content: text },
-            ],
-          },
-        });
+        // Call backend translate proxy — API key stays server-side
+        const config = useRuntimeConfig()
+        const apiBase = config.public.apiUrl as string
+        const response = await $fetch<{ translated: string; original: string }>(
+          `${apiBase}${TRANSLATE_ENDPOINT}`,
+          {
+            method: "POST",
+            body: { text, direction: "en2zh" },
+          }
+        );
 
-        const translated = response.choices?.[0]?.message?.content?.trim() || "";
+        const translated = response.translated?.trim() || "";
         if (translated) {
           translationCache.set(cacheKey, translated);
         }

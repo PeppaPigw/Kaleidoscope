@@ -95,10 +95,10 @@ function getSectionBefore(index: number): string | undefined {
 
     <!-- Bottom -->
     <div class="ks-sidebar__footer">
-      <NuxtLink to="/admin" class="ks-sidebar__item" :aria-label="t('settings')">
+      <NuxtLink to="/admin" class="ks-sidebar__item" :aria-label="t('admin')">
         <Settings :size="20" :stroke-width="1.8" />
         <Transition name="ks-fade">
-          <span v-if="!collapsed" class="ks-sidebar__item-label">{{ t('settings') }}</span>
+          <span v-if="!collapsed" class="ks-sidebar__item-label">{{ t('admin') }}</span>
         </Transition>
       </NuxtLink>
 

@@ -162,6 +162,33 @@ async function loadPaperContent() {
   }
 }
 
+// Content quality state
+const contentFormat = computed(() => (paperContent.value as any)?.format || 'unknown')
+const isAbstractOnly = computed(() => contentFormat.value === 'abstract_only' || contentFormat.value === 'metadata_only')
+const reprocessing = ref(false)
+const reprocessError = ref<string | null>(null)
+
+async function triggerReprocess() {
+  if (!paperId.value || reprocessing.value) return
+  reprocessing.value = true
+  reprocessError.value = null
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    await $fetch(`${apiBase}/api/v1/papers/${paperId.value}/reparse`, {
+      method: 'POST',
+      body: { url: null, is_html: false },
+    })
+    // Reload content after ~5s to give server time to process
+    await new Promise(r => setTimeout(r, 5000))
+    await loadPaperContent()
+  } catch (e: any) {
+    reprocessError.value = e?.data?.detail || 'Reprocessing failed — please try again later.'
+  } finally {
+    reprocessing.value = false
+  }
+}
+
 onMounted(() => {
   void loadPaperContent()
 })
@@ -225,6 +252,23 @@ async function handleAskQuestion() {
           <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
         </svg>
       </a>
+    </div>
+
+    <!-- Abstract-only content warning banner -->
+    <div v-if="isAbstractOnly && !contentPending" class="ks-reader__quality-banner">
+      <div class="ks-reader__quality-banner-icon">⚠️</div>
+      <div class="ks-reader__quality-banner-body">
+        <strong>Full text not yet available.</strong>
+        This paper's PDF is still being processed by MinerU. Currently showing the abstract only.
+        <span v-if="reprocessError" class="ks-reader__quality-banner-error"> {{ reprocessError }}</span>
+      </div>
+      <button
+        class="ks-reader__quality-reprocess-btn"
+        :disabled="reprocessing"
+        @click="triggerReprocess"
+      >
+        {{ reprocessing ? '⏳ Processing…' : '🔄 Re-process PDF' }}
+      </button>
     </div>
 
     <div class="ks-reader__layout">
@@ -478,6 +522,59 @@ async function handleAskQuestion() {
 
 .ks-reader__qa-btn:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Content quality warning banner ───────────── */
+.ks-reader__quality-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 1400px;
+  margin: 0 auto 16px;
+  padding: 14px 20px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.ks-reader__quality-banner-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.ks-reader__quality-banner-body {
+  flex: 1;
+  font: 400 0.875rem / 1.5 var(--font-sans, 'Inter', sans-serif);
+  color: var(--color-text);
+}
+
+.ks-reader__quality-banner-error {
+  color: #f87171;
+  font-weight: 500;
+}
+
+.ks-reader__quality-reprocess-btn {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 8px;
+  color: #f59e0b;
+  font: 600 0.8125rem / 1 var(--font-sans, 'Inter', sans-serif);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.ks-reader__quality-reprocess-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.8);
+}
+
+.ks-reader__quality-reprocess-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 </style>

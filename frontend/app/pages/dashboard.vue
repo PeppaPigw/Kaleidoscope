@@ -4,7 +4,7 @@
  *
  * The researcher's daily landing page, styled like a magazine cover.
  * Composes dashboard-scoped components into a responsive grid layout.
- * Uses mock data until backend API is connected.
+ * All data is fetched from the real backend API.
  */
 import type { HeroStat } from '~/components/dashboard/DashboardHero.vue'
 import type { BriefingItem } from '~/components/dashboard/BriefingStrip.vue'
@@ -40,17 +40,15 @@ const unreadAlertCount = ref(0)
 const briefingItems = ref<BriefingItem[]>([])
 const queueItems = ref<QueueItem[]>([])
 const readingPicks = ref<ReadingPick[]>([])
-const workspaces = ref<WorkspaceSummary[]>([
-  { id: 'ws-1', name: 'Clinical Reasoning Review', progress: 43, detail: '12/28 papers annotated' },
-  { id: 'ws-2', name: 'Citation-Aware Agent Survey', progress: 68, detail: 'evidence matrix 68% complete' },
-  { id: 'ws-3', name: 'Long-Context Benchmark Audit', progress: 22, detail: '3 unresolved metric conflicts' },
-])
-const fallbackBriefingItems: BriefingItem[] = [
-  { id: 'b-1', type: 'NEW', title: 'GraphRAG for Literature Reviews', time: '08:12' },
-  { id: 'b-2', type: 'ALERT', title: '3 papers claim MedQA SOTA without external validation', time: '08:16' },
-  { id: 'b-3', type: 'CODE', title: 'BenchLab-128K GitHub linked', time: '08:20' },
-  { id: 'b-4', type: 'INGEST', title: 'Nature Machine Intelligence RSS synced', time: '08:24' },
-]
+const workspaces = ref<WorkspaceSummary[]>([])
+
+// TrendSnapshot — driven by real hot-keywords API
+const trendTopic = ref('Loading…')
+const trendChange = ref('')
+const trendDescription = ref('')
+const trendRelatedTopics = ref<string[]>([])
+const trendSparkline = ref<number[]>([])
+
 const { lastAlert, unreadCount: streamUnreadCount, clearUnread } = useAlertStream()
 
 function normalizeBriefingType(type?: string): BriefingItem['type'] {
@@ -88,7 +86,10 @@ watch(lastAlert, (alert) => {
 })
 
 onMounted(async () => {
-  const { getAnalyticsOverview, getHealth, getSearchHealth, listRecentPapers, listPapers, getAlerts } = useApi()
+  const {
+    getAnalyticsOverview, getHealth, getSearchHealth,
+    listRecentPapers, listPapers, getAlerts, getAnalyticsKeywordCloud,
+  } = useApi()
 
   try {
     analyticsOverview.value = await getAnalyticsOverview()
@@ -113,7 +114,7 @@ onMounted(async () => {
     unreadAlertCount.value = alertsResp.unread_count
     briefingItems.value = alertsResp.alerts.map(toBriefingItem)
   } catch {
-    briefingItems.value = [...fallbackBriefingItems]
+    briefingItems.value = []
   }
 
   // Wire reading queue to recent papers
@@ -121,15 +122,12 @@ onMounted(async () => {
     const recent = await listRecentPapers()
     queueItems.value = recent.slice(0, 5)
   } catch {
-    queueItems.value = [
-      { id: 'q-1', title: 'ClaimMiner', time: '18 min', mode: 'evidence-heavy' },
-      { id: 'q-2', title: 'BenchLab-128K', time: '12 min', mode: 'skim' },
-    ]
+    queueItems.value = []
   }
 
   // Wire reading shelf picks to newest papers
   try {
-    const papersResp = await listPapers({ limit: 3, offset: 0 })
+    const papersResp = await listPapers({ limit: 6, offset: 0 })
     readingPicks.value = (papersResp.items ?? []).map(p => ({
       id: p.id,
       eyebrow: p.reading_status ?? 'New',
@@ -141,10 +139,45 @@ onMounted(async () => {
   } catch {
     readingPicks.value = []
   }
+
+  // Wire TrendSnapshot to real keyword-cloud API
+  try {
+    const keywordsData = await getAnalyticsKeywordCloud(20)
+    if (keywordsData.keywords && keywordsData.keywords.length > 0) {
+      const top = keywordsData.keywords[0]!
+      trendTopic.value = top.keyword
+      const total = keywordsData.total_papers_with_keywords || 0
+      trendDescription.value = `Appears in ${total.toLocaleString()} papers in your library`
+      trendRelatedTopics.value = keywordsData.keywords.slice(1, 5).map((k: { keyword: string }) => k.keyword)
+      // Build sparkline from keyword counts (normalized)
+      const counts = keywordsData.keywords.slice(0, 14).map((k: { count: number }) => k.count)
+      const max = Math.max(...counts, 1)
+      trendSparkline.value = counts.map((c: number) => Math.round((c / max) * 100))
+      const topCount = top.count ?? 0
+      const secondCount = keywordsData.keywords[1]?.count ?? topCount
+      const pct = secondCount > 0 ? Math.round(((topCount - secondCount) / secondCount) * 100) : 0
+      trendChange.value = pct >= 0 ? `+${pct}%` : `${pct}%`
+    }
+  } catch {
+    // leave defaults (empty — no mock data)
+  }
 })
 
-const heroTitle = 'Clinical Multimodal Reasoning Enters the Verification Era'
-const heroLead = '27 篇新论文已入库，6 条 leaderboard claim 与既有证据冲突，今日重点转向 "可复现临床推理" 而非更高分数。'
+// heroTitle driven from analytics
+const heroTitle = computed(() => {
+  if (analyticsOverview.value && analyticsOverview.value.total_papers > 0) {
+    return `${analyticsOverview.value.total_papers.toLocaleString()} papers indexed — explore the frontier`
+  }
+  return 'Kaleidoscope — Your Research Intelligence Hub'
+})
+const heroLead = computed(() => {
+  if (analyticsOverview.value) {
+    const wft = analyticsOverview.value.with_fulltext ?? 0
+    const total = analyticsOverview.value.total_papers ?? 0
+    return `${wft} papers with full text · ${total} total indexed · powered by MinerU + Qwen3`
+  }
+  return 'Fetching your research library…'
+})
 const heroDate = new Date().toLocaleDateString('en-US', {
   weekday: 'short',
   year: 'numeric',
@@ -170,8 +203,6 @@ const heroStats = computed<HeroStat[]>(() => [
   },
 ])
 
-
-// workspaces: wired to ref above (real data wiring requires workspace API — left as mock for now)
 
 const monitors = computed<MonitorItem[]>(() => {
   const items: MonitorItem[] = []
@@ -286,12 +317,12 @@ function handleTrendClick() {
         @card-click="handleCardClick"
       />
       <DashboardTrendSnapshot
-        topic="Citation-grounded scientific agents"
-        change="+36%"
-        period="30 天趋势"
-        description="30 天内出现于 112 篇新论文，峰值发生在 Mar 18"
-        :related-topics="['RRF', 'Evidence tracing', 'Toolformer']"
-        :sparkline-data="[10, 15, 22, 18, 35, 42, 38, 55, 62, 58, 72, 78, 82, 88]"
+        :topic="trendTopic"
+        :change="trendChange"
+        period="Library trends"
+        :description="trendDescription"
+        :related-topics="trendRelatedTopics"
+        :sparkline-data="trendSparkline"
         @click="handleTrendClick"
       />
     </div>

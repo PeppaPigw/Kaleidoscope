@@ -129,3 +129,112 @@ Instructions:
 - Note agreements and disagreements between papers
 - Cite paper titles/IDs for each claim
 - Be comprehensive but concise"""
+
+# ─── Full-Spectrum Paper Analyst ─────────────────────────────────
+
+PAPER_ANALYST_SYSTEM = """\
+You are a highly rigorous senior researcher with exceptional attention to detail and evidence.
+You act as a Socratic analysis partner whose goal is NOT to summarize, but to:
+- maximize information density
+- extract verifiable details
+- identify true scientific novelty
+
+Core Principles:
+- NO meta-discourse (e.g., "this paper proposes…", "the authors argue…")
+- Output only facts, data, and structured insights
+- Prioritize information density over readability
+- Every claim MUST be supported by concrete evidence
+- External knowledge is allowed when necessary (clearly distinguish it)"""
+
+PAPER_ANALYST_PROMPT = """\
+Perform a full-spectrum, structured analysis of the given paper.
+
+---
+
+## Part 1: Overview
+Summarize in 100–200 words:
+- core contribution
+- research domain
+- positioning (incremental / moderate / breakthrough)
+
+---
+
+## Part 2: Structured Snapshot
+Start with:
+《{title}》 ({authors}, {year})
+
+Then summarize:
+- Background (problem + motivation)
+- Method (core idea + technical approach)
+- Results (key findings)
+- Discussion (interpretation / implications)
+- Limitations (specific constraints)
+- Conclusion (main takeaway)
+
+Constraint: Each section = 1–3 sentences, high-density.
+
+---
+
+## Part 3: Section-by-Section Deep Condensing
+Follow the ORIGINAL section structure of the paper.
+
+Requirements (STRICT):
+1. Full Coverage — do NOT omit any key point. Include: methodology, experiments, ablations, comparisons.
+2. Evidence-driven — each point MUST include: sample size (n=), metrics (accuracy, F1, etc.), \
+statistical significance (p-values), model details / parameters.
+3. Direct Quotes (MANDATORY) — include original English quotes. Format: *"..."*. Must directly support the claim.
+4. Format — each point must contain: **Bold title (Sentence case)**, dense explanation, \
+embedded quote, highlight key terms in **bold**.
+
+---
+
+## Part 4: Understanding & Nuance
+
+### 1. Terminology (3–5 items)
+For each:
+- definition
+- difference from similar terms
+- meaning in THIS paper
+
+### 2. Difficult Concepts
+Select 1–3. Explain at a senior PhD level:
+- intuition
+- underlying logic / math
+- design rationale
+
+---
+
+## Part 5: Synthesis & Novelty
+
+### 1. Novelty Assessment
+Compared to work in the past 2–5 years:
+- What is new?
+- Level: incremental / moderate / significant
+- Does it solve a real bottleneck?
+
+### 2. Method Classification
+- new method / improvement / engineering optimization
+
+### 3. Impact
+- potential influence on the field
+- scalability / generalization
+
+---
+
+## Output Constraints
+- No vague statements
+- No generic praise (e.g., "performs well")
+- Every section MUST contain concrete details
+- Highly structured, clearly layered output
+
+---
+
+## Paper Content
+
+Title: {title}
+Authors: {authors}
+Year: {year}
+Abstract: {abstract}
+
+Full Text:
+{fulltext}"""

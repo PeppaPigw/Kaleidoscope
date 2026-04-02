@@ -1,4 +1,4 @@
-"""Seed script — fetch 50 arXiv papers, convert to Markdown via MinerU, store in DB.
+"""Seed script — fetch 100 arXiv papers, convert to Markdown via MinerU, store in DB.
 
 Usage:
     cd backend && python -m app.scripts.seed_arxiv
@@ -6,15 +6,19 @@ Usage:
 Strategy:
     1. Query arXiv API for recent papers across ML/AI categories
     2. For each paper, create a Paper row with metadata
-    3. Use MinerU HTML model on ar5iv URLs to get markdown (no PDF storage)
-    4. Store `full_text_markdown` directly in the paper row
-    5. Store original arXiv links in `remote_urls` for user navigation
+    3. Use MinerU VLM model on arXiv PDF URL to get full-text markdown
+       (ar5iv HTML is JS-rendered so only yields the abstract page)
+    4. Upload extracted images to OSS, rewrite markdown src URLs
+    5. Store `full_text_markdown` in the paper row
+    6. Store original arXiv links in `remote_urls` for user navigation
 """
 
 import asyncio
 from datetime import datetime, timezone
 
 import structlog
+
+from app.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -27,8 +31,8 @@ ARXIV_CATEGORIES = [
     "cs.IR",   # Information Retrieval
 ]
 
-# 10 papers per category = 50 total
-PAPERS_PER_CATEGORY = 10
+# 20 papers per category = 100 total
+PAPERS_PER_CATEGORY = 20
 
 
 async def fetch_arxiv_papers(category: str, max_results: int) -> list[dict]:
@@ -113,9 +117,29 @@ def _parse_arxiv_feed(xml_text: str) -> list[dict]:
     return papers
 
 
-async def convert_via_mineru(arxiv_id: str, html_url: str) -> str | None:
-    """Convert an ar5iv HTML page to Markdown via MinerU API."""
-    from app.clients.mineru_client import MinerUClient
+# ── Shared concurrency controls (module-level singletons) ────────────────
+_MINERU_SEM: asyncio.Semaphore | None = None
+
+
+def _mineru_sem() -> asyncio.Semaphore:
+    global _MINERU_SEM
+    if _MINERU_SEM is None:
+        _MINERU_SEM = asyncio.Semaphore(settings.mineru_concurrency)
+    return _MINERU_SEM
+
+
+async def convert_via_mineru(
+    arxiv_id: str,
+    pdf_url: str,
+    oss_client,
+):
+    """Convert an arXiv PDF via MinerU VLM model. Returns MinerUResult or None.
+
+    We use the PDF URL (not ar5iv HTML) because ar5iv pages are JavaScript-rendered
+    and MinerU's HTML fetcher only retrieves the static shell (~2 KB, abstract only).
+    The VLM model processes the actual PDF and returns full-text markdown.
+    """
+    from app.clients.mineru_client import MinerUClient, MinerUModel
 
     try:
         client = MinerUClient()
@@ -124,14 +148,19 @@ async def convert_via_mineru(arxiv_id: str, html_url: str) -> str | None:
         return None
 
     try:
-        result = await client.extract(
-            url=html_url,
-            is_html=True,
-            max_wait_seconds=300,
-            poll_interval=5.0,
-        )
+        async with _mineru_sem():
+            result = await client.extract(
+                url=pdf_url,
+                model_version=MinerUModel.PDF_VLM,  # vlm model for PDF
+                is_html=False,
+                max_wait_seconds=900,  # 15 min total (3 min initial + polling)
+                poll_interval=15.0,
+                initial_wait_seconds=180.0,  # wait 3 min before first poll
+                paper_slug=arxiv_id,
+                oss_client=oss_client,
+            )
         if result.success:
-            return result.markdown
+            return result
         logger.warning(
             "mineru_convert_failed",
             arxiv_id=arxiv_id,
@@ -149,171 +178,246 @@ async def convert_via_mineru(arxiv_id: str, html_url: str) -> str | None:
         await client.close()
 
 
-async def seed_papers():
-    """Main seeding function."""
+async def clear_existing_papers():
+    """Delete all existing papers and authors from the database."""
     from app.dependencies import async_session_factory
+    from sqlalchemy import text
+
+    print("\n🗑️  Clearing existing data...")
+    async with async_session_factory() as session:
+        # Delete in dependency order to avoid FK violations
+        for table in [
+            "paper_authors", "paper_references", "paper_versions",
+            "paper_topics", "paper_tags", "collection_papers",
+            "ragflow_document_mappings", "reading_logs", "annotations",
+            "claims", "knowledge_cards", "glossary_terms",
+            "user_corrections", "user_reading_status", "metadata_provenance",
+            "alerts", "reading_path_cache", "reproduction_attempts",
+            "papers",
+            "authors",
+        ]:
+            try:
+                result = await session.execute(text(f"DELETE FROM {table}"))
+                if result.rowcount:
+                    print(f"   ✓ Deleted {result.rowcount} rows from {table}")
+            except Exception as e:
+                print(f"   ⚠ {table}: {e}")
+        await session.commit()
+    print("   ✅ Database cleared\n")
+
+
+async def _insert_paper(session, paper_data: dict):
+    """Insert one paper + authors. Returns Paper ORM object, or None if skipped."""
     from app.models.paper import Paper
     from app.models.author import Author, PaperAuthor
     from sqlalchemy import select
 
+    arxiv_id = paper_data["arxiv_id"]
+    doi = paper_data.get("doi")
+
+    existing = await session.execute(
+        select(Paper).where(
+            Paper.deleted_at.is_(None),
+            (Paper.arxiv_id == arxiv_id)
+            | (Paper.doi == doi) if doi else (Paper.arxiv_id == arxiv_id),
+        )
+    )
+    if existing.scalar_one_or_none():
+        return None
+
+    try:
+        async with session.begin_nested():
+            pub_date = None
+            if paper_data["published"]:
+                try:
+                    pub_date = datetime.fromisoformat(
+                        paper_data["published"].replace("Z", "+00:00")
+                    ).date()
+                except ValueError:
+                    pass
+
+            paper = Paper(
+                arxiv_id=arxiv_id,
+                doi=doi,
+                title=paper_data["title"],
+                abstract=paper_data["abstract"],
+                published_at=pub_date,
+                paper_type="preprint",
+                language="en",
+                keywords=paper_data.get("categories"),
+                source_type="remote",
+                ingestion_status="discovered",
+                remote_urls=[
+                    {"url": paper_data["abs_url"], "source": "arxiv", "type": "abstract"},
+                    {"url": paper_data["pdf_url"], "source": "arxiv", "type": "pdf"},
+                    {"url": paper_data["html_url"], "source": "ar5iv", "type": "html"},
+                ],
+            )
+            session.add(paper)
+            await session.flush()
+
+            for idx, author_name in enumerate(paper_data.get("authors", [])):
+                auth_result = await session.execute(
+                    select(Author).where(Author.display_name == author_name).limit(1)
+                )
+                author = auth_result.scalar_one_or_none()
+                if not author:
+                    author = Author(display_name=author_name)
+                    session.add(author)
+                    await session.flush()
+                session.add(PaperAuthor(paper_id=paper.id, author_id=author.id, position=idx))
+
+        await session.commit()
+        return paper
+    except Exception as e:
+        print(f"  ✗ DB error [{arxiv_id}]: {e}")
+        return None
+
+
+async def _process_paper(
+    paper,
+    paper_data: dict,
+    oss,
+    analyst,
+    counters: dict,
+    lock: asyncio.Lock,
+):
+    """MinerU + OSS + LLM analysis + DB update for one paper (runs concurrently)."""
+    from app.dependencies import async_session_factory
+    from app.models.paper import Paper
+    from sqlalchemy import select
+
+    arxiv_id = paper_data["arxiv_id"]
+    title_short = paper_data["title"][:60]
+
+    print(f"  ⏳ [{arxiv_id}] MinerU submit → waiting 3 min...")
+    mineru_result = await convert_via_mineru(arxiv_id, paper_data["pdf_url"], oss)
+
+    update_kw: dict = {}
+    if mineru_result:
+        markdown = mineru_result.markdown or ""
+        update_kw = {
+            "full_text_markdown": markdown,
+            "has_full_text": True,
+            "ingestion_status": "parsed",
+            "parser_version": "mineru",
+            "markdown_provenance": {
+                "source": "mineru",
+                "model_version": "vlm",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "markdown_length": len(markdown),
+                "input_url": paper_data["pdf_url"],
+                "images_uploaded": len(mineru_result.image_urls),
+            },
+        }
+        if mineru_result.layout:
+            update_kw["parsed_figures"] = mineru_result.layout
+
+        async with lock:
+            counters["converted"] += 1
+        print(f"  ✓ [{arxiv_id}] Converted ({len(markdown):,} chars, "
+              f"{len(mineru_result.image_urls)} images)")
+
+        # LLM analysis — uses converted markdown
+        try:
+            analysis = await analyst.analyse(paper)
+            update_kw["deep_analysis"] = analysis
+            update_kw["deep_analysis_at"] = datetime.now(timezone.utc)
+            if analysis.get("status") == "ok":
+                async with lock:
+                    counters["analysed"] += 1
+                print(f"  ✓ [{arxiv_id}] Analysis done ({len(analysis.get('analysis', '')):,} chars)")
+            else:
+                print(f"  ⚠ [{arxiv_id}] Analysis: {analysis.get('error', '?')[:80]}")
+        except Exception as e:
+            print(f"  ⚠ [{arxiv_id}] Analysis failed: {e}")
+    else:
+        update_kw["ingestion_status"] = "enriched"
+        print(f"  ⚠ [{arxiv_id}] MinerU failed, metadata only")
+
+    # Persist in its own short-lived session
+    if update_kw:
+        async with async_session_factory() as upd:
+            res = await upd.execute(select(Paper).where(Paper.id == paper.id))
+            p_obj = res.scalar_one_or_none()
+            if p_obj:
+                for k, v in update_kw.items():
+                    setattr(p_obj, k, v)
+                await upd.commit()
+
+
+async def seed_papers():
+    """Main seeding function — concurrent MinerU + LLM processing."""
+    from app.dependencies import async_session_factory
+    from app.services.analysis.paper_analyst import PaperAnalystService
+    from app.clients.oss_client import OssClient
+
     print("=" * 60)
-    print("  Kaleidoscope — ArXiv Paper Seeder")
-    print("  Fetching 50 papers across 5 categories")
+    print("  Kaleidoscope — ArXiv Paper Seeder (concurrent)")
+    total_target = PAPERS_PER_CATEGORY * len(ARXIV_CATEGORIES)
+    print(f"  Fetching {total_target} papers across {len(ARXIV_CATEGORIES)} categories")
     print("=" * 60)
 
+    await clear_existing_papers()
+
+    # ── Phase 1: Fetch metadata from arXiv ──────────────────────────
     all_papers: list[dict] = []
     seen_ids: set[str] = set()
-
-    # Step 1: Fetch from arXiv across categories
     for cat in ARXIV_CATEGORIES:
-        print(f"\n📡 Fetching from arXiv: {cat}...")
+        print(f"📡 Fetching {cat}...")
         try:
-            # arXiv rate limit: 1 req per 3 sec
-            await asyncio.sleep(3)
+            await asyncio.sleep(3)   # arXiv rate limit
             papers = await fetch_arxiv_papers(cat, PAPERS_PER_CATEGORY)
             for p in papers:
                 if p["arxiv_id"] not in seen_ids:
                     seen_ids.add(p["arxiv_id"])
                     all_papers.append(p)
-            print(f"   ✓ Got {len(papers)} papers")
+            print(f"   ✓ {len(papers)} papers")
         except Exception as e:
-            print(f"   ✗ Error: {e}")
+            print(f"   ✗ {e}")
 
     print(f"\n📊 Total unique papers: {len(all_papers)}")
 
-    # Step 2: Store in DB and convert via MinerU
+    # ── Phase 2: Insert all metadata into DB (serial — author dedup) ─
+    print("\n💾 Inserting paper records...")
+    papers_to_process: list[tuple] = []   # (paper_obj, paper_data)
+    skipped = 0
+
     async with async_session_factory() as session:
-        created = 0
-        converted = 0
-        skipped = 0
-
-        for i, paper_data in enumerate(all_papers):
-            arxiv_id = paper_data["arxiv_id"]
-            doi = paper_data.get("doi")
-
-            # Check for existing by arxiv_id OR doi
-            existing = await session.execute(
-                select(Paper).where(
-                    Paper.deleted_at.is_(None),
-                    (Paper.arxiv_id == arxiv_id)
-                    | (Paper.doi == doi) if doi else (Paper.arxiv_id == arxiv_id),
-                )
-            )
-            if existing.scalar_one_or_none():
-                skipped += 1
-                continue
-
-            # Use savepoint so a single failure doesn't poison the session
-            try:
-                async with session.begin_nested():
-                    # Parse published date
-                    pub_date = None
-                    if paper_data["published"]:
-                        try:
-                            pub_date = datetime.fromisoformat(
-                                paper_data["published"].replace("Z", "+00:00")
-                            ).date()
-                        except ValueError:
-                            pass
-
-                    # Create paper record
-                    paper = Paper(
-                        arxiv_id=arxiv_id,
-                        doi=doi,
-                        title=paper_data["title"],
-                        abstract=paper_data["abstract"],
-                        published_at=pub_date,
-                        paper_type="preprint",
-                        language="en",
-                        keywords=paper_data.get("categories"),
-                        source_type="remote",
-                        ingestion_status="discovered",
-                        remote_urls=[
-                            {
-                                "url": paper_data["abs_url"],
-                                "source": "arxiv",
-                                "type": "abstract",
-                            },
-                            {
-                                "url": paper_data["pdf_url"],
-                                "source": "arxiv",
-                                "type": "pdf",
-                            },
-                            {
-                                "url": paper_data["html_url"],
-                                "source": "ar5iv",
-                                "type": "html",
-                            },
-                        ],
-                    )
-                    session.add(paper)
-                    await session.flush()
-                    created += 1
-
-                    # Create author records
-                    for idx, author_name in enumerate(paper_data.get("authors", [])):
-                        auth_result = await session.execute(
-                            select(Author).where(
-                                Author.display_name == author_name
-                            ).limit(1)
-                        )
-                        author = auth_result.scalar_one_or_none()
-                        if not author:
-                            author = Author(display_name=author_name)
-                            session.add(author)
-                            await session.flush()
-
-                        pa = PaperAuthor(
-                            paper_id=paper.id,
-                            author_id=author.id,
-                            position=idx,
-                        )
-                        session.add(pa)
-
-            except Exception as e:
-                print(f"     ✗ DB error for {arxiv_id}: {e}")
-                skipped += 1
-                continue
-
-            prog = f"[{i + 1}/{len(all_papers)}]"
-            print(f"\n{prog} 📄 {paper_data['title'][:70]}...")
-
-            # Convert via MinerU (with rate limiting)
-            print(f"     ⏳ Converting via MinerU...")
-            markdown = await convert_via_mineru(
-                arxiv_id, paper_data["html_url"]
-            )
-
-            if markdown:
-                paper.full_text_markdown = markdown
-                paper.has_full_text = True
-                paper.ingestion_status = "parsed"
-                paper.parser_version = "mineru"
-                paper.markdown_provenance = {
-                    "source": "mineru",
-                    "model_version": "MinerU-HTML",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "markdown_length": len(markdown),
-                    "input_url": paper_data["html_url"],
-                }
-                converted += 1
-                print(f"     ✓ Converted ({len(markdown):,} chars)")
+        for paper_data in all_papers:
+            paper = await _insert_paper(session, paper_data)
+            if paper:
+                papers_to_process.append((paper, paper_data))
             else:
-                paper.ingestion_status = "enriched"
-                print(f"     ⚠ Conversion failed, metadata only")
+                skipped += 1
 
-            # Commit every 5 papers
-            if (i + 1) % 5 == 0:
-                await session.commit()
-                print(f"     💾 Committed batch")
+    print(f"   ✓ Inserted {len(papers_to_process)}, skipped {skipped}")
 
-        # Final commit
-        await session.commit()
+    if not papers_to_process:
+        print("Nothing to process.")
+        return
+
+    # ── Phase 3: Concurrent MinerU + LLM ────────────────────────────
+    print(f"\n🚀 Processing {len(papers_to_process)} papers concurrently "
+          f"(MinerU concurrency={settings.mineru_concurrency})...\n")
+
+    oss = OssClient()
+    analyst = PaperAnalystService()
+    counters = {"converted": 0, "analysed": 0}
+    lock = asyncio.Lock()
+
+    await asyncio.gather(*[
+        _process_paper(paper, paper_data, oss, analyst, counters, lock)
+        for paper, paper_data in papers_to_process
+    ])
+
+    await analyst.close()
 
     print("\n" + "=" * 60)
-    print(f"  ✅ Done!")
-    print(f"  Created:   {created}")
-    print(f"  Converted: {converted}")
+    print("  ✅ Done!")
+    print(f"  Inserted:  {len(papers_to_process)}")
+    print(f"  Converted: {counters['converted']}")
+    print(f"  Analysed:  {counters['analysed']}")
     print(f"  Skipped:   {skipped} (already in DB)")
     print("=" * 60)
 

@@ -68,9 +68,7 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # --- Full-text & Storage ---
     pdf_path: Mapped[str | None] = mapped_column(Text)  # MinIO object key
-    remote_urls: Mapped[list | None] = mapped_column(
-        JSONB
-    )  # [{url, source, type}]
+    remote_urls: Mapped[list | None] = mapped_column(JSONB)  # [{url, source, type}]
     has_full_text: Mapped[bool] = mapped_column(default=False)
 
     # --- Markdown Content (primary storage format) ---
@@ -124,6 +122,11 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     parsed_figures: Mapped[list | None] = mapped_column(JSONB)
     # [{label, caption, type, page}] — extracted figure/table metadata
 
+    # --- Full-Spectrum AI Analysis (paper_analyst.py) ---
+    deep_analysis: Mapped[dict | None] = mapped_column(JSONB)
+    # {status, analysis (markdown text), model, authors, year, generated_at}
+    deep_analysis_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # --- Relationships ---
     authors: Mapped[list[PaperAuthor]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"
@@ -138,7 +141,9 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
     tags: Mapped[list[PaperTag]] = relationship(
-        "PaperTag", cascade="all, delete-orphan", overlaps="paper",
+        "PaperTag",
+        cascade="all, delete-orphan",
+        overlaps="paper",
     )
 
     def __repr__(self) -> str:

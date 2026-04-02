@@ -225,6 +225,9 @@ def create_app() -> FastAPI:
     # RAGFlow evaluation / observability
     from app.api.v1.evaluation import router as eval_router
     app.include_router(eval_router, prefix="/api/v1")
+    # Translation proxy (keeps API key server-side)
+    from app.api.v1.translate import router as translate_router
+    app.include_router(translate_router, prefix="/api/v1")
 
     # --- Health Check ---
 

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     embed_model: str = "Doubao-Embedding-Large-Text"
     rerank_model: str = "GLM-Rerank"
 
+    # --- Translation API (NVIDIA) ---
+    translate_base_url: str = "https://integrate.api.nvidia.com"
+    translate_model: str = "openai/gpt-oss-120b"
+    translate_api_key: str = ""
+
     # --- RAGFlow Sidecar ---
     ragflow_api_url: str = "http://localhost:9380"
     ragflow_api_key: str = ""
@@ -74,6 +79,14 @@ class Settings(BaseSettings):
 
     # --- MinerU ---
     mineru_api_token: str = ""
+    mineru_concurrency: int = 50   # max parallel MinerU tasks
+
+    # --- Aliyun OSS (image host for paper figures) ---
+    img_host_access_key: str = ""
+    img_host_access_key_secret: str = ""
+    img_host_bucket_name: str = "wqy-kaleidoscope"
+    img_host_url: str = "https://oss-cn-shanghai.aliyuncs.com"
+    img_host_concurrency: int = 100  # max parallel OSS uploads
 
     # --- Celery ---
     celery_broker_url: str = "redis://localhost:6379/1"

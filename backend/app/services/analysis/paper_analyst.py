@@ -56,6 +56,7 @@ class PaperAnalystService:
     async def _get_llm(self):
         if self._llm is None:
             from app.clients.llm_client import LLMClient
+
             self._llm = LLMClient()
         return self._llm
 
@@ -74,13 +75,17 @@ class PaperAnalystService:
 
         # Build inputs
         authors_str = _format_authors(
-            [a.display_name for a in paper.authors] if hasattr(paper, "authors") and paper.authors
+            [a.display_name for a in paper.authors]
+            if hasattr(paper, "authors") and paper.authors
             else paper.raw_metadata.get("authors", []) if paper.raw_metadata else []
         )
         year = _extract_year(paper)
         fulltext = (paper.full_text_markdown or paper.abstract or "").strip()
         if len(fulltext) > MAX_FULLTEXT_CHARS:
-            fulltext = fulltext[:MAX_FULLTEXT_CHARS] + "\n\n[... truncated for context limit ...]"
+            fulltext = (
+                fulltext[:MAX_FULLTEXT_CHARS]
+                + "\n\n[... truncated for context limit ...]"
+            )
 
         prompt = PAPER_ANALYST_PROMPT.format(
             title=paper.title,
@@ -97,8 +102,8 @@ class PaperAnalystService:
             raw_text = await llm.complete(
                 prompt=prompt,
                 system=PAPER_ANALYST_SYSTEM,
-                temperature=0.25,       # low temp → dense, consistent output
-                max_tokens=8192,        # enough for all 5 parts
+                temperature=0.25,  # low temp → dense, consistent output
+                max_tokens=8192,  # enough for all 5 parts
             )
         except Exception as exc:
             log.error("paper_analysis_llm_failed", error=str(exc)[:300])
@@ -121,7 +126,9 @@ class PaperAnalystService:
         log.info("paper_analysis_done", chars=len(raw_text))
         return result
 
-    async def analyse_and_persist(self, paper: Any, session: AsyncSession) -> dict[str, Any]:
+    async def analyse_and_persist(
+        self, paper: Any, session: AsyncSession
+    ) -> dict[str, Any]:
         """
         Run analysis and write the result back to paper.deep_analysis.
         Caller is responsible for committing the session.

@@ -54,13 +54,15 @@ class TextChunker:
             # Split long sections into sub-chunks
             words = section_text.split()
             if len(words) <= self.max_chunk_size:
-                chunks.append({
-                    "paper_id": paper_id,
-                    "chunk_index": index,
-                    "section": section_name,
-                    "text": section_text,
-                    "word_count": len(words),
-                })
+                chunks.append(
+                    {
+                        "paper_id": paper_id,
+                        "chunk_index": index,
+                        "section": section_name,
+                        "text": section_text,
+                        "word_count": len(words),
+                    }
+                )
                 index += 1
             else:
                 # Sliding window with overlap
@@ -69,17 +71,23 @@ class TextChunker:
                     chunk_words = words[start:end]
                     if len(chunk_words) < self.min_chunk_size:
                         break
-                    chunks.append({
-                        "paper_id": paper_id,
-                        "chunk_index": index,
-                        "section": section_name,
-                        "text": " ".join(chunk_words),
-                        "word_count": len(chunk_words),
-                    })
+                    chunks.append(
+                        {
+                            "paper_id": paper_id,
+                            "chunk_index": index,
+                            "section": section_name,
+                            "text": " ".join(chunk_words),
+                            "word_count": len(chunk_words),
+                        }
+                    )
                     index += 1
 
-        logger.info("chunked_by_sections", paper_id=paper_id,
-                     chunks=len(chunks), sections=len(sections))
+        logger.info(
+            "chunked_by_sections",
+            paper_id=paper_id,
+            chunks=len(chunks),
+            sections=len(sections),
+        )
         return chunks
 
     def _chunk_by_paragraphs(self, paper_id: str, text: str) -> list[dict]:
@@ -103,30 +111,37 @@ class TextChunker:
             para_words = para.split()
 
             # If adding this paragraph exceeds max, flush current
-            if current_text and (len(current_text.split()) + len(para_words)) > self.max_chunk_size:
-                chunks.append({
-                    "paper_id": paper_id,
-                    "chunk_index": index,
-                    "section": None,
-                    "text": current_text,
-                    "word_count": len(current_text.split()),
-                })
+            if (
+                current_text
+                and (len(current_text.split()) + len(para_words)) > self.max_chunk_size
+            ):
+                chunks.append(
+                    {
+                        "paper_id": paper_id,
+                        "chunk_index": index,
+                        "section": None,
+                        "text": current_text,
+                        "word_count": len(current_text.split()),
+                    }
+                )
                 index += 1
                 # Keep overlap
-                overlap_words = current_text.split()[-self.overlap:]
+                overlap_words = current_text.split()[-self.overlap :]
                 current_text = " ".join(overlap_words) + " " + para
             else:
                 current_text = (current_text + "\n\n" + para).strip()
 
         # Flush remaining
         if current_text and len(current_text.split()) >= self.min_chunk_size:
-            chunks.append({
-                "paper_id": paper_id,
-                "chunk_index": index,
-                "section": None,
-                "text": current_text,
-                "word_count": len(current_text.split()),
-            })
+            chunks.append(
+                {
+                    "paper_id": paper_id,
+                    "chunk_index": index,
+                    "section": None,
+                    "text": current_text,
+                    "word_count": len(current_text.split()),
+                }
+            )
 
         logger.info("chunked_by_paragraphs", paper_id=paper_id, chunks=len(chunks))
         return chunks
@@ -144,7 +159,7 @@ class TextChunker:
         4. Abstract only
         """
         # 0. Full-text markdown (MinerU output — already clean markdown)
-        if getattr(paper, 'full_text_markdown', None):
+        if getattr(paper, "full_text_markdown", None):
             return paper.full_text_markdown
 
         raw = paper.raw_metadata or {}
@@ -170,6 +185,7 @@ class TextChunker:
         # 3. TEI XML → strip tags
         if paper.grobid_tei:
             import re
+
             return re.sub(r"<[^>]+>", " ", paper.grobid_tei)
 
         # 4. Fallback to abstract
@@ -192,9 +208,10 @@ class TextChunker:
             paragraphs = s.get("paragraphs", [])
             text = "\n".join(paragraphs) if paragraphs else s.get("text", "")
             if text:
-                sections.append({
-                    "heading": s.get("heading", "Unknown"),
-                    "text": text,
-                })
+                sections.append(
+                    {
+                        "heading": s.get("heading", "Unknown"),
+                        "text": text,
+                    }
+                )
         return sections if sections else None
-

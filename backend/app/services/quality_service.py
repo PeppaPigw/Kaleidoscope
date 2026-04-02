@@ -21,9 +21,19 @@ REPRODUCIBILITY_KEYWORDS = [
 
 # Fields whose provenance we track, with friendly labels
 PROVENANCE_FIELDS = [
-    "title", "abstract", "doi", "arxiv_id", "published_at",
-    "keywords", "authors", "venue_id", "citation_count",
-    "summary", "highlights", "contributions", "limitations",
+    "title",
+    "abstract",
+    "doi",
+    "arxiv_id",
+    "published_at",
+    "keywords",
+    "authors",
+    "venue_id",
+    "citation_count",
+    "summary",
+    "highlights",
+    "contributions",
+    "limitations",
 ]
 
 CROSSREF_API = "https://api.crossref.org/works/{doi}"
@@ -188,14 +198,18 @@ class QualityService:
             present = self._is_present(field_name, value)
             if present:
                 filled_fields += 1
-            details.append({
-                "field": field_name,
-                "present": present,
-                "value_preview": self._preview_value(value),
-            })
+            details.append(
+                {
+                    "field": field_name,
+                    "present": present,
+                    "value_preview": self._preview_value(value),
+                }
+            )
 
         total_fields = len(fields)
-        score_pct = int(round((filled_fields / total_fields) * 100)) if total_fields else 0
+        score_pct = (
+            int(round((filled_fields / total_fields) * 100)) if total_fields else 0
+        )
         return {
             "paper_id": str(paper.id),
             "total_fields": total_fields,
@@ -211,18 +225,25 @@ class QualityService:
             return {"paper_id": paper_id, "error": "Paper not found"}
 
         searchable_text = " ".join(
-            part for part in [
+            part
+            for part in [
                 self._stringify(paper.raw_metadata),
                 paper.grobid_tei or "",
                 paper.full_text_markdown or "",
-            ] if part
+            ]
+            if part
         ).lower()
-        matched_keywords = [kw for kw in REPRODUCIBILITY_KEYWORDS if kw in searchable_text]
+        matched_keywords = [
+            kw for kw in REPRODUCIBILITY_KEYWORDS if kw in searchable_text
+        ]
 
         has_code_keyword = any(
-            kw in matched_keywords for kw in ("github.com", "code available", "open source")
+            kw in matched_keywords
+            for kw in ("github.com", "code available", "open source")
         )
-        has_open_artifact_keyword = any(kw in matched_keywords for kw in ("reproducible", "zenodo"))
+        has_open_artifact_keyword = any(
+            kw in matched_keywords for kw in ("reproducible", "zenodo")
+        )
 
         reproducibility_signals: list[str] = []
         if paper.has_full_text:

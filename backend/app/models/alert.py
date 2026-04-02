@@ -57,9 +57,7 @@ class Digest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "digests"
 
     user_id: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
-    period: Mapped[str] = mapped_column(
-        String(10), nullable=False
-    )  # daily, weekly
+    period: Mapped[str] = mapped_column(String(10), nullable=False)  # daily, weekly
     content: Mapped[str | None] = mapped_column(Text)  # LLM-generated markdown
     paper_ids: Mapped[dict | None] = mapped_column(JSONB)  # [UUID str]
     paper_count: Mapped[int] = mapped_column(Integer, default=0)

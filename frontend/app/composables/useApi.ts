@@ -7,6 +7,19 @@
 
 // ─── Types ─────────────────────────────────────────────────────
 
+export interface PaperLabels {
+  domain: string[]
+  task: string[]
+  method: string[]
+  data_object: string[]
+  application: string[]
+  meta: {
+    paper_type: string[]
+    evaluation_quality: string[]
+    resource_constraint: string[]
+  }
+}
+
 export interface Paper {
   id: string
   title: string
@@ -26,6 +39,7 @@ export interface Paper {
   highlights?: string[]
   contributions?: string[]
   limitations?: string[]
+  paper_labels?: PaperLabels | null
 }
 
 export interface PaperListResponse {

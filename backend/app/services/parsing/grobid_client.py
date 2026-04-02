@@ -96,7 +96,11 @@ class GROBIDClient:
 
         # --- Title ---
         title_elem = root.find(".//tei:titleStmt/tei:title", ns)
-        title = title_elem.text.strip() if title_elem is not None and title_elem.text else None
+        title = (
+            title_elem.text.strip()
+            if title_elem is not None and title_elem.text
+            else None
+        )
 
         # --- Abstract ---
         abstract_elem = root.find(".//tei:profileDesc/tei:abstract", ns)
@@ -117,7 +121,9 @@ class GROBIDClient:
                     aff_elem = author_elem.find("tei:affiliation", ns)
                     affiliation = ""
                     if aff_elem is not None:
-                        org = aff_elem.findtext("tei:orgName", default="", namespaces=ns)
+                        org = aff_elem.findtext(
+                            "tei:orgName", default="", namespaces=ns
+                        )
                         affiliation = org
                     authors.append({"name": name, "affiliation": affiliation})
 
@@ -135,11 +141,13 @@ class GROBIDClient:
                         paragraphs.append(para_text)
                 if head or paragraphs:
                     n = div.get("n", "")
-                    sections.append({
-                        "heading": head,
-                        "number": n,
-                        "paragraphs": paragraphs,
-                    })
+                    sections.append(
+                        {
+                            "heading": head,
+                            "number": n,
+                            "paragraphs": paragraphs,
+                        }
+                    )
 
         # --- References ---
         references = []
@@ -156,7 +164,9 @@ class GROBIDClient:
             # Authors
             ref_authors = []
             for author_elem in ref.findall(".//tei:author/tei:persName", ns):
-                forename = author_elem.findtext("tei:forename", default="", namespaces=ns)
+                forename = author_elem.findtext(
+                    "tei:forename", default="", namespaces=ns
+                )
                 surname = author_elem.findtext("tei:surname", default="", namespaces=ns)
                 name = f"{forename} {surname}".strip()
                 if name:

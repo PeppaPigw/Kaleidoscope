@@ -56,7 +56,9 @@ class CrossRefClient:
                 data = resp.json()
                 return data.get("message", {})
             except httpx.HTTPStatusError as e:
-                logger.error("crossref_api_error", doi=doi, status=e.response.status_code)
+                logger.error(
+                    "crossref_api_error", doi=doi, status=e.response.status_code
+                )
                 raise ExternalAPIError("crossref", e.response.status_code, str(e))
 
     async def search_works(self, query: str, rows: int = 5) -> list[dict]:
@@ -74,14 +76,16 @@ class CrossRefClient:
                         "query": query,
                         "rows": rows,
                         "select": "DOI,title,author,published-date-parts,"
-                                  "container-title,type,is-referenced-by-count",
+                        "container-title,type,is-referenced-by-count",
                     },
                 )
                 resp.raise_for_status()
                 data = resp.json()
                 return data.get("message", {}).get("items", [])
             except httpx.HTTPStatusError as e:
-                logger.error("crossref_search_error", query=query, status=e.response.status_code)
+                logger.error(
+                    "crossref_search_error", query=query, status=e.response.status_code
+                )
                 raise ExternalAPIError("crossref", e.response.status_code, str(e))
 
     async def close(self) -> None:

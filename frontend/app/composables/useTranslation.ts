@@ -43,7 +43,6 @@ function _initLocale() {
 // Translation is proxied through the backend — no API key in client code.
 const TRANSLATE_ENDPOINT = "/api/v1/translate";
 
-
 // ─── UI labels ──────────────────────────────────────────────
 export const UI_LABELS = {
   en: {
@@ -320,14 +319,14 @@ export function useTranslation() {
     const promise = (async () => {
       try {
         // Call backend translate proxy — API key stays server-side
-        const config = useRuntimeConfig()
-        const apiBase = config.public.apiUrl as string
+        const config = useRuntimeConfig();
+        const apiBase = config.public.apiUrl as string;
         const response = await $fetch<{ translated: string; original: string }>(
           `${apiBase}${TRANSLATE_ENDPOINT}`,
           {
             method: "POST",
             body: { text, direction: "en2zh" },
-          }
+          },
         );
 
         const translated = response.translated?.trim() || "";

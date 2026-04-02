@@ -23,6 +23,7 @@ def _run_async(coro):
         if loop.is_running():
             # Create a new loop for the task
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 return pool.submit(asyncio.run, coro).result()
         return loop.run_until_complete(coro)
@@ -71,7 +72,9 @@ def poll_rss_feeds(self):
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=120)
-def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract: str = ""):
+def ingest_paper(
+    self, identifier: str, id_type: str, title: str = "", abstract: str = ""
+):
     """
     Full ingestion pipeline for a single paper.
 
@@ -99,8 +102,11 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
         from app.clients.semantic_scholar import SemanticScholarClient
         from app.config import settings
         from app.utils.doi import (
-            normalize_doi, extract_arxiv_id, extract_pmid,
-            normalize_arxiv_id, extract_doi_from_url,
+            normalize_doi,
+            extract_arxiv_id,
+            extract_pmid,
+            normalize_arxiv_id,
+            extract_doi_from_url,
         )
 
         async with async_session_factory() as session:
@@ -152,9 +158,12 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
             if dedup_result.is_duplicate:
                 if dedup_result.match_type == "soft_deleted":
                     # Restore the soft-deleted paper
-                    log.info("restoring_soft_deleted_paper",
-                             existing_id=dedup_result.existing_paper_id)
+                    log.info(
+                        "restoring_soft_deleted_paper",
+                        existing_id=dedup_result.existing_paper_id,
+                    )
                     from sqlalchemy import update
+
                     await session.execute(
                         update(Paper)
                         .where(Paper.id == dedup_result.existing_paper_id)
@@ -167,8 +176,13 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
                     acquire_fulltext.delay(paper_id)
                     return {"status": "restored", "paper_id": paper_id}
                 else:
-                    log.info("paper_is_duplicate", existing_id=dedup_result.existing_paper_id)
-                    return {"status": "duplicate", "existing_id": dedup_result.existing_paper_id}
+                    log.info(
+                        "paper_is_duplicate", existing_id=dedup_result.existing_paper_id
+                    )
+                    return {
+                        "status": "duplicate",
+                        "existing_id": dedup_result.existing_paper_id,
+                    }
 
             # ── 3. Create paper ──────────────────────────────────
             paper = Paper(
@@ -215,7 +229,7 @@ def ingest_paper(self, identifier: str, id_type: str, title: str = "", abstract:
     except Exception as exc:
         log.error("ingest_paper_failed", error=str(exc))
         try:
-            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+            raise self.retry(exc=exc, countdown=2**self.request.retries * 60)
         except MaxRetriesExceededError:
             logger.error(
                 "ingest_failed_permanently",
@@ -250,9 +264,7 @@ def acquire_fulltext(self, paper_id: str):
         from sqlalchemy import select
 
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
             paper = result.scalar_one_or_none()
             if not paper:
                 log.error("paper_not_found")
@@ -311,7 +323,11 @@ def acquire_fulltext(self, paper_id: str):
                     mineru_is_html = True
 
                 if mineru_url:
-                    log.info("fallback_to_mineru", url=mineru_url[:80], is_html=mineru_is_html)
+                    log.info(
+                        "fallback_to_mineru",
+                        url=mineru_url[:80],
+                        is_html=mineru_is_html,
+                    )
                     parse_via_mineru.delay(paper_id, mineru_url, is_html=mineru_is_html)
                 else:
                     # No URL, just index metadata
@@ -327,7 +343,7 @@ def acquire_fulltext(self, paper_id: str):
         return _run_async(_acquire())
     except Exception as exc:
         log.error("acquire_fulltext_failed", error=str(exc))
-        self.retry(exc=exc, countdown=2 ** self.request.retries * 30)
+        self.retry(exc=exc, countdown=2**self.request.retries * 30)
 
 
 # Keep old name as alias
@@ -347,7 +363,9 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
     After parsing completes and commits, queues index_paper_task so the
     search index reflects the parsed content (title, abstract, keywords).
     """
-    log = logger.bind(paper_id=paper_id, content_type=content_type, task_id=self.request.id)
+    log = logger.bind(
+        paper_id=paper_id, content_type=content_type, task_id=self.request.id
+    )
     log.info("parse_fulltext_start")
 
     async def _parse():
@@ -360,9 +378,7 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
         from sqlalchemy import select
 
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
             paper = result.scalar_one_or_none()
             if not paper or not paper.pdf_path:
                 log.error("paper_or_content_not_found")
@@ -393,7 +409,9 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                     grobid_result = await grobid.parse_pdf(content, paper_id=paper_id)
                     paper.grobid_tei = grobid_result.tei_xml
                     # Update metadata from GROBID if better than existing
-                    if grobid_result.title and (not paper.title or paper.title == paper.doi):
+                    if grobid_result.title and (
+                        not paper.title or paper.title == paper.doi
+                    ):
                         paper.title = grobid_result.title
                     if grobid_result.abstract and not paper.abstract:
                         paper.abstract = grobid_result.abstract
@@ -407,18 +425,23 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                     paper.raw_metadata["parsed_references"] = grobid_result.references
                     # Explicitly flag in-place JSONB mutation for change tracking
                     from sqlalchemy.orm.attributes import flag_modified
+
                     flag_modified(paper, "raw_metadata")
                     paper.parser_version = "grobid"
-                    log.info("grobid_parse_complete",
-                             sections=len(grobid_result.sections),
-                             references=len(grobid_result.references))
+                    log.info(
+                        "grobid_parse_complete",
+                        sections=len(grobid_result.sections),
+                        references=len(grobid_result.references),
+                    )
 
                 elif content_type == "tex":
                     # ── LaTeX → plain text extraction ────────────
                     tex_source = content.decode("utf-8", errors="replace")
                     extracted_text = ArxivClient.extract_text_from_latex(tex_source)
                     paper.raw_metadata = paper.raw_metadata or {}
-                    paper.raw_metadata["extracted_fulltext"] = extracted_text[:100000]  # Cap size
+                    paper.raw_metadata["extracted_fulltext"] = extracted_text[
+                        :100000
+                    ]  # Cap size
                     paper.raw_metadata["tex_source_length"] = len(tex_source)
                     paper.parser_version = "latex_extract"
                     log.info("latex_parse_complete", text_length=len(extracted_text))
@@ -426,7 +449,9 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                 elif content_type == "xml":
                     # ── TDM XML → stored as-is (already structured) ──
                     xml_text = content.decode("utf-8", errors="replace")
-                    paper.grobid_tei = xml_text  # Reuse grobid_tei column for structured XML
+                    paper.grobid_tei = (
+                        xml_text  # Reuse grobid_tei column for structured XML
+                    )
                     paper.raw_metadata = paper.raw_metadata or {}
                     paper.raw_metadata["xml_source"] = "tdm_api"
                     paper.parser_version = "tdm_xml"
@@ -438,7 +463,10 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                     paper.ingestion_error = f"Unknown content type: {content_type}"
                     await session.commit()
                     index_paper_task.delay(paper_id)
-                    return {"status": "error", "message": f"Unknown content type: {content_type}"}
+                    return {
+                        "status": "error",
+                        "message": f"Unknown content type: {content_type}",
+                    }
 
                 paper.ingestion_status = "parsed"
 
@@ -484,20 +512,24 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                     # 1) Match by DOI (exact, fast)
                     if ref.raw_doi:
                         doi_result = await session.execute(
-                            select(Paper.id).where(
+                            select(Paper.id)
+                            .where(
                                 Paper.doi == ref.raw_doi,
                                 Paper.deleted_at.is_(None),
-                            ).limit(1)
+                            )
+                            .limit(1)
                         )
                         cited = doi_result.scalar_one_or_none()
 
                     # 2) Fallback: match by title (case-insensitive)
                     if not cited and ref.raw_title and len(ref.raw_title) > 10:
                         title_result = await session.execute(
-                            select(Paper.id).where(
+                            select(Paper.id)
+                            .where(
                                 Paper.title.ilike(ref.raw_title.strip()),
                                 Paper.deleted_at.is_(None),
-                            ).limit(1)
+                            )
+                            .limit(1)
                         )
                         cited = title_result.scalar_one_or_none()
 
@@ -518,6 +550,7 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
                 if parsed_refs:
                     try:
                         from app.tasks.graph_tasks import sync_paper_to_graph
+
                         sync_paper_to_graph.delay(paper_id)
                         log.info("graph_sync_queued", paper_id=paper_id)
                     except Exception as e:
@@ -573,9 +606,7 @@ def index_paper_task(self, paper_id: str):
         from sqlalchemy import select
 
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
             paper = result.scalar_one_or_none()
             if not paper:
                 log.error("paper_not_found")
@@ -589,25 +620,27 @@ def index_paper_task(self, paper_id: str):
                 kw_service = KeywordSearchService()
                 # Resolve author names from relationship
                 author_names = []
-                if hasattr(paper, 'authors') and paper.authors:
+                if hasattr(paper, "authors") and paper.authors:
                     author_names = [a.name for a in paper.authors if a.name]
                 # Resolve venue from relationship
                 venue_name = ""
-                if hasattr(paper, 'venue') and paper.venue:
+                if hasattr(paper, "venue") and paper.venue:
                     venue_name = paper.venue.name or ""
-                kw_service.index_paper({
-                    "id": str(paper.id),
-                    "title": paper.title or "",
-                    "abstract": paper.abstract or "",
-                    "keywords": paper.keywords or [],
-                    "author_names": author_names,
-                    "year": paper.published_at.year if paper.published_at else None,
-                    "venue": venue_name,
-                    "paper_type": paper.paper_type,
-                    "oa_status": paper.oa_status,
-                    "has_full_text": paper.has_full_text,
-                    "citation_count": paper.citation_count or 0,
-                })
+                kw_service.index_paper(
+                    {
+                        "id": str(paper.id),
+                        "title": paper.title or "",
+                        "abstract": paper.abstract or "",
+                        "keywords": paper.keywords or [],
+                        "author_names": author_names,
+                        "year": paper.published_at.year if paper.published_at else None,
+                        "venue": venue_name,
+                        "paper_type": paper.paper_type,
+                        "oa_status": paper.oa_status,
+                        "has_full_text": paper.has_full_text,
+                        "citation_count": paper.citation_count or 0,
+                    }
+                )
                 meili_ok = True
             except Exception as e:
                 log.warning("meilisearch_index_failed", error=str(e))
@@ -648,6 +681,7 @@ def index_paper_task(self, paper_id: str):
                     from app.models.collection import DEFAULT_USER_ID
                     from app.api.v1.sse import broadcast_event as _broadcast
                     from app.services.monitoring.alert_service import AlertService
+
                     alert_svc = AlertService(session, user_id=DEFAULT_USER_ID)
                     fired = await alert_svc.evaluate_rules(paper)
                     if fired:
@@ -655,12 +689,17 @@ def index_paper_task(self, paper_id: str):
                         log.info("alerts_fired", count=len(fired))
                         for alert in fired:
                             try:
-                                _broadcast("alert.matched", {
-                                    "alert_id": str(getattr(alert, "id", "")),
-                                    "paper_id": paper_id,
-                                    "title": paper.title,
-                                    "rule_name": str(getattr(alert, "rule_name", "")),
-                                })
+                                _broadcast(
+                                    "alert.matched",
+                                    {
+                                        "alert_id": str(getattr(alert, "id", "")),
+                                        "paper_id": paper_id,
+                                        "title": paper.title,
+                                        "rule_name": str(
+                                            getattr(alert, "rule_name", "")
+                                        ),
+                                    },
+                                )
                             except Exception:
                                 pass
                 except Exception as e:
@@ -669,12 +708,16 @@ def index_paper_task(self, paper_id: str):
                 # ── Fire webhooks for newly indexed paper ──────────
                 try:
                     from app.services.governance_service import GovernanceService
+
                     gov_svc = GovernanceService(session)
-                    await gov_svc.fire_webhooks("paper.indexed", {
-                        "paper_id": paper_id,
-                        "title": paper.title,
-                        "doi": paper.doi,
-                    })
+                    await gov_svc.fire_webhooks(
+                        "paper.indexed",
+                        {
+                            "paper_id": paper_id,
+                            "title": paper.title,
+                            "doi": paper.doi,
+                        },
+                    )
                     # Commit so hook.last_triggered_at persists (task uses raw session,
                     # not the auto-committing get_db() wrapper)
                     await session.commit()
@@ -684,18 +727,23 @@ def index_paper_task(self, paper_id: str):
                 # ── Broadcast to SSE subscribers ──────────────────
                 try:
                     from app.api.v1.sse import broadcast_event
-                    broadcast_event("paper.indexed", {
-                        "paper_id": paper_id,
-                        "title": paper.title,
-                        "doi": paper.doi,
-                        "arxiv_id": paper.arxiv_id,
-                    })
+
+                    broadcast_event(
+                        "paper.indexed",
+                        {
+                            "paper_id": paper_id,
+                            "title": paper.title,
+                            "doi": paper.doi,
+                            "arxiv_id": paper.arxiv_id,
+                        },
+                    )
                 except Exception as e:
                     log.warning("sse_broadcast_failed", error=str(e))
 
                 # ── Evaluate smart collections ────────────────────
                 try:
                     from app.services.collection_service import CollectionService
+
                     col_svc = CollectionService(session, user_id=DEFAULT_USER_ID)
                     matched = await col_svc.evaluate_smart_collections(paper)
                     if matched:
@@ -705,7 +753,11 @@ def index_paper_task(self, paper_id: str):
                     log.warning("smart_collection_eval_failed", error=str(e))
 
             log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
-            return {"status": paper.ingestion_status, "meili": meili_ok, "qdrant": qdrant_ok}
+            return {
+                "status": paper.ingestion_status,
+                "meili": meili_ok,
+                "qdrant": qdrant_ok,
+            }
 
     try:
         return _run_async(_index())
@@ -749,6 +801,7 @@ def parse_via_mineru(self, paper_id: str, url: str, is_html: bool = False):
                 if result.get("references", 0) > 0:
                     try:
                         from app.tasks.graph_tasks import sync_paper_to_graph
+
                         sync_paper_to_graph.delay(paper_id)
                         log.info("graph_sync_queued", paper_id=paper_id)
                     except Exception as e:
@@ -769,4 +822,4 @@ def parse_via_mineru(self, paper_id: str, url: str, is_html: bool = False):
             error=str(exc),
         )
         log.error("parse_via_mineru_failed", error=str(exc))
-        self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        self.retry(exc=exc, countdown=2**self.request.retries * 60)

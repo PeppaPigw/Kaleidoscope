@@ -5,14 +5,15 @@
  * Composes PaperFolio, ThesisLine, ClaimsLedger, MethodsResultsSlice,
  * FigureGallery, SupplementRail, ReproductionStatus, RelatedConstellation.
  */
-import type { PaperHighlights } from '~/composables/useApi'
+import type { PaperContent, PaperHighlights } from '~/composables/useApi'
 import type { PaperAuthor } from '~/components/paper/PaperFolio.vue'
 import type { PaperClaim } from '~/components/paper/ClaimsLedger.vue'
 import type { MethodItem, ResultItem } from '~/components/paper/MethodsResultsSlice.vue'
 import type { PaperFigure } from '~/components/paper/FigureGallery.vue'
-import type { SupplementItem } from '~/components/paper/SupplementRail.vue'
+import type { SupplementItem } from '~/components/paper/supplements'
 import type { ReproductionAttempt } from '~/components/paper/ReproductionStatus.vue'
 import type { RelatedPaper } from '~/components/paper/RelatedConstellation.vue'
+import { extractPaperSupplements } from '~/utils/paperSupplements'
 
 definePageMeta({ layout: 'default' })
 
@@ -45,6 +46,11 @@ type PaperRawMetadata = {
   best_oa_url?: string | null
   github_url?: string | null
   code_url?: string | null
+  artifact_links?: Array<{
+    url?: string | null
+    type?: string | null
+    label?: string | null
+  }> | null
 }
 
 type PaperDetailResponse = {
@@ -67,6 +73,7 @@ const claims = ref<PaperClaim[]>([])
 const figures = ref<PaperFigure[]>([])
 const relatedPapers = ref<RelatedPaper[]>([])
 const paperHighlights = ref<PaperHighlights | null>(null)
+const paperContent = ref<PaperContent | null>(null)
 const methodsResultHighlights = computed(
   () => paperHighlights.value?.highlights ?? [],
 )
@@ -131,46 +138,13 @@ const supplements = computed<SupplementItem[]>(() => {
   if (!paper)
     return []
 
-  const items: SupplementItem[] = []
-  const raw = paper.raw_metadata ?? {}
-
-  if (raw.pdf_url || raw.best_oa_url) {
-    items.push({
-      id: 'sup-pdf',
-      label: 'PDF',
-      type: 'appendix',
-      url: raw.pdf_url ?? raw.best_oa_url ?? '',
-    })
-  }
-
-  if (raw.github_url || raw.code_url) {
-    items.push({
-      id: 'sup-code',
-      label: 'Code Repository',
-      type: 'code',
-      url: raw.github_url ?? raw.code_url ?? '',
-    })
-  }
-
-  if (paper.doi) {
-    items.push({
-      id: 'sup-doi',
-      label: 'DOI Link',
-      type: 'appendix',
-      url: `https://doi.org/${paper.doi}`,
-    })
-  }
-
-  if (paper.arxiv_id) {
-    items.push({
-      id: 'sup-arxiv',
-      label: 'arXiv',
-      type: 'appendix',
-      url: `https://arxiv.org/abs/${paper.arxiv_id}`,
-    })
-  }
-
-  return items
+  return extractPaperSupplements({
+    doi: paper.doi,
+    arxivId: paper.arxiv_id,
+    rawMetadata: paper.raw_metadata ?? null,
+    remoteUrls: paperContent.value?.remote_urls ?? [],
+    markdown: paperContent.value?.markdown ?? '',
+  })
 })
 
 const reproAttempts: ReproductionAttempt[] = [
@@ -194,6 +168,7 @@ watch(paperId, async id => {
     figures.value = []
     relatedPapers.value = []
     paperHighlights.value = null
+    paperContent.value = null
     return
   }
 
@@ -234,6 +209,10 @@ watch(paperId, async id => {
         imageUrl: fig.image_url || '',
       }))
     : []
+
+  paperContent.value = contentResult.status === 'fulfilled'
+    ? contentResult.value
+    : null
 
   paperHighlights.value = highlightsResult.status === 'fulfilled'
     ? highlightsResult.value

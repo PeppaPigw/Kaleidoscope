@@ -21,20 +21,24 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 
 # ─── Request / Response Schemas ──────────────────────────────────
 
+
 class ToolCallRequest(BaseModel):
     """Tool call request."""
+
     tool: str = Field(..., description="Tool name to invoke")
     arguments: dict = Field(default_factory=dict, description="Tool arguments")
 
 
 class ToolCallResponse(BaseModel):
     """Tool call response."""
+
     tool: str
     result: dict | list | str
     is_error: bool = False
 
 
 # ─── Endpoints ───────────────────────────────────────────────────
+
 
 @router.get("/tools")
 async def list_tools():
@@ -85,9 +89,11 @@ async def batch_tool_calls(
     results = []
     for call in calls[:20]:  # Cap at 20 calls per batch
         result = await dispatcher.call_tool(call.tool, call.arguments)
-        results.append(ToolCallResponse(
-            tool=call.tool,
-            result=result,
-            is_error=isinstance(result, dict) and "error" in result,
-        ))
+        results.append(
+            ToolCallResponse(
+                tool=call.tool,
+                result=result,
+                is_error=isinstance(result, dict) and "error" in result,
+            )
+        )
     return {"results": results}

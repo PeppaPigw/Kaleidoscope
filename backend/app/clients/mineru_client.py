@@ -37,9 +37,9 @@ _IMG_EXTS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"}
 
 
 class MinerUModel(str, Enum):
-    PDF_VLM = "vlm"            # Vision-language model (best quality PDF)
+    PDF_VLM = "vlm"  # Vision-language model (best quality PDF)
     PDF_PIPELINE = "pipeline"  # Standard pipeline for PDF
-    HTML = "MinerU-HTML"       # HTML extraction
+    HTML = "MinerU-HTML"  # HTML extraction
 
 
 class MinerUTaskStatus(str, Enum):
@@ -65,8 +65,8 @@ class MinerUResult:
         self.task_id = task_id
         self.status = status
         self.markdown = markdown
-        self.layout = layout                  # parsed layout.json content
-        self.image_urls = image_urls or {}    # {original_path: oss_url}
+        self.layout = layout  # parsed layout.json content
+        self.image_urls = image_urls or {}  # {original_path: oss_url}
         self.result_url = result_url
         self.error = error
 
@@ -136,9 +136,8 @@ class MinerUClient:
         data = resp.json()
         self._check_response(data, "submit")
 
-        task_id = (
-            data.get("data", {}).get("task_id")
-            or data.get("data", {}).get("batch_id")
+        task_id = data.get("data", {}).get("task_id") or data.get("data", {}).get(
+            "batch_id"
         )
         if not task_id:
             raise ValueError(f"No task_id in MinerU response: {data}")
@@ -193,6 +192,7 @@ class MinerUClient:
             layout_names = [n for n in names if n.endswith("layout.json")]
             if layout_names:
                 import json
+
                 try:
                     layout = json.loads(zf.read(layout_names[0]))
                 except Exception:
@@ -206,7 +206,8 @@ class MinerUClient:
                     parts = p.parts
                     try:
                         img_idx = next(
-                            i for i, part in enumerate(parts)
+                            i
+                            for i, part in enumerate(parts)
                             if part.lower() == "images"
                         )
                         rel = "/".join(parts[img_idx:])
@@ -335,7 +336,9 @@ class MinerUClient:
         full_zip_url: str | None = None
 
         if initial_wait_seconds > 0:
-            log.info("mineru_initial_wait", seconds=initial_wait_seconds, task_id=task_id)
+            log.info(
+                "mineru_initial_wait", seconds=initial_wait_seconds, task_id=task_id
+            )
             await asyncio.sleep(initial_wait_seconds)
             elapsed += initial_wait_seconds
 

@@ -19,8 +19,16 @@ logger = structlog.get_logger(__name__)
 
 LEVEL_CONFIG = {
     "tweet": {"template": SUMMARIZE_TWEET, "max_tokens": 200, "model": "gpt-4o-mini"},
-    "abstract": {"template": SUMMARIZE_ABSTRACT, "max_tokens": 600, "model": "gpt-4o-mini"},
-    "executive": {"template": SUMMARIZE_EXECUTIVE, "max_tokens": 1500, "model": "gpt-4o-mini"},
+    "abstract": {
+        "template": SUMMARIZE_ABSTRACT,
+        "max_tokens": 600,
+        "model": "gpt-4o-mini",
+    },
+    "executive": {
+        "template": SUMMARIZE_EXECUTIVE,
+        "max_tokens": 1500,
+        "model": "gpt-4o-mini",
+    },
     "detailed": {"template": SUMMARIZE_DETAILED, "max_tokens": 4000, "model": "gpt-4o"},
 }
 
@@ -33,9 +41,7 @@ class SummarizationService:
         self.llm = llm or LLMClient()
         self.chunker = TextChunker()
 
-    async def summarize(
-        self, paper: Paper, level: str = "abstract"
-    ) -> dict:
+    async def summarize(self, paper: Paper, level: str = "abstract") -> dict:
         """
         Generate a summary at the specified level.
 
@@ -48,7 +54,9 @@ class SummarizationService:
         Returns dict with summary text, level, and model used.
         """
         if level not in LEVEL_CONFIG:
-            raise ValueError(f"Invalid level: {level}. Must be one of {list(LEVEL_CONFIG.keys())}")
+            raise ValueError(
+                f"Invalid level: {level}. Must be one of {list(LEVEL_CONFIG.keys())}"
+            )
 
         config = LEVEL_CONFIG[level]
         log = logger.bind(paper_id=str(paper.id), level=level)

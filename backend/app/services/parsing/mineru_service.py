@@ -51,9 +51,7 @@ class MinerUParsingService:
         log = logger.bind(paper_id=paper_id, url=url[:80])
         log.info("mineru_parse_start")
 
-        result = await self.db.execute(
-            select(Paper).where(Paper.id == paper_id)
-        )
+        result = await self.db.execute(select(Paper).where(Paper.id == paper_id))
         paper = result.scalar_one_or_none()
         if not paper:
             return {"status": "error", "error": "Paper not found"}
@@ -98,7 +96,11 @@ class MinerUParsingService:
         existing_urls: list[dict] = paper.remote_urls or []
         if not any(u.get("url") == url for u in existing_urls):
             paper.remote_urls = existing_urls + [
-                {"url": url, "source": "mineru_input", "type": "html" if is_html else "pdf"}
+                {
+                    "url": url,
+                    "source": "mineru_input",
+                    "type": "html" if is_html else "pdf",
+                }
             ]
 
         # ── Extract structure from markdown ───────────────────────
@@ -151,9 +153,7 @@ class MinerUParsingService:
             "references": len(refs),
         }
 
-    async def _materialize_references(
-        self, paper: Paper, refs: list[dict]
-    ) -> None:
+    async def _materialize_references(self, paper: Paper, refs: list[dict]) -> None:
         """
         Idempotently create PaperReference rows from extracted references,
         then resolve cited_paper_id by matching DOI/title.
@@ -163,9 +163,7 @@ class MinerUParsingService:
 
         # Delete existing references
         await self.db.execute(
-            sa_delete(PaperReference).where(
-                PaperReference.citing_paper_id == paper_id
-            )
+            sa_delete(PaperReference).where(PaperReference.citing_paper_id == paper_id)
         )
 
         for ref in refs:
@@ -195,19 +193,23 @@ class MinerUParsingService:
             cited = None
             if ref.raw_doi:
                 doi_result = await self.db.execute(
-                    select(Paper.id).where(
+                    select(Paper.id)
+                    .where(
                         Paper.doi == ref.raw_doi,
                         Paper.deleted_at.is_(None),
-                    ).limit(1)
+                    )
+                    .limit(1)
                 )
                 cited = doi_result.scalar_one_or_none()
 
             if not cited and ref.raw_title and len(ref.raw_title) > 10:
                 title_result = await self.db.execute(
-                    select(Paper.id).where(
+                    select(Paper.id)
+                    .where(
                         Paper.title.ilike(ref.raw_title.strip()),
                         Paper.deleted_at.is_(None),
-                    ).limit(1)
+                    )
+                    .limit(1)
                 )
                 cited = title_result.scalar_one_or_none()
 
@@ -226,15 +228,17 @@ class MinerUParsingService:
         current_level: int = 1
 
         for line in markdown.split("\n"):
-            heading_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+            heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
             if heading_match:
                 # Save previous section
                 if current_title is not None:
-                    sections.append({
-                        "title": current_title,
-                        "level": current_level,
-                        "paragraphs": [p for p in current_paragraphs if p.strip()],
-                    })
+                    sections.append(
+                        {
+                            "title": current_title,
+                            "level": current_level,
+                            "paragraphs": [p for p in current_paragraphs if p.strip()],
+                        }
+                    )
                 current_level = len(heading_match.group(1))
                 current_title = heading_match.group(2).strip()
                 current_paragraphs = []
@@ -243,11 +247,13 @@ class MinerUParsingService:
 
         # Last section
         if current_title is not None:
-            sections.append({
-                "title": current_title,
-                "level": current_level,
-                "paragraphs": [p for p in current_paragraphs if p.strip()],
-            })
+            sections.append(
+                {
+                    "title": current_title,
+                    "level": current_level,
+                    "paragraphs": [p for p in current_paragraphs if p.strip()],
+                }
+            )
 
         return sections
 
@@ -255,21 +261,22 @@ class MinerUParsingService:
         """Try to extract abstract from markdown content."""
         # Look for explicit "Abstract" heading
         match = re.search(
-            r'#+\s*Abstract\s*\n([\s\S]*?)(?=\n#|\Z)',
+            r"#+\s*Abstract\s*\n([\s\S]*?)(?=\n#|\Z)",
             markdown,
             re.IGNORECASE,
         )
         if match:
             abstract = match.group(1).strip()
             # Clean up markdown formatting
-            abstract = re.sub(r'\*\*([^*]+)\*\*', r'\1', abstract)
-            abstract = re.sub(r'\*([^*]+)\*', r'\1', abstract)
+            abstract = re.sub(r"\*\*([^*]+)\*\*", r"\1", abstract)
+            abstract = re.sub(r"\*([^*]+)\*", r"\1", abstract)
             if 50 < len(abstract) < 3000:
                 return abstract
 
         # Fallback: first substantial paragraph
         paragraphs = [
-            p.strip() for p in markdown.split("\n\n")
+            p.strip()
+            for p in markdown.split("\n\n")
             if p.strip() and not p.strip().startswith("#") and len(p.strip()) > 100
         ]
         if paragraphs:
@@ -283,7 +290,7 @@ class MinerUParsingService:
 
         # Find References/Bibliography section
         ref_match = re.search(
-            r'#+\s*(?:References|Bibliography|Works Cited)\s*\n([\s\S]*?)(?=\n#[^#]|\Z)',
+            r"#+\s*(?:References|Bibliography|Works Cited)\s*\n([\s\S]*?)(?=\n#[^#]|\Z)",
             markdown,
             re.IGNORECASE,
         )
@@ -293,7 +300,7 @@ class MinerUParsingService:
         ref_text = ref_match.group(1)
 
         # Parse numbered references [1], [2], etc. or 1. 2. etc.
-        ref_items = re.split(r'\n\s*(?:\[?\d+\]?[\.\)]\s*)', ref_text)
+        ref_items = re.split(r"\n\s*(?:\[?\d+\]?[\.\)]\s*)", ref_text)
 
         for i, item in enumerate(ref_items):
             item = item.strip()
@@ -306,12 +313,12 @@ class MinerUParsingService:
             }
 
             # Try to extract DOI
-            doi_match = re.search(r'(10\.\d{4,}/[^\s]+)', item)
+            doi_match = re.search(r"(10\.\d{4,}/[^\s]+)", item)
             if doi_match:
                 ref["doi"] = doi_match.group(1).rstrip(".,;)")
 
             # Try to extract year
-            year_match = re.search(r'\b((?:19|20)\d{2})\b', item)
+            year_match = re.search(r"\b((?:19|20)\d{2})\b", item)
             if year_match:
                 ref["year"] = year_match.group(1)
 

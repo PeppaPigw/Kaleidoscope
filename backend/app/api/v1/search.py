@@ -11,6 +11,7 @@ from app.services.search.instances import hybrid_service as _hybrid_service
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/search", tags=["search"])
 
+
 @router.get("", response_model=SearchResponse)
 async def search_papers(
     q: str = Query(..., min_length=1, max_length=500, description="Search query"),
@@ -20,10 +21,16 @@ async def search_papers(
     year_from: int | None = Query(None, description="Filter: minimum year"),
     year_to: int | None = Query(None, description="Filter: maximum year"),
     venue: str | None = Query(None, description="Filter: venue name"),
-    paper_type: str | None = Query(None, description="Filter: article, review, preprint"),
-    oa_status: str | None = Query(None, description="Filter: gold, green, bronze, closed"),
+    paper_type: str | None = Query(
+        None, description="Filter: article, review, preprint"
+    ),
+    oa_status: str | None = Query(
+        None, description="Filter: gold, green, bronze, closed"
+    ),
     has_full_text: bool | None = Query(None, description="Filter: has full-text PDF"),
-    sort_by: str = Query("relevance", description="Sort: relevance, year, citation_count"),
+    sort_by: str = Query(
+        "relevance", description="Sort: relevance, year, citation_count"
+    ),
     order: str = Query("desc", description="Sort order: asc or desc"),
 ):
     """

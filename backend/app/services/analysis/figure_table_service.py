@@ -79,6 +79,7 @@ class FigureTableService:
     async def _get_llm(self):
         if self._llm_client is None:
             from app.clients.llm_client import LLMClient
+
             self._llm_client = LLMClient()
         return self._llm_client
 
@@ -152,9 +153,7 @@ class FigureTableService:
         Cross-paper comparison with normalization and caveats.
         """
         result = await self.db.execute(
-            select(Paper).where(
-                Paper.id.in_(paper_ids), Paper.deleted_at.is_(None)
-            )
+            select(Paper).where(Paper.id.in_(paper_ids), Paper.deleted_at.is_(None))
         )
         papers = list(result.scalars().all())
         if not papers:
@@ -169,8 +168,10 @@ class FigureTableService:
             # Include parsed_figures if available (contains results tables)
             if p.parsed_figures:
                 tables = [
-                    f for f in p.parsed_figures
-                    if f.get("content_type") in ("results_table", "comparison", "ablation")
+                    f
+                    for f in p.parsed_figures
+                    if f.get("content_type")
+                    in ("results_table", "comparison", "ablation")
                 ]
                 if tables:
                     block += f"Results tables: {json.dumps(tables[:3])}\n"
@@ -182,7 +183,9 @@ class FigureTableService:
         )
 
         try:
-            response = await llm.complete(prompt=prompt, temperature=0.2, max_tokens=4096)
+            response = await llm.complete(
+                prompt=prompt, temperature=0.2, max_tokens=4096
+            )
             result_table = json.loads(response)
             return {
                 "paper_count": len(papers),

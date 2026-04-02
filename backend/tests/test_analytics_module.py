@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 def test_keyword_trend_item_schema():
     from app.schemas.trends import KeywordTrendItem
+
     item = KeywordTrendItem(
         keyword="transformer",
         total_count=100,
@@ -32,7 +33,12 @@ def test_keyword_trend_item_schema():
 
 
 def test_keyword_timeseries_response_schema():
-    from app.schemas.trends import KeywordTimeseriesResponse, KeywordTimeseriesItem, KeywordTimePoint
+    from app.schemas.trends import (
+        KeywordTimeseriesResponse,
+        KeywordTimeseriesItem,
+        KeywordTimePoint,
+    )
+
     resp = KeywordTimeseriesResponse(
         keywords=[
             KeywordTimeseriesItem(
@@ -49,6 +55,7 @@ def test_keyword_timeseries_response_schema():
 
 def test_cooccurrence_response_schema():
     from app.schemas.trends import KeywordCooccurrenceResponse, CooccurrenceEdge
+
     resp = KeywordCooccurrenceResponse(
         edges=[CooccurrenceEdge(keyword_a="NLP", keyword_b="BERT", count=5)],
         total_papers_analyzed=20,
@@ -58,6 +65,7 @@ def test_cooccurrence_response_schema():
 
 def test_sleeping_papers_response_schema():
     from app.schemas.trends import SleepingPapersResponse, SleepingPaperItem
+
     resp = SleepingPapersResponse(
         papers=[
             SleepingPaperItem(
@@ -74,6 +82,7 @@ def test_sleeping_papers_response_schema():
 
 def test_emerging_author_schema():
     from app.schemas.researchers import EmergingAuthorItem, EmergingAuthorsResponse
+
     resp = EmergingAuthorsResponse(
         authors=[
             EmergingAuthorItem(
@@ -89,6 +98,7 @@ def test_emerging_author_schema():
 
 def test_author_profile_schema():
     from app.schemas.researchers import AuthorProfileResponse, YearlyPub, PaperSummary
+
     resp = AuthorProfileResponse(
         id="a1",
         display_name="Bob",
@@ -114,6 +124,7 @@ def test_collaboration_network_schema():
         NetworkNode,
         NetworkEdge,
     )
+
     resp = CollaborationNetworkResponse(
         nodes=[NetworkNode(id="a1", label="Alice", paper_count=5)],
         edges=[NetworkEdge(source="a1", target="a2", weight=3)],
@@ -170,12 +181,14 @@ async def test_keyword_timeseries_basic():
     # Two rows: both in 2022, one has "transformer" and "attention"
     row1 = MagicMock()
     row1.keywords = ["transformer", "attention"]
-    p1 = MagicMock(); p1.year = 2022
+    p1 = MagicMock()
+    p1.year = 2022
     row1.published_at = p1
 
     row2 = MagicMock()
     row2.keywords = ["transformer"]
-    p2 = MagicMock(); p2.year = 2022
+    p2 = MagicMock()
+    p2.year = 2022
     row2.published_at = p2
 
     mock_db = AsyncMock()
@@ -183,7 +196,9 @@ async def test_keyword_timeseries_basic():
     mock_db.execute.return_value = fake
 
     svc = TrendService(mock_db)
-    result = await svc.keyword_timeseries(keywords=["transformer", "attention"], years_back=3)
+    result = await svc.keyword_timeseries(
+        keywords=["transformer", "attention"], years_back=3
+    )
 
     # Check structure
     assert "keywords" in result
@@ -220,7 +235,9 @@ async def test_keyword_cooccurrence_basic():
 
     mock_db = AsyncMock()
     # First call: get keywords for frequency, second call: same data
-    mock_db.execute.return_value = FakeResult([(["deep learning", "neural network", "attention"],)])
+    mock_db.execute.return_value = FakeResult(
+        [(["deep learning", "neural network", "attention"],)]
+    )
 
     svc = TrendService(mock_db)
     result = await svc.keyword_cooccurrence(
@@ -244,7 +261,7 @@ async def test_keyword_cooccurrence_min_filter():
     rows = [
         (["A", "B"],),
         (["A", "B"],),
-        (["A", "C"],),   # A-C only appears once
+        (["A", "C"],),  # A-C only appears once
     ]
 
     mock_db = AsyncMock()
@@ -324,7 +341,9 @@ async def test_collaboration_network_empty_graph():
     mock_db.execute.return_value = FakeResult([])
 
     svc = ResearcherService(mock_db)
-    result = await svc.collaboration_network(author_id=None, top_k=10, min_collaborations=2)
+    result = await svc.collaboration_network(
+        author_id=None, top_k=10, min_collaborations=2
+    )
 
     assert result["nodes"] == []
     assert result["edges"] == []

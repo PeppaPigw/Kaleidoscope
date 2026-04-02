@@ -24,9 +24,7 @@ def sync_paper_to_graph(self, paper_id: str) -> dict:
         from app.services.graph.citation_graph import CitationGraphService
 
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
             paper = result.scalar_one_or_none()
             if not paper:
                 logger.warning("graph_sync_paper_not_found", paper_id=paper_id)

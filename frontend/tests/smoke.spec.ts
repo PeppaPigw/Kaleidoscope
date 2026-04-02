@@ -204,4 +204,282 @@ test.describe('Frontend smoke', () => {
     await page.locator('.admin-runner__history').filter({ hasText: 'Cross-endpoint restore' }).getByText('List Papers').click()
     await expect(page.locator('.admin-runner__endpoint-path')).toContainText('/api/v1/papers')
   })
+
+  test('reader renders scientific markdown with math and html tables', async ({ page }) => {
+    await page.route('http://127.0.0.1:8000/api/v1/papers/paper-1/content', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-1',
+          title: 'Sample Scientific Paper',
+          abstract: 'Abstract',
+          has_full_text: true,
+          format: 'markdown',
+          markdown: '# Sample Scientific Paper\n\nInline math $E = mc^2$.\n\n$$\n\\\\int_0^1 x^2 \\\\, dx\n$$\n\n<table><tr><td>Metric</td><td>Value</td></tr><tr><td>Accuracy</td><td>91%</td></tr></table>',
+          remote_urls: [],
+          markdown_provenance: { source: 'test' },
+          sections: [
+            { title: 'Fallback Section', level: 1, paragraphs: ['This should not replace the markdown body.'] },
+          ],
+          figures: [],
+        },
+      })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/intelligence/papers/paper-1/highlights', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-1',
+          highlights: ['Important result'],
+          contributions: ['A contribution'],
+          limitations: ['A limitation'],
+          has_analysis: true,
+        },
+      })
+    })
+
+    await page.goto(`${baseUrl}/reader/paper-1`)
+
+    await expect(page.getByRole('heading', { name: 'Sample Scientific Paper' }).first()).toBeVisible()
+    await expect(page.locator('table')).toBeVisible()
+    await expect(page.locator('td').filter({ hasText: '91%' })).toBeVisible()
+    await expect(page.locator('mjx-container').first()).toBeVisible()
+    await expect(page.getByText('This should not replace the markdown body.')).toHaveCount(0)
+
+    const inlineMath = page.locator('p mjx-container:not([display="true"])').first()
+    const displayMath = page.locator('mjx-container[display="true"]').first()
+
+    const inlineMathStyles = await inlineMath.evaluate((element) => {
+      const styles = window.getComputedStyle(element)
+      return {
+        display: styles.display,
+        marginTop: styles.marginTop,
+        marginBottom: styles.marginBottom,
+        overflowX: styles.overflowX,
+        whiteSpace: styles.whiteSpace,
+      }
+    })
+
+    const displayMathStyles = await displayMath.evaluate((element) => {
+      const styles = window.getComputedStyle(element)
+      return {
+        display: styles.display,
+        overflowX: styles.overflowX,
+      }
+    })
+
+    expect(inlineMathStyles).toMatchObject({
+      display: 'inline-block',
+      marginTop: '0px',
+      marginBottom: '0px',
+      overflowX: 'visible',
+      whiteSpace: 'nowrap',
+    })
+    expect(displayMathStyles).toMatchObject({
+      display: 'block',
+      overflowX: 'auto',
+    })
+  })
+
+  test('reader outline tracks the section currently in view', async ({ page }) => {
+    const longParagraph = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(60)
+
+    await page.route('http://127.0.0.1:8000/api/v1/papers/paper-scroll/content', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-scroll',
+          title: 'Scrollable Paper',
+          abstract: 'Abstract',
+          has_full_text: true,
+          format: 'markdown',
+          markdown: [
+            '# Scrollable Paper',
+            '## First Section',
+            longParagraph,
+            longParagraph,
+            '## Second Section',
+            longParagraph,
+            longParagraph,
+            '## Third Section',
+            longParagraph,
+            longParagraph,
+          ].join('\n\n'),
+          remote_urls: [],
+          markdown_provenance: { source: 'test' },
+          sections: [],
+          figures: [],
+        },
+      })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/intelligence/papers/paper-scroll/highlights', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-scroll',
+          highlights: [],
+          contributions: [],
+          limitations: [],
+          has_analysis: true,
+        },
+      })
+    })
+
+    await page.goto(`${baseUrl}/reader/paper-scroll`)
+
+    const activeOutlineItem = page.locator('.ks-outline-spine__item--active .ks-outline-spine__title')
+
+    await expect(activeOutlineItem).toHaveText('Scrollable Paper')
+
+    await page.locator('.ks-mc__rendered h2', { hasText: 'Third Section' }).evaluate((element: Element) => {
+      element.scrollIntoView({ block: 'start' })
+    })
+
+    await expect(activeOutlineItem).toHaveText('Third Section')
+  })
+
+  test('reader constrains oversized inline figures for comfortable reading', async ({ page }) => {
+    const tallFigure = `data:image/svg+xml;utf8,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="3200" viewBox="0 0 1200 3200">
+        <rect width="1200" height="3200" fill="#dbeafe" />
+        <text x="120" y="1600" font-size="120" fill="#1e3a8a">Tall Figure</text>
+      </svg>
+    `)}`
+
+    await page.route('http://127.0.0.1:8000/api/v1/papers/paper-image/content', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-image',
+          title: 'Image Heavy Paper',
+          abstract: 'Abstract',
+          has_full_text: true,
+          format: 'markdown',
+          markdown: [
+            '# Image Heavy Paper',
+            '## Visual Result',
+            `![Tall figure](${tallFigure})`,
+          ].join('\n\n'),
+          remote_urls: [],
+          markdown_provenance: { source: 'test' },
+          sections: [],
+          figures: [],
+        },
+      })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/intelligence/papers/paper-image/highlights', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-image',
+          highlights: [],
+          contributions: [],
+          limitations: [],
+          has_analysis: true,
+        },
+      })
+    })
+
+    await page.goto(`${baseUrl}/reader/paper-image`)
+
+    const image = page.getByAltText('Tall figure')
+    await expect(image).toBeVisible()
+
+    const imageMetrics = await image.evaluate(async (element: HTMLImageElement) => {
+      if (!element.complete) {
+        await new Promise<void>((resolve) => {
+          element.addEventListener('load', () => resolve(), { once: true })
+        })
+      }
+
+      const rect = element.getBoundingClientRect()
+      const styles = window.getComputedStyle(element)
+      return {
+        height: rect.height,
+        width: rect.width,
+        maxHeight: styles.maxHeight,
+        objectFit: styles.objectFit,
+      }
+    })
+
+    expect(imageMetrics.height).toBeLessThanOrEqual(560)
+    expect(imageMetrics.objectFit).toBe('contain')
+    expect(imageMetrics.maxHeight).not.toBe('none')
+  })
+
+  test('paper profile surfaces extracted code, dataset, and weight links', async ({ page }) => {
+    await page.route('http://127.0.0.1:8000/api/v1/papers/paper-supplements', async route => {
+      await route.fulfill({
+        json: {
+          id: 'paper-supplements',
+          title: 'Supplement-rich Paper',
+          abstract: 'Abstract',
+          arxiv_id: '2603.29651',
+          citation_count: 7,
+          published_at: '2026-03-31',
+          has_full_text: true,
+          authors: [
+            {
+              id: 'author-1',
+              display_name: 'Sample Author',
+              position: 0,
+            },
+          ],
+          raw_metadata: null,
+        },
+      })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/papers/paper-supplements/content', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-supplements',
+          title: 'Supplement-rich Paper',
+          abstract: 'Abstract',
+          has_full_text: true,
+          format: 'markdown',
+          markdown: [
+            '# Supplement-rich Paper',
+            '## Data and Code Availability',
+            'Source code: https://github.com/acme/narrative-maps.',
+            'Dataset release: https://doi.org/10.5281/zenodo. 18930804.',
+            'Model checkpoints: https://huggingface.co/acme/narrative-map-large',
+          ].join('\n\n'),
+          remote_urls: [
+            { url: 'https://arxiv.org/pdf/2603.29651.pdf', source: 'arxiv', type: 'pdf' },
+          ],
+          markdown_provenance: { source: 'test' },
+          sections: [],
+          figures: [],
+        },
+      })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/claims/papers/paper-supplements', async route => {
+      await route.fulfill({ json: { claims: [] } })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/intelligence/papers/paper-supplements/similar?top_k=5', async route => {
+      await route.fulfill({ json: { similar_papers: [] } })
+    })
+
+    await page.route('http://127.0.0.1:8000/api/v1/intelligence/papers/paper-supplements/highlights', async route => {
+      await route.fulfill({
+        json: {
+          paper_id: 'paper-supplements',
+          highlights: [],
+          contributions: [],
+          limitations: [],
+          has_analysis: true,
+        },
+      })
+    })
+
+    await page.goto(`${baseUrl}/papers/paper-supplements`)
+
+    const supplementRail = page.locator('.ks-supplement-rail')
+    await expect(supplementRail).toBeVisible()
+    await expect(supplementRail).toContainText('GitHub Repository')
+    await expect(supplementRail).toContainText('Zenodo Dataset')
+    await expect(supplementRail).toContainText('Hugging Face Weights')
+    await expect(supplementRail).toContainText('PDF')
+    await expect(supplementRail).toContainText('arXiv')
+  })
 })

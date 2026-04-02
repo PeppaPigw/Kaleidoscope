@@ -51,6 +51,7 @@ async def upload_single_pdf(
     if result["status"] == "imported":
         try:
             from app.tasks.ingest_tasks import parse_fulltext_task
+
             parse_fulltext_task.delay(result["paper_id"])
         except Exception:
             pass  # Task queue may not be running in dev
@@ -89,13 +90,12 @@ async def batch_upload_pdfs(
     await db.commit()
 
     imported_ids = [
-        r["paper_id"]
-        for r in result.get("results", [])
-        if r["status"] == "imported"
+        r["paper_id"] for r in result.get("results", []) if r["status"] == "imported"
     ]
     for paper_id in imported_ids:
         try:
             from app.tasks.ingest_tasks import parse_fulltext_task
+
             parse_fulltext_task.delay(paper_id)
         except Exception:
             pass

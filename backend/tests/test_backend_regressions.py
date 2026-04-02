@@ -182,12 +182,18 @@ def test_index_paper_broadcasts_alert_matches(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "app.services.search.keyword_search",
-        SimpleNamespace(KeywordSearchService=lambda: SimpleNamespace(index_paper=lambda doc: None)),
+        SimpleNamespace(
+            KeywordSearchService=lambda: SimpleNamespace(index_paper=lambda doc: None)
+        ),
     )
     monkeypatch.setitem(
         sys.modules,
         "app.services.search.vector_search",
-        SimpleNamespace(VectorSearchService=lambda: SimpleNamespace(index_paper=lambda **kwargs: None)),
+        SimpleNamespace(
+            VectorSearchService=lambda: SimpleNamespace(
+                index_paper=lambda **kwargs: None
+            )
+        ),
     )
     monkeypatch.setitem(
         sys.modules,
@@ -202,7 +208,9 @@ def test_index_paper_broadcasts_alert_matches(monkeypatch):
         sys.modules,
         "app.services.governance_service",
         SimpleNamespace(
-            GovernanceService=lambda db: SimpleNamespace(fire_webhooks=AsyncMock(return_value=None))
+            GovernanceService=lambda db: SimpleNamespace(
+                fire_webhooks=AsyncMock(return_value=None)
+            )
         ),
     )
     monkeypatch.setitem(
@@ -217,7 +225,11 @@ def test_index_paper_broadcasts_alert_matches(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "app.api.v1.sse",
-        SimpleNamespace(broadcast_event=lambda event_type, payload: broadcasts.append((event_type, payload))),
+        SimpleNamespace(
+            broadcast_event=lambda event_type, payload: broadcasts.append(
+                (event_type, payload)
+            )
+        ),
     )
 
     from app import dependencies

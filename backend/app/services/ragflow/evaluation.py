@@ -18,7 +18,9 @@ class RetrievalBenchmark:
     """Gold-corpus QA evaluation harness."""
 
     def __init__(self, corpus_path: str | Path | None = None):
-        self.corpus_path = Path(corpus_path) if corpus_path else BENCHMARK_DIR / "gold_corpus.json"
+        self.corpus_path = (
+            Path(corpus_path) if corpus_path else BENCHMARK_DIR / "gold_corpus.json"
+        )
         self._corpus: list[dict[str, Any]] = []
 
     def load_corpus(self) -> list[dict[str, Any]]:
@@ -56,18 +58,22 @@ class RetrievalBenchmark:
             try:
                 retrieved = await retriever_fn(question, top_k=top_k)
             except Exception as exc:  # noqa: BLE001
-                results.append({
-                    "question": question,
-                    "error": str(exc),
-                    "recall": 0.0,
-                    "precision": 0.0,
-                })
+                results.append(
+                    {
+                        "question": question,
+                        "error": str(exc),
+                        "recall": 0.0,
+                        "precision": 0.0,
+                    }
+                )
                 continue
             latency = (time.perf_counter() - started) * 1000
 
             retrieved_ids = set()
             for chunk in retrieved:
-                pid = chunk.get("paper_id", chunk.get("metadata", {}).get("paper_id", ""))
+                pid = chunk.get(
+                    "paper_id", chunk.get("metadata", {}).get("paper_id", "")
+                )
                 if pid:
                     retrieved_ids.add(pid)
 
@@ -75,7 +81,8 @@ class RetrievalBenchmark:
                 recall = len(retrieved_ids & gold_paper_ids) / len(gold_paper_ids)
                 precision = (
                     len(retrieved_ids & gold_paper_ids) / len(retrieved_ids)
-                    if retrieved_ids else 0.0
+                    if retrieved_ids
+                    else 0.0
                 )
             else:
                 recall = 0.0
@@ -85,15 +92,17 @@ class RetrievalBenchmark:
             total_precision += precision
             total_latency += latency
 
-            results.append({
-                "question": question,
-                "category": item.get("category", "unknown"),
-                "recall": round(recall, 3),
-                "precision": round(precision, 3),
-                "retrieved_count": len(retrieved_ids),
-                "gold_count": len(gold_paper_ids),
-                "latency_ms": round(latency, 1),
-            })
+            results.append(
+                {
+                    "question": question,
+                    "category": item.get("category", "unknown"),
+                    "recall": round(recall, 3),
+                    "precision": round(precision, 3),
+                    "retrieved_count": len(retrieved_ids),
+                    "gold_count": len(gold_paper_ids),
+                    "latency_ms": round(latency, 1),
+                }
+            )
 
         n = len(results) or 1
         return {
@@ -163,16 +172,18 @@ class LatencyCostTracker:
         route: str = "",
     ) -> None:
         """Record a single operation metric (capped at MAX_ENTRIES)."""
-        self._metrics.append({
-            "operation": operation,
-            "latency_ms": round(latency_ms, 1),
-            "tokens_used": tokens_used,
-            "route": route,
-            "timestamp": time.time(),
-        })
+        self._metrics.append(
+            {
+                "operation": operation,
+                "latency_ms": round(latency_ms, 1),
+                "tokens_used": tokens_used,
+                "route": route,
+                "timestamp": time.time(),
+            }
+        )
         # Evict oldest entries if over cap
         if len(self._metrics) > self.MAX_ENTRIES:
-            self._metrics = self._metrics[-self.MAX_ENTRIES:]
+            self._metrics = self._metrics[-self.MAX_ENTRIES :]
 
     def summary(self) -> dict[str, Any]:
         """Get summary statistics."""

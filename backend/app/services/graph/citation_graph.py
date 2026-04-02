@@ -29,23 +29,24 @@ class CitationGraphService:
         log = logger.bind(paper_id=str(paper.id), doi=paper.doi)
 
         # Upsert paper node
-        await neo4j_driver.run_write(Q.UPSERT_PAPER, {
-            "id": str(paper.id),
-            "doi": paper.doi,
-            "arxiv_id": paper.arxiv_id,
-            "title": paper.title,
-            "year": paper.published_at.year if paper.published_at else None,
-            "citation_count": paper.citation_count or 0,
-            "paper_type": paper.paper_type,
-        })
+        await neo4j_driver.run_write(
+            Q.UPSERT_PAPER,
+            {
+                "id": str(paper.id),
+                "doi": paper.doi,
+                "arxiv_id": paper.arxiv_id,
+                "title": paper.title,
+                "year": paper.published_at.year if paper.published_at else None,
+                "citation_count": paper.citation_count or 0,
+                "paper_type": paper.paper_type,
+            },
+        )
 
         # Sync references from PaperReference rows
         refs_synced = 0
         if self.db:
             result = await self.db.execute(
-                select(PaperReference).where(
-                    PaperReference.citing_paper_id == paper.id
-                )
+                select(PaperReference).where(PaperReference.citing_paper_id == paper.id)
             )
             references = result.scalars().all()
 
@@ -56,15 +57,18 @@ class CitationGraphService:
                     if ref.cited_paper_id
                     else f"ext:{ref.raw_doi or ref.raw_title or f'ref_{ref.position}'}"
                 )
-                await neo4j_driver.run_write(Q.UPSERT_CITATION, {
-                    "citing_id": str(paper.id),
-                    "cited_id": cited_id,
-                    "cited_doi": ref.raw_doi,
-                    "cited_title": ref.raw_title,
-                    "cited_year": ref.raw_year,
-                    "context": None,
-                    "position": ref.position,
-                })
+                await neo4j_driver.run_write(
+                    Q.UPSERT_CITATION,
+                    {
+                        "citing_id": str(paper.id),
+                        "cited_id": cited_id,
+                        "cited_doi": ref.raw_doi,
+                        "cited_title": ref.raw_title,
+                        "cited_year": ref.raw_year,
+                        "context": None,
+                        "position": ref.position,
+                    },
+                )
                 refs_synced += 1
 
         log.info("paper_synced_to_graph", refs=refs_synced)
@@ -103,9 +107,7 @@ class CitationGraphService:
             raise ValueError("DB session required for batch sync")
 
         result = await self.db.execute(
-            select(Paper)
-            .where(Paper.deleted_at.is_(None))
-            .limit(limit)
+            select(Paper).where(Paper.deleted_at.is_(None)).limit(limit)
         )
         papers = result.scalars().all()
 
@@ -115,7 +117,9 @@ class CitationGraphService:
                 await self.sync_paper(paper)
                 synced += 1
             except Exception as e:
-                logger.warning("graph_sync_failed", paper_id=str(paper.id), error=str(e))
+                logger.warning(
+                    "graph_sync_failed", paper_id=str(paper.id), error=str(e)
+                )
 
         logger.info("batch_graph_sync_complete", synced=synced, total=len(papers))
         return synced
@@ -145,9 +149,7 @@ class CitationGraphService:
 
         return result
 
-    async def co_citation_analysis(
-        self, paper_id: str, limit: int = 20
-    ) -> list[dict]:
+    async def co_citation_analysis(self, paper_id: str, limit: int = 20) -> list[dict]:
         """
         Find papers frequently cited alongside this one.
 
@@ -191,7 +193,11 @@ class CitationGraphService:
         except Exception as exc:
             logger.warning("graph_stats_unavailable", error=str(exc))
             return {"paper_count": 0, "citation_count": 0, "author_count": 0}
-        return result[0] if result else {"paper_count": 0, "citation_count": 0, "author_count": 0}
+        return (
+            result[0]
+            if result
+            else {"paper_count": 0, "citation_count": 0, "author_count": 0}
+        )
 
 
 class RecommendationService:
@@ -201,9 +207,7 @@ class RecommendationService:
         self.db = db
         self.graph = CitationGraphService(db)
 
-    async def recommend_similar(
-        self, paper_id: str, limit: int = 10
-    ) -> list[dict]:
+    async def recommend_similar(self, paper_id: str, limit: int = 10) -> list[dict]:
         """
         Recommend papers using multi-signal RRF fusion:
         1. Bibliographic coupling (shared references) — graph signal
@@ -221,8 +225,7 @@ class RecommendationService:
         except Exception:
             coupling = []
         coupling_ranked = {
-            r["id"]: 1.0 / (i + 1)
-            for i, r in enumerate(coupling) if r.get("id")
+            r["id"]: 1.0 / (i + 1) for i, r in enumerate(coupling) if r.get("id")
         }
 
         # Signal 2: Co-citation
@@ -231,8 +234,7 @@ class RecommendationService:
         except Exception:
             co_cite = []
         co_cite_ranked = {
-            r["id"]: 1.0 / (i + 1)
-            for i, r in enumerate(co_cite) if r.get("id")
+            r["id"]: 1.0 / (i + 1) for i, r in enumerate(co_cite) if r.get("id")
         }
 
         # Signal 3: SPECTER2 vector similarity via Qdrant
@@ -244,6 +246,7 @@ class RecommendationService:
             paper_row = paper_result.one_or_none()
             if paper_row and paper_row.title:
                 from app.services.search.instances import vector_service
+
                 query_text = paper_row.title
                 if paper_row.abstract:
                     query_text += " " + paper_row.abstract[:500]
@@ -257,7 +260,11 @@ class RecommendationService:
 
         # Merge with RRF (k=60)
         k = 60
-        all_ids = set(coupling_ranked.keys()) | set(co_cite_ranked.keys()) | set(vector_ranked.keys())
+        all_ids = (
+            set(coupling_ranked.keys())
+            | set(co_cite_ranked.keys())
+            | set(vector_ranked.keys())
+        )
         fused = []
         for pid in all_ids:
             score = 0.0
@@ -279,8 +286,13 @@ class RecommendationService:
         result_ids = [f["id"] for f in fused[:limit]]
         if result_ids and self.db:
             papers_result = await self.db.execute(
-                select(Paper.id, Paper.doi, Paper.title, Paper.published_at, Paper.citation_count)
-                .where(Paper.id.in_(result_ids))
+                select(
+                    Paper.id,
+                    Paper.doi,
+                    Paper.title,
+                    Paper.published_at,
+                    Paper.citation_count,
+                ).where(Paper.id.in_(result_ids))
             )
             details = {str(r.id): r for r in papers_result.all()}
 
@@ -292,9 +304,13 @@ class RecommendationService:
                     item["year"] = d.published_at.year if d.published_at else None
                     item["citation_count"] = d.citation_count
 
-        log.info("recommendation_generated",
-                 count=len(fused[:limit]),
-                 signals={"coupling": len(coupling_ranked),
-                          "co_cite": len(co_cite_ranked),
-                          "vector": len(vector_ranked)})
+        log.info(
+            "recommendation_generated",
+            count=len(fused[:limit]),
+            signals={
+                "coupling": len(coupling_ranked),
+                "co_cite": len(co_cite_ranked),
+                "vector": len(vector_ranked),
+            },
+        )
         return fused[:limit]

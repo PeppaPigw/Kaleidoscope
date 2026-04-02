@@ -10,9 +10,7 @@ class SearchRequest(BaseModel):
     """Search query parameters."""
 
     query: str = Field(..., min_length=1, max_length=500)
-    mode: str = Field(
-        "hybrid", description="Search mode: keyword, semantic, hybrid"
-    )
+    mode: str = Field("hybrid", description="Search mode: keyword, semantic, hybrid")
     page: int = Field(1, ge=1)
     per_page: int = Field(20, ge=1, le=100)
 
@@ -25,7 +23,9 @@ class SearchRequest(BaseModel):
     has_full_text: bool | None = None
 
     # Sort
-    sort_by: str = Field("relevance", description="relevance, year, citation_count, created_at")
+    sort_by: str = Field(
+        "relevance", description="relevance, year, citation_count, created_at"
+    )
     order: str = Field("desc", description="asc or desc")
 
 

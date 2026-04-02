@@ -26,6 +26,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 # ─── Collection CRUD ─────────────────────────────────────────────
 
+
 @router.post("", response_model=CollectionResponse, status_code=201)
 async def create_collection(
     body: CollectionCreate,
@@ -107,6 +108,7 @@ async def delete_collection(
 
 # ─── Paper Management ────────────────────────────────────────────
 
+
 @router.post("/{collection_id}/papers", status_code=201)
 async def add_papers_to_collection(
     collection_id: str,
@@ -121,14 +123,17 @@ async def add_papers_to_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     added = await svc.add_papers(
-        collection_id, [str(pid) for pid in body.paper_ids], note=body.note,
+        collection_id,
+        [str(pid) for pid in body.paper_ids],
+        note=body.note,
     )
     return {"added": added, "total": collection.paper_count + added}
 
 
 @router.delete("/{collection_id}/papers/{paper_id}", status_code=204)
 async def remove_paper_from_collection(
-    collection_id: str, paper_id: str,
+    collection_id: str,
+    paper_id: str,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -166,6 +171,7 @@ async def get_collection_papers(
 
 # ─── Smart Collection ────────────────────────────────────────────
 
+
 @router.get("/{collection_id}/evaluate")
 async def evaluate_smart_collection(
     collection_id: str,
@@ -181,18 +187,21 @@ async def evaluate_smart_collection(
     result = []
     for p in papers:
         status = await rs_svc.get_status(str(p.id))
-        result.append({
-            "id": str(p.id),
-            "title": p.title,
-            "doi": p.doi,
-            "arxiv_id": p.arxiv_id,
-            "published_at": p.published_at,
-            "reading_status": status,
-        })
+        result.append(
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "doi": p.doi,
+                "arxiv_id": p.arxiv_id,
+                "published_at": p.published_at,
+                "reading_status": status,
+            }
+        )
     return result
 
 
 # ─── Export ──────────────────────────────────────────────────────
+
 
 @router.post("/{collection_id}/export")
 async def export_collection_citations(
@@ -225,6 +234,7 @@ async def export_collection_citations(
     extensions = {"bibtex": "bib", "ris": "ris", "csl_json": "json"}
 
     from fastapi.responses import Response
+
     return Response(
         content=content,
         media_type=content_types.get(body.format, "text/plain"),

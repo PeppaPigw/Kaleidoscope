@@ -137,7 +137,9 @@ class TrendExtensionsService:
 
     async def get_venue_ranking(self, limit: int = 50) -> list[dict]:
         """Rank venues by average citations per paper."""
-        avg_citations = func.coalesce(func.avg(func.coalesce(Paper.citation_count, 0)), 0.0)
+        avg_citations = func.coalesce(
+            func.avg(func.coalesce(Paper.citation_count, 0)), 0.0
+        )
         total_citations = func.coalesce(func.sum(Paper.citation_count), 0)
         paper_count = func.count(Paper.id)
 
@@ -190,7 +192,9 @@ class TrendExtensionsService:
         for row in result.all():
             if not row.published_at:
                 continue
-            yearly_counts[row.published_at.year].update(self._keyword_list(row.keywords))
+            yearly_counts[row.published_at.year].update(
+                self._keyword_list(row.keywords)
+            )
 
         years = sorted(yearly_counts.keys())
         if not years:
@@ -269,7 +273,9 @@ class TrendExtensionsService:
         seen: set[str] = set()
         for item in items:
             if isinstance(item, dict):
-                value = item.get("keyword") or item.get("name") or item.get("display_name")
+                value = (
+                    item.get("keyword") or item.get("name") or item.get("display_name")
+                )
             else:
                 value = item
             if not isinstance(value, str):

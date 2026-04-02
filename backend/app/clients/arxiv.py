@@ -51,7 +51,9 @@ class ArxivClient:
                 resp.raise_for_status()
                 return self._parse_atom_entry(resp.text)
             except httpx.HTTPStatusError as e:
-                logger.error("arxiv_api_error", arxiv_id=arxiv_id, status=e.response.status_code)
+                logger.error(
+                    "arxiv_api_error", arxiv_id=arxiv_id, status=e.response.status_code
+                )
                 raise ExternalAPIError("arxiv", e.response.status_code, str(e))
 
     # ─── Full-text retrieval ─────────────────────────────────────────
@@ -81,7 +83,11 @@ class ArxivClient:
             try:
                 resp = await client.get(url, follow_redirects=True)
                 if resp.status_code != 200:
-                    logger.warning("arxiv_source_unavailable", arxiv_id=clean_id, status=resp.status_code)
+                    logger.warning(
+                        "arxiv_source_unavailable",
+                        arxiv_id=clean_id,
+                        status=resp.status_code,
+                    )
                     return None
 
                 content_type = resp.headers.get("content-type", "")
@@ -93,8 +99,11 @@ class ArxivClient:
                 # Case 2: Single .tex file (gzipped)
                 if "x-tex" in content_type or "latex" in content_type:
                     import gzip
+
                     try:
-                        tex_content = gzip.decompress(resp.content).decode("utf-8", errors="replace")
+                        tex_content = gzip.decompress(resp.content).decode(
+                            "utf-8", errors="replace"
+                        )
                     except Exception:
                         tex_content = resp.content.decode("utf-8", errors="replace")
                     return {
@@ -108,7 +117,11 @@ class ArxivClient:
                     logger.info("arxiv_pdf_only_submission", arxiv_id=clean_id)
                     return None
 
-                logger.warning("arxiv_source_unknown_type", arxiv_id=clean_id, content_type=content_type)
+                logger.warning(
+                    "arxiv_source_unknown_type",
+                    arxiv_id=clean_id,
+                    content_type=content_type,
+                )
                 return None
 
             except Exception as e:
@@ -131,7 +144,9 @@ class ArxivClient:
         async with ARXIV_LIMITER:
             try:
                 resp = await client.get(url, follow_redirects=True)
-                if resp.status_code == 200 and "html" in resp.headers.get("content-type", ""):
+                if resp.status_code == 200 and "html" in resp.headers.get(
+                    "content-type", ""
+                ):
                     return resp.text
                 return None
             except Exception as e:
@@ -209,7 +224,9 @@ class ArxivClient:
 
         # Extract title and abstract
         title_match = re.search(r"\\title\{([^}]+)\}", text)
-        abstract_match = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.DOTALL)
+        abstract_match = re.search(
+            r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.DOTALL
+        )
 
         # Remove common environments we don't want
         text = re.sub(r"\\begin\{figure\}.*?\\end\{figure\}", "", text, flags=re.DOTALL)
@@ -221,7 +238,9 @@ class ArxivClient:
         text = re.sub(r"\\\[(.+?)\\\]", r"$$\1$$", text, flags=re.DOTALL)
 
         # Remove specific commands but keep content
-        text = re.sub(r"\\(?:textbf|textit|emph|underline|texttt)\{([^}]+)\}", r"\1", text)
+        text = re.sub(
+            r"\\(?:textbf|textit|emph|underline|texttt)\{([^}]+)\}", r"\1", text
+        )
         text = re.sub(r"\\(?:cite|ref|label|eqref)\{[^}]*\}", "[ref]", text)
         text = re.sub(r"\\(?:footnote)\{([^}]+)\}", r" (\1)", text)
 
@@ -234,7 +253,9 @@ class ArxivClient:
         text = re.sub(r"[ \t]+", " ", text)  # Collapse whitespace
 
         # Extract between \begin{document} and \end{document}
-        doc_match = re.search(r"\\begin\{document\}(.*)\\end\{document\}", text, re.DOTALL)
+        doc_match = re.search(
+            r"\\begin\{document\}(.*)\\end\{document\}", text, re.DOTALL
+        )
         if doc_match:
             text = doc_match.group(1)
 
@@ -268,7 +289,9 @@ class ArxivClient:
         authors = []
         for author_elem in entry.findall("atom:author", ns):
             name = author_elem.findtext("atom:name", default="", namespaces=ns)
-            affiliation = author_elem.findtext("arxiv:affiliation", default="", namespaces=ns)
+            affiliation = author_elem.findtext(
+                "arxiv:affiliation", default="", namespaces=ns
+            )
             authors.append({"name": name, "affiliation": affiliation})
 
         # Categories
@@ -283,8 +306,12 @@ class ArxivClient:
 
         return {
             "arxiv_id": arxiv_id,
-            "title": (entry.findtext("atom:title", default="", namespaces=ns) or "").strip().replace("\n", " "),
-            "abstract": (entry.findtext("atom:summary", default="", namespaces=ns) or "").strip(),
+            "title": (entry.findtext("atom:title", default="", namespaces=ns) or "")
+            .strip()
+            .replace("\n", " "),
+            "abstract": (
+                entry.findtext("atom:summary", default="", namespaces=ns) or ""
+            ).strip(),
             "authors": authors,
             "categories": categories,
             "published": entry.findtext("atom:published", default="", namespaces=ns),
@@ -293,7 +320,9 @@ class ArxivClient:
             "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf" if arxiv_id else None,
             "abs_url": f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else None,
             "source_url": f"https://arxiv.org/e-print/{arxiv_id}" if arxiv_id else None,
-            "html_url": f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}" if arxiv_id else None,
+            "html_url": (
+                f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}" if arxiv_id else None
+            ),
         }
 
     @staticmethod

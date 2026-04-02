@@ -28,6 +28,7 @@ def _raise_writing_error(result: dict) -> None:
 
 # ─── Schemas ─────────────────────────────────────────────────────
 
+
 class RelatedWorkRequest(BaseModel):
     paper_ids: list[str]
     style: str = Field("narrative", description="narrative, thematic, or chronological")
@@ -50,6 +51,7 @@ class RebuttalRequest(BaseModel):
 
 
 # ─── Endpoints ───────────────────────────────────────────────────
+
 
 @router.post("/related-work")
 async def generate_related_work(

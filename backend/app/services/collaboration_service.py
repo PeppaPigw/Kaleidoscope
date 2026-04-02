@@ -43,9 +43,7 @@ class CollaborationService:
         await self.db.flush()
         return self._ser_comment(comment)
 
-    async def list_comments(
-        self, paper_id: str, limit: int = 100
-    ) -> list[dict]:
+    async def list_comments(self, paper_id: str, limit: int = 100) -> list[dict]:
         """List top-level comments for a paper."""
         result = await self.db.execute(
             select(PaperComment)

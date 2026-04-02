@@ -133,6 +133,7 @@ async def compare_papers(
 
 # ─── Feature 41: MCP-compatible agent summary ────────────────────
 
+
 @router.get("/papers/{paper_id}/agent-summary")
 async def get_agent_summary(
     paper_id: UUID,
@@ -168,7 +169,9 @@ async def get_agent_summary(
     # Pull quality score without hitting external APIs
     quality_svc = QualityService(db)
     q_result = await quality_svc.score_metadata(str(paper_id))
-    quality_score = q_result.get("overall_score") if isinstance(q_result, dict) else None
+    quality_score = (
+        q_result.get("overall_score") if isinstance(q_result, dict) else None
+    )
 
     # Build links
     links: dict[str, str | None] = {
@@ -228,9 +231,7 @@ async def get_paper_highlights(
         "highlights": paper.highlights or [],
         "contributions": paper.contributions or [],
         "limitations": paper.limitations or [],
-        "has_analysis": bool(
-            paper.summary or paper.highlights or paper.contributions
-        ),
+        "has_analysis": bool(paper.summary or paper.highlights or paper.contributions),
     }
 
 

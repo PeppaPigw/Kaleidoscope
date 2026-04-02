@@ -55,7 +55,9 @@ class PaperAuthor(Base):
     author_id: Mapped[str] = mapped_column(
         UUID(as_uuid=True), ForeignKey("authors.id"), primary_key=True
     )
-    position: Mapped[int] = mapped_column(Integer, nullable=False)  # Author order (0-based)
+    position: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )  # Author order (0-based)
     is_corresponding: Mapped[bool] = mapped_column(default=False)
     raw_affiliation: Mapped[str | None] = mapped_column(Text)
 

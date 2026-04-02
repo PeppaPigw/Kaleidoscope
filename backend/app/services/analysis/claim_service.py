@@ -94,6 +94,7 @@ class ClaimExtractionService:
     async def _get_llm(self):
         if self._llm_client is None:
             from app.clients.llm_client import LLMClient
+
             self._llm_client = LLMClient()
         return self._llm_client
 
@@ -153,7 +154,9 @@ class ClaimExtractionService:
         )
 
         try:
-            response = await llm.complete(prompt=prompt, temperature=0.2, max_tokens=4096)
+            response = await llm.complete(
+                prompt=prompt, temperature=0.2, max_tokens=4096
+            )
             raw_claims = json.loads(response)
         except (json.JSONDecodeError, Exception) as e:
             log.error("claim_extraction_failed", error=str(e))
@@ -188,15 +191,17 @@ class ClaimExtractionService:
                 )
                 self.db.add(link)
 
-            stored_claims.append({
-                "id": str(claim.id),
-                "text": claim.text,
-                "claim_type": claim.claim_type,
-                "category": claim.category,
-                "hedging_level": claim.hedging_level,
-                "section_ref": claim.section_ref,
-                "evidence_count": len(rc.get("evidence", [])),
-            })
+            stored_claims.append(
+                {
+                    "id": str(claim.id),
+                    "text": claim.text,
+                    "claim_type": claim.claim_type,
+                    "category": claim.category,
+                    "hedging_level": claim.hedging_level,
+                    "section_ref": claim.section_ref,
+                    "evidence_count": len(rc.get("evidence", [])),
+                }
+            )
 
         await self.db.commit()
         log.info("claims_extracted", count=len(stored_claims))
@@ -210,9 +215,7 @@ class ClaimExtractionService:
     async def list_claims(self, paper_id: str) -> list[dict]:
         """List all claims for a paper."""
         result = await self.db.execute(
-            select(Claim)
-            .where(Claim.paper_id == paper_id)
-            .order_by(Claim.position)
+            select(Claim).where(Claim.paper_id == paper_id).order_by(Claim.position)
         )
         claims = result.scalars().all()
 
@@ -222,27 +225,31 @@ class ClaimExtractionService:
                 select(EvidenceLink).where(EvidenceLink.claim_id == str(c.id))
             )
             evidence = ev_result.scalars().all()
-            output.append({
-                "id": str(c.id),
-                "text": c.text,
-                "claim_type": c.claim_type,
-                "category": c.category,
-                "hedging_level": c.hedging_level,
-                "section_ref": c.section_ref,
-                "confidence": c.confidence,
-                "evidence": [
-                    {
-                        "type": e.evidence_type,
-                        "text": e.evidence_text,
-                        "location": e.location,
-                        "strength": e.strength,
-                        "is_sufficient": e.is_sufficient,
-                        "gaps": (e.metadata_json or {}).get("gaps", []),
-                        "alternative_explanations": (e.metadata_json or {}).get("alternative_explanations", []),
-                    }
-                    for e in evidence
-                ],
-            })
+            output.append(
+                {
+                    "id": str(c.id),
+                    "text": c.text,
+                    "claim_type": c.claim_type,
+                    "category": c.category,
+                    "hedging_level": c.hedging_level,
+                    "section_ref": c.section_ref,
+                    "confidence": c.confidence,
+                    "evidence": [
+                        {
+                            "type": e.evidence_type,
+                            "text": e.evidence_text,
+                            "location": e.location,
+                            "strength": e.strength,
+                            "is_sufficient": e.is_sufficient,
+                            "gaps": (e.metadata_json or {}).get("gaps", []),
+                            "alternative_explanations": (e.metadata_json or {}).get(
+                                "alternative_explanations", []
+                            ),
+                        }
+                        for e in evidence
+                    ],
+                }
+            )
         return output
 
     async def assess_evidence(self, paper_id: str) -> dict:
@@ -281,7 +288,9 @@ class ClaimExtractionService:
             is_sufficient = assessment.get("is_sufficient", None)
             assessment_meta = {
                 "gaps": assessment.get("gaps", []),
-                "alternative_explanations": assessment.get("alternative_explanations", []),
+                "alternative_explanations": assessment.get(
+                    "alternative_explanations", []
+                ),
             }
 
             # Update all evidence links for this claim
@@ -293,7 +302,9 @@ class ClaimExtractionService:
                 link.metadata_json = assessment_meta
 
         await self.db.commit()
-        logger.info("evidence_assessment_persisted", paper_id=paper_id, count=len(assessments))
+        logger.info(
+            "evidence_assessment_persisted", paper_id=paper_id, count=len(assessments)
+        )
 
         return {
             "paper_id": paper_id,

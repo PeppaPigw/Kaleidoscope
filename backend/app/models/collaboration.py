@@ -21,9 +21,7 @@ class PaperComment(UUIDPrimaryKeyMixin, Base):
     paper_id: Mapped[str] = mapped_column(
         UUID(as_uuid=True), ForeignKey("papers.id"), nullable=False, index=True
     )
-    user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
-    )
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     parent_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("paper_comments.id"), nullable=True
     )
@@ -72,9 +70,7 @@ class ReviewTask(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ScreeningDecision(UUIDPrimaryKeyMixin, Base):

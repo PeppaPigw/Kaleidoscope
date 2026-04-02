@@ -15,6 +15,7 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 # ─── Schemas ─────────────────────────────────────────────────────
 
+
 class AlertRuleCreate(BaseModel):
     name: str
     rule_type: str = Field(
@@ -36,6 +37,7 @@ class AlertRuleUpdate(BaseModel):
 
 
 # ─── Alert Rules ─────────────────────────────────────────────────
+
 
 @router.post("/rules", status_code=201)
 async def create_alert_rule(
@@ -79,7 +81,9 @@ async def list_alert_rules(
                 "actions": r.actions,
                 "is_active": r.is_active,
                 "trigger_count": r.trigger_count,
-                "last_triggered_at": str(r.last_triggered_at) if r.last_triggered_at else None,
+                "last_triggered_at": (
+                    str(r.last_triggered_at) if r.last_triggered_at else None
+                ),
             }
             for r in rules
         ]
@@ -119,6 +123,7 @@ async def delete_alert_rule(
 
 
 # ─── Notifications ───────────────────────────────────────────────
+
 
 @router.get("")
 async def list_alerts(
@@ -161,6 +166,7 @@ async def mark_all_read(
 
 
 # ─── Digests ─────────────────────────────────────────────────────
+
 
 @router.get("/digests")
 async def list_digests(

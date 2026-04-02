@@ -227,7 +227,10 @@ def test_knowledge_ext_quiz_and_glossary():
         assert quiz["paper_id"] == str(paper_id)
         assert len(quiz["questions"]) == 3
         assert "2024" in quiz["questions"][2]["options"]
-        assert quiz["questions"][2]["options"][quiz["questions"][2]["correct_index"]] == "2024"
+        assert (
+            quiz["questions"][2]["options"][quiz["questions"][2]["correct_index"]]
+            == "2024"
+        )
 
         glossary = await service.get_glossary(str(paper_id))
         assert glossary == {

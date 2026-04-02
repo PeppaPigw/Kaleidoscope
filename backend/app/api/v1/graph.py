@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
-from app.services.graph.citation_graph import CitationGraphService, RecommendationService
+from app.services.graph.citation_graph import (
+    CitationGraphService,
+    RecommendationService,
+)
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -98,12 +101,11 @@ async def sync_paper_to_graph(
     from sqlalchemy import select
     from app.models.paper import Paper
 
-    result = await db.execute(
-        select(Paper).where(Paper.id == paper_id)
-    )
+    result = await db.execute(select(Paper).where(Paper.id == paper_id))
     paper = result.scalar_one_or_none()
     if not paper:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Paper not found")
 
     svc = CitationGraphService(db)

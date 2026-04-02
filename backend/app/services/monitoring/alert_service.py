@@ -190,9 +190,7 @@ class AlertService:
 
         # Keyword match
         if "keywords" in cond:
-            paper_text = (
-                (paper.title or "") + " " + (paper.abstract or "")
-            ).lower()
+            paper_text = ((paper.title or "") + " " + (paper.abstract or "")).lower()
             if not any(kw.lower() in paper_text for kw in cond["keywords"]):
                 return False
 
@@ -226,9 +224,7 @@ class DigestService:
         self.db = db
         self.user_id = user_id
 
-    async def generate_digest(
-        self, period: str = "weekly"
-    ) -> dict:
+    async def generate_digest(self, period: str = "weekly") -> dict:
         """
         Generate a digest of recent papers.
 
@@ -267,12 +263,12 @@ class DigestService:
 
         # Generate LLM summary
         paper_list = "\n".join(
-            f"- {p.title} (citations: {p.citation_count or 0})"
-            for p in papers[:20]
+            f"- {p.title} (citations: {p.citation_count or 0})" for p in papers[:20]
         )
 
         try:
             from app.clients.llm_client import LLMClient
+
             llm = LLMClient()
             prompt = (
                 f"Summarize these {len(papers)} new research papers for a weekly digest. "

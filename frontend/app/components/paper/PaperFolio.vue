@@ -148,7 +148,6 @@ const uid = useId()
 .ks-paper-folio__abstract {
   font: 400 1rem / 1.7 var(--font-serif);
   color: var(--color-secondary);
-  max-width: 720px;
 }
 
 .ks-paper-folio__stats {

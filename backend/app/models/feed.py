@@ -17,13 +17,19 @@ class RSSFeed(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     publisher: Mapped[str | None] = mapped_column(String(100))
-    category: Mapped[str | None] = mapped_column(String(100))  # e.g., "physics", "chemistry"
+    category: Mapped[str | None] = mapped_column(
+        String(100)
+    )  # e.g., "physics", "chemistry"
 
     # --- Polling State ---
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    etag: Mapped[str | None] = mapped_column(String(200))  # HTTP ETag for conditional requests
-    last_modified: Mapped[str | None] = mapped_column(String(100))  # HTTP Last-Modified header
+    etag: Mapped[str | None] = mapped_column(
+        String(200)
+    )  # HTTP ETag for conditional requests
+    last_modified: Mapped[str | None] = mapped_column(
+        String(100)
+    )  # HTTP Last-Modified header
     poll_error_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
 

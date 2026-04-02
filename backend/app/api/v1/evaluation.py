@@ -1,4 +1,5 @@
 """Observability and evaluation API endpoints."""
+
 # mypy: disable-error-code="misc,untyped-decorator"
 
 from __future__ import annotations
@@ -77,9 +78,7 @@ async def benchmark_status(_user_id: UserId) -> dict[str, Any]:
     return {
         "corpus_available": len(corpus) > 0,
         "question_count": len(corpus),
-        "categories": list(
-            {item.get("category", "unknown") for item in corpus}
-        ),
+        "categories": list({item.get("category", "unknown") for item in corpus}),
     }
 
 
@@ -109,10 +108,12 @@ async def run_benchmark(
     service = RagflowQueryService(db)
 
     async def retriever_fn(
-        question: str, top_k: int = 10,
+        question: str,
+        top_k: int = 10,
     ) -> list[dict[str, Any]]:
         result = await service.scoped_retrieve(
-            question=question, top_k=top_k,
+            question=question,
+            top_k=top_k,
         )
         return result.get("chunks", [])
 
@@ -148,7 +149,8 @@ async def run_comparison(db: DbSession, _user_id: UserId) -> dict[str, Any]:
     bench_copy1 = RetrievalBenchmark()
     bench_copy1._corpus = corpus.copy()
     comparisons["ragflow_only"] = await bench_copy1.evaluate_retrieval(
-        ragflow_fn, top_k=10,
+        ragflow_fn,
+        top_k=10,
     )
 
     # Path 2: RAGFlow + Graph Expansion
@@ -159,7 +161,8 @@ async def run_comparison(db: DbSession, _user_id: UserId) -> dict[str, Any]:
     bench_copy2 = RetrievalBenchmark()
     bench_copy2._corpus = corpus.copy()
     comparisons["ragflow_graph"] = await bench_copy2.evaluate_retrieval(
-        expanded_fn, top_k=10,
+        expanded_fn,
+        top_k=10,
     )
 
     # Path 3: Smart Router (combined)
@@ -170,7 +173,8 @@ async def run_comparison(db: DbSession, _user_id: UserId) -> dict[str, Any]:
     bench_copy3 = RetrievalBenchmark()
     bench_copy3._corpus = corpus.copy()
     comparisons["smart_router"] = await bench_copy3.evaluate_retrieval(
-        routed_fn, top_k=10,
+        routed_fn,
+        top_k=10,
     )
 
     return {
@@ -184,4 +188,3 @@ async def reset_metrics(_user_id: UserId) -> dict[str, str]:
     """Reset all accumulated metrics."""
     _tracker._metrics.clear()
     return {"status": "cleared"}
-

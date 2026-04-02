@@ -24,11 +24,11 @@ logger = structlog.get_logger(__name__)
 
 # arXiv categories to sample from
 ARXIV_CATEGORIES = [
-    "cs.AI",   # Artificial Intelligence
-    "cs.LG",   # Machine Learning
-    "cs.CL",   # Computation and Language (NLP)
-    "cs.CV",   # Computer Vision
-    "cs.IR",   # Information Retrieval
+    "cs.AI",  # Artificial Intelligence
+    "cs.LG",  # Machine Learning
+    "cs.CL",  # Computation and Language (NLP)
+    "cs.CV",  # Computer Vision
+    "cs.IR",  # Information Retrieval
 ]
 
 # 20 papers per category = 100 total
@@ -79,10 +79,7 @@ def _parse_arxiv_feed(xml_text: str) -> list[dict]:
             .strip()
             .replace("\n", " ")
         )
-        abstract = (
-            entry.findtext("atom:summary", default="", namespaces=ns)
-            .strip()
-        )
+        abstract = entry.findtext("atom:summary", default="", namespaces=ns).strip()
 
         authors = []
         for a in entry.findall("atom:author", ns):
@@ -96,29 +93,30 @@ def _parse_arxiv_feed(xml_text: str) -> list[dict]:
             if c.get("term")
         ]
 
-        published = entry.findtext(
-            "atom:published", default="", namespaces=ns
-        )
+        published = entry.findtext("atom:published", default="", namespaces=ns)
         doi = entry.findtext("arxiv:doi", default=None, namespaces=ns)
 
-        papers.append({
-            "arxiv_id": arxiv_id,
-            "title": title,
-            "abstract": abstract,
-            "authors": authors,
-            "categories": categories,
-            "published": published,
-            "doi": doi,
-            "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
-            "abs_url": f"https://arxiv.org/abs/{arxiv_id}",
-            "html_url": f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}",
-        })
+        papers.append(
+            {
+                "arxiv_id": arxiv_id,
+                "title": title,
+                "abstract": abstract,
+                "authors": authors,
+                "categories": categories,
+                "published": published,
+                "doi": doi,
+                "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
+                "abs_url": f"https://arxiv.org/abs/{arxiv_id}",
+                "html_url": f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}",
+            }
+        )
 
     return papers
 
 
 # ── Shared concurrency controls (module-level singletons) ────────────────
 _MINERU_SEM: asyncio.Semaphore | None = None
+_DB_WRITE_SEM: asyncio.Semaphore | None = None
 
 
 def _mineru_sem() -> asyncio.Semaphore:
@@ -126,6 +124,14 @@ def _mineru_sem() -> asyncio.Semaphore:
     if _MINERU_SEM is None:
         _MINERU_SEM = asyncio.Semaphore(settings.mineru_concurrency)
     return _MINERU_SEM
+
+
+def _db_write_sem() -> asyncio.Semaphore:
+    """Limit concurrent DB writes to stay within connection pool (max 30)."""
+    global _DB_WRITE_SEM
+    if _DB_WRITE_SEM is None:
+        _DB_WRITE_SEM = asyncio.Semaphore(15)
+    return _DB_WRITE_SEM
 
 
 async def convert_via_mineru(
@@ -187,12 +193,24 @@ async def clear_existing_papers():
     async with async_session_factory() as session:
         # Delete in dependency order to avoid FK violations
         for table in [
-            "paper_authors", "paper_references", "paper_versions",
-            "paper_topics", "paper_tags", "collection_papers",
-            "ragflow_document_mappings", "reading_logs", "annotations",
-            "claims", "knowledge_cards", "glossary_terms",
-            "user_corrections", "user_reading_status", "metadata_provenance",
-            "alerts", "reading_path_cache", "reproduction_attempts",
+            "paper_authors",
+            "paper_references",
+            "paper_versions",
+            "paper_topics",
+            "paper_tags",
+            "collection_papers",
+            "ragflow_document_mappings",
+            "reading_logs",
+            "annotations",
+            "claims",
+            "knowledge_cards",
+            "glossary_terms",
+            "user_corrections",
+            "user_reading_status",
+            "metadata_provenance",
+            "alerts",
+            "reading_path_cache",
+            "reproduction_attempts",
             "papers",
             "authors",
         ]:
@@ -218,8 +236,11 @@ async def _insert_paper(session, paper_data: dict):
     existing = await session.execute(
         select(Paper).where(
             Paper.deleted_at.is_(None),
-            (Paper.arxiv_id == arxiv_id)
-            | (Paper.doi == doi) if doi else (Paper.arxiv_id == arxiv_id),
+            (
+                (Paper.arxiv_id == arxiv_id) | (Paper.doi == doi)
+                if doi
+                else (Paper.arxiv_id == arxiv_id)
+            ),
         )
     )
     if existing.scalar_one_or_none():
@@ -248,7 +269,11 @@ async def _insert_paper(session, paper_data: dict):
                 source_type="remote",
                 ingestion_status="discovered",
                 remote_urls=[
-                    {"url": paper_data["abs_url"], "source": "arxiv", "type": "abstract"},
+                    {
+                        "url": paper_data["abs_url"],
+                        "source": "arxiv",
+                        "type": "abstract",
+                    },
                     {"url": paper_data["pdf_url"], "source": "arxiv", "type": "pdf"},
                     {"url": paper_data["html_url"], "source": "ar5iv", "type": "html"},
                 ],
@@ -265,7 +290,9 @@ async def _insert_paper(session, paper_data: dict):
                     author = Author(display_name=author_name)
                     session.add(author)
                     await session.flush()
-                session.add(PaperAuthor(paper_id=paper.id, author_id=author.id, position=idx))
+                session.add(
+                    PaperAuthor(paper_id=paper.id, author_id=author.id, position=idx)
+                )
 
         await session.commit()
         return paper
@@ -281,69 +308,85 @@ async def _process_paper(
     analyst,
     counters: dict,
     lock: asyncio.Lock,
+    stagger_index: int = 0,
 ):
-    """MinerU + OSS + LLM analysis + DB update for one paper (runs concurrently)."""
+    """MinerU + OSS + LLM analysis + DB update for one paper (runs concurrently).
+
+    stagger_index: small sleep before submit to spread load (2s × index).
+    Entire body is wrapped in try/except so one failure never cancels siblings.
+    """
     from app.dependencies import async_session_factory
     from app.models.paper import Paper
     from sqlalchemy import select
 
     arxiv_id = paper_data["arxiv_id"]
-    title_short = paper_data["title"][:60]
 
-    print(f"  ⏳ [{arxiv_id}] MinerU submit → waiting 3 min...")
-    mineru_result = await convert_via_mineru(arxiv_id, paper_data["pdf_url"], oss)
+    try:
+        # Stagger submissions: 2 s × index → 72 tasks spread over ~2.4 min
+        if stagger_index:
+            await asyncio.sleep(stagger_index * 2)
 
-    update_kw: dict = {}
-    if mineru_result:
-        markdown = mineru_result.markdown or ""
-        update_kw = {
-            "full_text_markdown": markdown,
-            "has_full_text": True,
-            "ingestion_status": "parsed",
-            "parser_version": "mineru",
-            "markdown_provenance": {
-                "source": "mineru",
-                "model_version": "vlm",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "markdown_length": len(markdown),
-                "input_url": paper_data["pdf_url"],
-                "images_uploaded": len(mineru_result.image_urls),
-            },
-        }
-        if mineru_result.layout:
-            update_kw["parsed_figures"] = mineru_result.layout
+        print(f"  ⏳ [{arxiv_id}] MinerU submit → waiting 3 min...")
+        mineru_result = await convert_via_mineru(arxiv_id, paper_data["pdf_url"], oss)
 
-        async with lock:
-            counters["converted"] += 1
-        print(f"  ✓ [{arxiv_id}] Converted ({len(markdown):,} chars, "
-              f"{len(mineru_result.image_urls)} images)")
+        update_kw: dict = {}
+        if mineru_result:
+            markdown = mineru_result.markdown or ""
+            update_kw = {
+                "full_text_markdown": markdown,
+                "has_full_text": True,
+                "ingestion_status": "parsed",
+                "parser_version": "mineru",
+                "markdown_provenance": {
+                    "source": "mineru",
+                    "model_version": "vlm",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "markdown_length": len(markdown),
+                    "input_url": paper_data["pdf_url"],
+                    "images_uploaded": len(mineru_result.image_urls),
+                },
+            }
+            async with lock:
+                counters["converted"] += 1
+            print(
+                f"  ✓ [{arxiv_id}] Converted ({len(markdown):,} chars, "
+                f"{len(mineru_result.image_urls)} images)"
+            )
 
-        # LLM analysis — uses converted markdown
-        try:
-            analysis = await analyst.analyse(paper)
-            update_kw["deep_analysis"] = analysis
-            update_kw["deep_analysis_at"] = datetime.now(timezone.utc)
-            if analysis.get("status") == "ok":
-                async with lock:
-                    counters["analysed"] += 1
-                print(f"  ✓ [{arxiv_id}] Analysis done ({len(analysis.get('analysis', '')):,} chars)")
-            else:
-                print(f"  ⚠ [{arxiv_id}] Analysis: {analysis.get('error', '?')[:80]}")
-        except Exception as e:
-            print(f"  ⚠ [{arxiv_id}] Analysis failed: {e}")
-    else:
-        update_kw["ingestion_status"] = "enriched"
-        print(f"  ⚠ [{arxiv_id}] MinerU failed, metadata only")
+            # LLM analysis
+            try:
+                analysis = await analyst.analyse(paper)
+                update_kw["deep_analysis"] = analysis
+                update_kw["deep_analysis_at"] = datetime.now(timezone.utc)
+                if analysis.get("status") == "ok":
+                    async with lock:
+                        counters["analysed"] += 1
+                    print(
+                        f"  ✓ [{arxiv_id}] Analysis done ({len(analysis.get('analysis', '')):,} chars)"
+                    )
+                else:
+                    print(
+                        f"  ⚠ [{arxiv_id}] Analysis: {analysis.get('error', '?')[:80]}"
+                    )
+            except Exception as e:
+                print(f"  ⚠ [{arxiv_id}] Analysis failed: {e}")
+        else:
+            update_kw["ingestion_status"] = "enriched"
+            print(f"  ⚠ [{arxiv_id}] MinerU failed, metadata only")
 
-    # Persist in its own short-lived session
-    if update_kw:
-        async with async_session_factory() as upd:
-            res = await upd.execute(select(Paper).where(Paper.id == paper.id))
-            p_obj = res.scalar_one_or_none()
-            if p_obj:
-                for k, v in update_kw.items():
-                    setattr(p_obj, k, v)
-                await upd.commit()
+        # Persist — DB write semaphore prevents pool exhaustion
+        if update_kw:
+            async with _db_write_sem():
+                async with async_session_factory() as upd:
+                    res = await upd.execute(select(Paper).where(Paper.id == paper.id))
+                    p_obj = res.scalar_one_or_none()
+                    if p_obj:
+                        for k, v in update_kw.items():
+                            setattr(p_obj, k, v)
+                        await upd.commit()
+
+    except Exception as exc:
+        print(f"  ✗ [{arxiv_id}] unhandled: {type(exc).__name__}: {exc}")
 
 
 async def seed_papers():
@@ -366,7 +409,7 @@ async def seed_papers():
     for cat in ARXIV_CATEGORIES:
         print(f"📡 Fetching {cat}...")
         try:
-            await asyncio.sleep(3)   # arXiv rate limit
+            await asyncio.sleep(3)  # arXiv rate limit
             papers = await fetch_arxiv_papers(cat, PAPERS_PER_CATEGORY)
             for p in papers:
                 if p["arxiv_id"] not in seen_ids:
@@ -380,7 +423,7 @@ async def seed_papers():
 
     # ── Phase 2: Insert all metadata into DB (serial — author dedup) ─
     print("\n💾 Inserting paper records...")
-    papers_to_process: list[tuple] = []   # (paper_obj, paper_data)
+    papers_to_process: list[tuple] = []  # (paper_obj, paper_data)
     skipped = 0
 
     async with async_session_factory() as session:
@@ -398,18 +441,25 @@ async def seed_papers():
         return
 
     # ── Phase 3: Concurrent MinerU + LLM ────────────────────────────
-    print(f"\n🚀 Processing {len(papers_to_process)} papers concurrently "
-          f"(MinerU concurrency={settings.mineru_concurrency})...\n")
+    print(
+        f"\n🚀 Processing {len(papers_to_process)} papers concurrently "
+        f"(MinerU concurrency={settings.mineru_concurrency})...\n"
+    )
 
     oss = OssClient()
     analyst = PaperAnalystService()
     counters = {"converted": 0, "analysed": 0}
     lock = asyncio.Lock()
 
-    await asyncio.gather(*[
-        _process_paper(paper, paper_data, oss, analyst, counters, lock)
-        for paper, paper_data in papers_to_process
-    ])
+    await asyncio.gather(
+        *[
+            _process_paper(
+                paper, paper_data, oss, analyst, counters, lock, stagger_index=i
+            )
+            for i, (paper, paper_data) in enumerate(papers_to_process)
+        ],
+        return_exceptions=True,
+    )
 
     await analyst.close()
 
@@ -420,6 +470,76 @@ async def seed_papers():
     print(f"  Analysed:  {counters['analysed']}")
     print(f"  Skipped:   {skipped} (already in DB)")
     print("=" * 60)
+
+    # ── Phase 4: Auto-enrich authors from Semantic Scholar ──────────
+    await _enrich_all_authors()
+
+
+async def _enrich_all_authors(batch_size: int = 5) -> None:
+    """
+    Enrich all authors in the library that have not yet been enriched.
+
+    Processes authors in small concurrent batches to respect S2 rate limits
+    (100 req / 5 min on the free tier — each author uses 1–3 requests).
+    """
+    from sqlalchemy import select
+    from app.models.author import Author
+    from app.dependencies import async_session_factory
+    from app.services.enrichment.author_enrichment import AuthorEnrichmentService
+
+    print("\n🔬 Phase 4 — Enriching authors from Semantic Scholar...")
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(Author.id, Author.display_name)
+            .where(
+                Author.deleted_at.is_(None),
+                Author.semantic_scholar_id.is_(None),
+            )
+            .order_by(Author.display_name)
+        )
+        rows = result.all()
+
+    print(f"   Found {len(rows)} un-enriched authors")
+    if not rows:
+        return
+
+    counters = {"ok": 0, "no_match": 0, "error": 0}
+
+    async def _enrich_one(author_id: str, name: str) -> None:
+        try:
+            async with async_session_factory() as db:
+                svc = AuthorEnrichmentService(db)
+                result = await svc.enrich(author_id)
+                await svc.close()
+            status = result.get("status", "error")
+            if status == "ok":
+                counters["ok"] += 1
+                print(
+                    f"   ✓ {name} → S2:{result.get('s2_id')} ({result.get('match_reason')})"
+                )
+            elif status == "no_match":
+                counters["no_match"] += 1
+            else:
+                counters["error"] += 1
+        except Exception as e:
+            counters["error"] += 1
+            logger.warning("author_enrich_failed", name=name, error=str(e)[:120])
+
+    # Process in small batches with a short sleep between batches to stay
+    # well under S2's 100 req / 5 min free-tier limit.
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i : i + batch_size]
+        await asyncio.gather(
+            *[_enrich_one(str(r.id), r.display_name) for r in batch],
+            return_exceptions=True,
+        )
+        if i + batch_size < len(rows):
+            await asyncio.sleep(4)  # ~4 s between batches ≈ 75 req/min
+
+    print(
+        f"\n   Enriched: {counters['ok']}  No match: {counters['no_match']}  Errors: {counters['error']}"
+    )
 
 
 if __name__ == "__main__":

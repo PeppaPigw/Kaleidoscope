@@ -54,7 +54,9 @@ class HybridSearchService:
 
         if mode == "keyword":
             try:
-                result = self.keyword.search(query, filters, page, per_page, sort_by, order)
+                result = self.keyword.search(
+                    query, filters, page, per_page, sort_by, order
+                )
                 result["mode"] = "keyword"
                 result["mode_used"] = "keyword"
                 return result
@@ -72,7 +74,9 @@ class HybridSearchService:
 
         if mode == "semantic":
             try:
-                vector_results = self.vector.search(query, top_k=per_page * page, filters=filters)
+                vector_results = self.vector.search(
+                    query, top_k=per_page * page, filters=filters
+                )
                 start_idx = (page - 1) * per_page
                 page_results = vector_results[start_idx : start_idx + per_page]
 
@@ -82,7 +86,11 @@ class HybridSearchService:
                             "paper_id": r["paper_id"],
                             "score": r["score"],
                             "title": r.get("payload", {}).get("title", ""),
-                            **{k: v for k, v in (r.get("payload") or {}).items() if k != "paper_id"},
+                            **{
+                                k: v
+                                for k, v in (r.get("payload") or {}).items()
+                                if k != "paper_id"
+                            },
                         }
                         for r in page_results
                     ],
@@ -111,7 +119,9 @@ class HybridSearchService:
         kw_hits = []
         kw_ok = False
         try:
-            kw_result = self.keyword.search(query, filters, 1, fetch_size, sort_by=None, order="desc")
+            kw_result = self.keyword.search(
+                query, filters, 1, fetch_size, sort_by=None, order="desc"
+            )
             kw_hits = kw_result.get("hits", [])
             kw_ok = True
         except Exception as exc:

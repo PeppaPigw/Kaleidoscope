@@ -85,9 +85,7 @@ class ScoringService:
             return []
 
         # Compute normalization bounds
-        max_citations = max(
-            (p.citation_count or 0 for p in papers), default=1
-        ) or 1
+        max_citations = max((p.citation_count or 0 for p in papers), default=1) or 1
         today = date.today()
 
         relevance_scores = relevance_scores or {}
@@ -125,31 +123,29 @@ class ScoringService:
 
             # Factor 5: Open access bonus
             breakdown["oa_bonus"] = (
-                1.0 if p.oa_status in ("gold", "green", "diamond") else
-                0.5 if p.oa_status == "bronze" else
-                0.0
+                1.0
+                if p.oa_status in ("gold", "green", "diamond")
+                else 0.5 if p.oa_status == "bronze" else 0.0
             )
 
             # Factor 6: Reproducibility signal
-            breakdown["reproducibility"] = (
-                1.0 if p.has_full_text else 0.0
-            )
+            breakdown["reproducibility"] = 1.0 if p.has_full_text else 0.0
             # TODO: Enhance with Papers With Code data and code availability
 
             # Weighted sum
             score = sum(w.get(k, 0) * v for k, v in breakdown.items())
 
-            scored.append({
-                "id": str(p.id),
-                "doi": p.doi,
-                "title": p.title,
-                "published_at": str(p.published_at) if p.published_at else None,
-                "citation_count": p.citation_count,
-                "score": round(score, 4),
-                "score_breakdown": {
-                    k: round(v, 4) for k, v in breakdown.items()
-                },
-            })
+            scored.append(
+                {
+                    "id": str(p.id),
+                    "doi": p.doi,
+                    "title": p.title,
+                    "published_at": str(p.published_at) if p.published_at else None,
+                    "citation_count": p.citation_count,
+                    "score": round(score, 4),
+                    "score_breakdown": {k: round(v, 4) for k, v in breakdown.items()},
+                }
+            )
 
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:limit]

@@ -16,8 +16,10 @@ router = APIRouter(prefix="/filters", tags=["filters"])
 
 # ─── Schemas ─────────────────────────────────────────────────────
 
+
 class FilterRequest(BaseModel):
     """Multi-field filter for paper queries."""
+
     year_from: int | None = None
     year_to: int | None = None
     venue_ids: list[str] | None = None
@@ -35,17 +37,21 @@ class FilterRequest(BaseModel):
 
 class ScoredListRequest(BaseModel):
     """Request for custom-scored paper list."""
+
     filters: FilterRequest = Field(default_factory=FilterRequest)
     weights: dict[str, float] | None = Field(
         None,
         description="Custom scoring weights. Keys: citations, recency, relevance, impact_factor, oa_bonus, reproducibility",
     )
-    sort_by: str = Field("score", description="Sort field: score, published_at, citation_count, title")
+    sort_by: str = Field(
+        "score", description="Sort field: score, published_at, citation_count, title"
+    )
     limit: int = Field(50, ge=1, le=200)
     offset: int = Field(0, ge=0)
 
 
 # ─── Endpoints ───────────────────────────────────────────────────
+
 
 @router.get("/facets")
 async def get_facets(

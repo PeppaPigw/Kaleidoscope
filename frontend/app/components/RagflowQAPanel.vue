@@ -23,7 +23,8 @@
     <!-- Input -->
     <form class="qa-form" @submit.prevent="handleAsk">
       <div class="qa-input-wrap" :class="{ focused: inputFocused }">
-        <svg class="qa-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        <svg
+          class="qa-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
@@ -36,10 +37,12 @@
           :disabled="loading"
           @focus="inputFocused = true"
           @blur="inputFocused = false"
-        />
-        <button type="submit" class="qa-submit" :disabled="!question.trim() || loading"
+        >
+        <button
+          type="submit" class="qa-submit" :disabled="!question.trim() || loading"
           :class="{ active: question.trim() }" aria-label="Submit question">
-          <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          <svg
+            v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
           </svg>
@@ -62,14 +65,17 @@
     <transition name="qa-slide">
       <div v-if="answer" class="qa-answer-card">
         <div class="qa-answer-header">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <span>Answer</span>
-          <div v-if="grounding" class="qa-grounding-pill"
+          <div
+            v-if="grounding" class="qa-grounding-pill"
             :class="{ good: grounding.grounded, weak: !grounding.grounded }">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+            <svg
+              width="10" height="10" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" stroke-width="3">
               <polyline v-if="grounding.grounded" points="20 6 9 17 4 12" />
               <line v-else x1="18" y1="6" x2="6" y2="18" />
@@ -77,7 +83,10 @@
             {{ Math.round(grounding.coverage * 100) }}% grounded
           </div>
         </div>
-        <div class="qa-answer-body">{{ answer }}</div>
+        <div class="qa-answer-body">
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <div class="qa-answer-rich ks-prose" v-html="renderedAnswerHtml" />
+        </div>
       </div>
     </transition>
 
@@ -85,7 +94,8 @@
     <transition name="qa-slide">
       <div v-if="sources.length" class="qa-sources-card">
         <div class="qa-sources-header">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
@@ -107,7 +117,8 @@
     <!-- Error -->
     <transition name="qa-slide">
       <div v-if="error" class="qa-error-card" role="alert" aria-live="assertive">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" />
           <line x1="9" y1="9" x2="15" y2="15" />
@@ -125,7 +136,9 @@
 </template>
 
 <script setup lang="ts">
+import type { RagflowAskResponse, RoutedQueryResponse } from '~/composables/useRagflow'
 import { ref, computed } from 'vue'
+import { renderRagflowAnswer } from '~/utils/ragflowAnswer'
 
 const props = defineProps<{
   collectionId?: string
@@ -137,6 +150,7 @@ const { askWorkspace, askPaper, routedQuery, checkGrounding } = useRagflow()
 
 const question = ref('')
 const answer = ref<string | null>(null)
+const renderedAnswerHtml = ref('')
 const sources = ref<Array<{ content?: string; score?: number }>>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -155,29 +169,51 @@ const sourceLabel = computed(() =>
   props.collectionId ? 'workspace' : props.paperId ? 'paper' : 'corpus',
 )
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+async function applyAnswer(rawAnswer: string | null | undefined) {
+  answer.value = rawAnswer ?? null
+  renderedAnswerHtml.value = ''
+
+  if (!rawAnswer)
+    return
+
+  try {
+    renderedAnswerHtml.value = await renderRagflowAnswer(rawAnswer)
+  } catch {
+    renderedAnswerHtml.value = `<p>${escapeHtml(rawAnswer)}</p>`
+  }
+}
+
 async function handleAsk() {
   if (!question.value.trim()) return
   loading.value = true
   error.value = null
   answer.value = null
+  renderedAnswerHtml.value = ''
   sources.value = []
   grounding.value = null
   latencyMs.value = null
   route.value = null
 
   try {
-    let result: any
+    let result: RagflowAskResponse
     if (props.collectionId) {
       result = await askWorkspace(props.collectionId, question.value)
     } else if (props.paperId) {
       result = await askPaper(props.paperId, question.value)
     } else {
-      result = await routedQuery(question.value)
-      route.value = result.route ?? null
-      answer.value = result.answer ?? null
-      sources.value = result.sources ?? []
-      latencyMs.value = result.latency_ms ?? null
-      if (result.error) error.value = result.error
+      const routedResult: RoutedQueryResponse = await routedQuery(question.value)
+      route.value = routedResult.route ?? null
+      await applyAnswer(routedResult.answer ?? null)
+      sources.value = routedResult.sources ?? []
+      latencyMs.value = routedResult.latency_ms ?? null
+      if (routedResult.error) error.value = routedResult.error
       return
     }
 
@@ -197,7 +233,7 @@ async function handleAsk() {
     }
 
     syncStatus.value = 'ready'
-    answer.value = result.answer
+    await applyAnswer(result.answer)
     sources.value = result.sources || []
     latencyMs.value = result.latency_ms ?? null
 
@@ -209,8 +245,10 @@ async function handleAsk() {
         )
       } catch { /* optional */ }
     }
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to get answer'
+  } catch (caughtError: unknown) {
+    error.value = caughtError instanceof Error
+      ? caughtError.message
+      : 'Failed to get answer'
   } finally {
     loading.value = false
   }
@@ -322,8 +360,47 @@ function truncate(text?: string | null, maxLen = 200) {
 .qa-grounding-pill.good { background: rgba(16,185,129,0.12); color: #34d399; }
 .qa-grounding-pill.weak { background: rgba(239,68,68,0.12); color: #f87171; }
 .qa-answer-body {
-  padding: 14px; font: 400 0.85rem/1.7 var(--font-serif, Georgia, serif);
-  color: var(--color-text, #e2e8f0); white-space: pre-wrap;
+  padding: 14px;
+}
+
+.qa-answer-rich.ks-prose {
+  max-width: none;
+  font: 400 0.85rem/1.7 var(--font-serif, Georgia, serif);
+  color: var(--color-text, #e2e8f0);
+}
+
+.qa-answer-rich :deep(p:first-child),
+.qa-answer-rich :deep(ul:first-child),
+.qa-answer-rich :deep(ol:first-child),
+.qa-answer-rich :deep(blockquote:first-child) {
+  margin-top: 0;
+}
+
+.qa-answer-rich :deep(p:last-child),
+.qa-answer-rich :deep(ul:last-child),
+.qa-answer-rich :deep(ol:last-child),
+.qa-answer-rich :deep(blockquote:last-child) {
+  margin-bottom: 0;
+}
+
+.qa-answer-rich :deep(p),
+.qa-answer-rich :deep(ul),
+.qa-answer-rich :deep(ol),
+.qa-answer-rich :deep(blockquote) {
+  color: inherit;
+}
+
+.qa-answer-rich :deep(li + li) {
+  margin-top: 0.35rem;
+}
+
+.qa-answer-rich :deep(code) {
+  background: rgba(148,163,184,0.12);
+}
+
+.qa-answer-rich :deep(pre) {
+  background: rgba(15,23,42,0.55);
+  border-color: rgba(148,163,184,0.12);
 }
 
 /* Sources card */
@@ -389,4 +466,3 @@ function truncate(text?: string | null, maxLen = 200) {
 .badge-fade-enter-active, .badge-fade-leave-active { transition: opacity 0.3s ease; }
 .badge-fade-enter-from, .badge-fade-leave-to { opacity: 0; }
 </style>
-

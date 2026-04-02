@@ -12,7 +12,11 @@ from sqlalchemy.orm import selectinload
 
 from app.models.collection import (
     DEFAULT_USER_ID,
-    Collection, CollectionPaper, PaperTag, Tag, UserReadingStatus,
+    Collection,
+    CollectionPaper,
+    PaperTag,
+    Tag,
+    UserReadingStatus,
 )
 from app.models.paper import Paper
 
@@ -29,23 +33,29 @@ class CollectionService:
     # ─── Collection CRUD ─────────────────────────────────────────
 
     async def create_collection(
-        self, name: str, description: str | None = None,
-        color: str | None = None, icon: str | None = None,
-        is_smart: bool = False, smart_filter: dict | None = None,
+        self,
+        name: str,
+        description: str | None = None,
+        color: str | None = None,
+        icon: str | None = None,
+        is_smart: bool = False,
+        smart_filter: dict | None = None,
     ) -> Collection:
         """Create a new collection scoped to this user."""
         collection = Collection(
             user_id=self.user_id,
-            name=name, description=description, color=color, icon=icon,
-            is_smart=is_smart, smart_filter=smart_filter,
+            name=name,
+            description=description,
+            color=color,
+            icon=icon,
+            is_smart=is_smart,
+            smart_filter=smart_filter,
         )
         self.db.add(collection)
         await self.db.flush()
         return collection
 
-    async def list_collections(
-        self, include_deleted: bool = False
-    ) -> list[Collection]:
+    async def list_collections(self, include_deleted: bool = False) -> list[Collection]:
         """List collections for this user."""
         query = select(Collection).where(Collection.user_id == self.user_id)
         if not include_deleted:
@@ -94,7 +104,9 @@ class CollectionService:
     # ─── Paper Management ────────────────────────────────────────
 
     async def add_papers(
-        self, collection_id: str, paper_ids: list[str],
+        self,
+        collection_id: str,
+        paper_ids: list[str],
         note: str | None = None,
     ) -> int:
         """Add papers to a collection. Returns number added (skips existing)."""
@@ -119,12 +131,14 @@ class CollectionService:
         for pid in paper_ids:
             if str(pid) not in existing_ids:
                 max_pos += 1
-                self.db.add(CollectionPaper(
-                    collection_id=collection_id,
-                    paper_id=pid,
-                    position=max_pos,
-                    note=note,
-                ))
+                self.db.add(
+                    CollectionPaper(
+                        collection_id=collection_id,
+                        paper_id=pid,
+                        position=max_pos,
+                        note=note,
+                    )
+                )
                 added += 1
 
         # Update denormalized count
@@ -146,9 +160,7 @@ class CollectionService:
             return True
         return False
 
-    async def reorder_papers(
-        self, collection_id: str, paper_ids: list[str]
-    ) -> None:
+    async def reorder_papers(self, collection_id: str, paper_ids: list[str]) -> None:
         """Set paper ordering in a collection."""
         for position, paper_id in enumerate(paper_ids, start=1):
             await self.db.execute(
@@ -199,9 +211,7 @@ class CollectionService:
     async def _refresh_paper_count(self, collection_id: str) -> None:
         """Refresh denormalized paper_count on collection."""
         count_result = await self.db.execute(
-            select(func.count()).where(
-                CollectionPaper.collection_id == collection_id
-            )
+            select(func.count()).where(CollectionPaper.collection_id == collection_id)
         )
         count = count_result.scalar()
         await self.db.execute(
@@ -234,14 +244,12 @@ class CollectionService:
 
         if "year_gte" in filt and filt["year_gte"]:
             from datetime import date
-            query = query.where(
-                Paper.published_at >= date(filt["year_gte"], 1, 1)
-            )
+
+            query = query.where(Paper.published_at >= date(filt["year_gte"], 1, 1))
         if "year_lte" in filt and filt["year_lte"]:
             from datetime import date
-            query = query.where(
-                Paper.published_at <= date(filt["year_lte"], 12, 31)
-            )
+
+            query = query.where(Paper.published_at <= date(filt["year_lte"], 12, 31))
         if "has_full_text" in filt:
             query = query.where(Paper.has_full_text == filt["has_full_text"])
         if "paper_type" in filt:
@@ -254,37 +262,32 @@ class CollectionService:
             if target_status == "unread":
                 # LEFT JOIN: papers with no row OR status = 'unread'
                 from sqlalchemy import or_
-                query = (
-                    query.outerjoin(
-                        UserReadingStatus,
-                        (UserReadingStatus.paper_id == Paper.id)
-                        & (UserReadingStatus.user_id == self.user_id),
-                    )
-                    .where(
-                        or_(
-                            UserReadingStatus.status.is_(None),
-                            UserReadingStatus.status == "unread",
-                        )
+
+                query = query.outerjoin(
+                    UserReadingStatus,
+                    (UserReadingStatus.paper_id == Paper.id)
+                    & (UserReadingStatus.user_id == self.user_id),
+                ).where(
+                    or_(
+                        UserReadingStatus.status.is_(None),
+                        UserReadingStatus.status == "unread",
                     )
                 )
             else:
                 # INNER JOIN: require explicit status row
-                query = (
-                    query.join(
-                        UserReadingStatus,
-                        (UserReadingStatus.paper_id == Paper.id)
-                        & (UserReadingStatus.user_id == self.user_id),
-                    )
-                    .where(UserReadingStatus.status == target_status)
-                )
+                query = query.join(
+                    UserReadingStatus,
+                    (UserReadingStatus.paper_id == Paper.id)
+                    & (UserReadingStatus.user_id == self.user_id),
+                ).where(UserReadingStatus.status == target_status)
 
         # Keywords: filter for papers that have ANY matching keyword (OR logic)
         if "keywords" in filt and filt["keywords"]:
             from sqlalchemy import or_
             from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
             keyword_conditions = [
-                Paper.keywords.cast(PG_JSONB).contains([kw])
-                for kw in filt["keywords"]
+                Paper.keywords.cast(PG_JSONB).contains([kw]) for kw in filt["keywords"]
             ]
             query = query.where(or_(*keyword_conditions))
 
@@ -294,21 +297,19 @@ class CollectionService:
 
         # min_citations
         if filt.get("min_citations"):
-            query = query.where(
-                Paper.citation_count >= filt["min_citations"]
-            )
+            query = query.where(Paper.citation_count >= filt["min_citations"])
 
         # venue: substring in raw_metadata->>'crossref_venue'
         if filt.get("venue"):
             from sqlalchemy import cast as sa_cast, String
+
             venue_expr = Paper.raw_metadata["crossref_venue"].as_string()
-            query = query.where(
-                venue_expr.ilike(f"%{filt['venue']}%")
-            )
+            query = query.where(venue_expr.ilike(f"%{filt['venue']}%"))
 
         # text_search: substring in title or abstract
         if filt.get("text_search"):
             from sqlalchemy import or_
+
             term = f"%{filt['text_search']}%"
             query = query.where(
                 or_(
@@ -450,11 +451,13 @@ class ReadingStatusService:
         if row:
             row.status = status
         else:
-            self.db.add(UserReadingStatus(
-                user_id=self.user_id,
-                paper_id=paper_id,
-                status=status,
-            ))
+            self.db.add(
+                UserReadingStatus(
+                    user_id=self.user_id,
+                    paper_id=paper_id,
+                    status=status,
+                )
+            )
         return status
 
 
@@ -466,7 +469,9 @@ class TagService:
         self.user_id = user_id
 
     async def create_tag(
-        self, name: str, color: str | None = None,
+        self,
+        name: str,
+        color: str | None = None,
         description: str | None = None,
     ) -> Tag:
         """Create a new tag scoped to this user."""
@@ -479,7 +484,10 @@ class TagService:
         """List tags for this user with paper counts."""
         result = await self.db.execute(
             select(
-                Tag.id, Tag.name, Tag.color, Tag.description,
+                Tag.id,
+                Tag.name,
+                Tag.color,
+                Tag.description,
                 func.count(PaperTag.id).label("paper_count"),
             )
             .where(Tag.user_id == self.user_id)

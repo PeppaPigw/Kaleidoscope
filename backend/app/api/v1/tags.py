@@ -20,11 +20,16 @@ async def create_tag(
     svc = TagService(db, user_id)
     try:
         tag = await svc.create_tag(
-            name=body.name, color=body.color, description=body.description,
+            name=body.name,
+            color=body.color,
+            description=body.description,
         )
         return TagResponse(
-            id=tag.id, name=tag.name, color=tag.color,
-            description=tag.description, paper_count=0,
+            id=tag.id,
+            name=tag.name,
+            color=tag.color,
+            description=tag.description,
+            paper_count=0,
         )
     except Exception:
         raise HTTPException(status_code=409, detail="Tag name already exists")
@@ -52,8 +57,11 @@ async def get_tag(
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
     return TagResponse(
-        id=tag.id, name=tag.name, color=tag.color,
-        description=tag.description, paper_count=0,
+        id=tag.id,
+        name=tag.name,
+        color=tag.color,
+        description=tag.description,
+        paper_count=0,
     )
 
 
@@ -70,8 +78,11 @@ async def update_tag(
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
     return TagResponse(
-        id=tag.id, name=tag.name, color=tag.color,
-        description=tag.description, paper_count=0,
+        id=tag.id,
+        name=tag.name,
+        color=tag.color,
+        description=tag.description,
+        paper_count=0,
     )
 
 

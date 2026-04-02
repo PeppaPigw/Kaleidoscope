@@ -42,7 +42,9 @@ class IntelligenceService:
             exclude_ids={paper_id},
         )
 
-    async def get_reading_order(self, paper_id: str, max_papers: int = 20) -> list[dict]:
+    async def get_reading_order(
+        self, paper_id: str, max_papers: int = 20
+    ) -> list[dict]:
         """Build a natural reading order from a paper and its citation neighborhood."""
         if max_papers <= 0:
             return []
@@ -104,7 +106,9 @@ class IntelligenceService:
                 PaperReference.cited_paper_id.is_not(None),
             )
         )
-        cited_ids = [str(row.cited_paper_id) for row in ref_result.all() if row.cited_paper_id]
+        cited_ids = [
+            str(row.cited_paper_id) for row in ref_result.all() if row.cited_paper_id
+        ]
         if not cited_ids:
             return []
 
@@ -177,14 +181,16 @@ class IntelligenceService:
             if pid in seen_ids or len(pack) >= max_papers:
                 continue
             seen_ids.add(pid)
-            pack.append({
-                "id": pid,
-                "title": paper.title,
-                "doi": paper.doi,
-                "published_at": self._serialize_date(paper.published_at),
-                "citation_count": paper.citation_count or 0,
-                "source": "reference",
-            })
+            pack.append(
+                {
+                    "id": pid,
+                    "title": paper.title,
+                    "doi": paper.doi,
+                    "published_at": self._serialize_date(paper.published_at),
+                    "citation_count": paper.citation_count or 0,
+                    "source": "reference",
+                }
+            )
 
         if len(pack) < max_papers:
             similar = await self._find_keyword_similar_papers(
@@ -195,14 +201,16 @@ class IntelligenceService:
             for item in similar:
                 if len(pack) >= max_papers:
                     break
-                pack.append({
-                    "id": item["id"],
-                    "title": item["title"],
-                    "doi": item["doi"],
-                    "published_at": item["published_at"],
-                    "citation_count": item["citation_count"],
-                    "source": "similar",
-                })
+                pack.append(
+                    {
+                        "id": item["id"],
+                        "title": item["title"],
+                        "doi": item["doi"],
+                        "published_at": item["published_at"],
+                        "citation_count": item["citation_count"],
+                        "source": "similar",
+                    }
+                )
 
         return {
             "root_paper": {"id": str(root_paper.id), "title": root_paper.title},
@@ -257,12 +265,14 @@ class IntelligenceService:
             paper = await self._get_paper(from_id)
             if not paper:
                 return []
-            return [{
-                "id": str(paper.id),
-                "title": paper.title,
-                "doi": paper.doi,
-                "hop": 0,
-            }]
+            return [
+                {
+                    "id": str(paper.id),
+                    "title": paper.title,
+                    "doi": paper.doi,
+                    "hop": 0,
+                }
+            ]
 
         from_paper = await self._get_paper(from_id)
         to_paper = await self._get_paper(to_id)
@@ -331,14 +341,16 @@ class IntelligenceService:
             keyword_set = {kw.casefold() for kw in keywords}
             if left not in keyword_set or right not in keyword_set:
                 continue
-            matches.append({
-                "id": str(paper.id),
-                "title": paper.title,
-                "doi": paper.doi,
-                "published_at": self._serialize_date(paper.published_at),
-                "citation_count": paper.citation_count or 0,
-                "keywords": keywords,
-            })
+            matches.append(
+                {
+                    "id": str(paper.id),
+                    "title": paper.title,
+                    "doi": paper.doi,
+                    "published_at": self._serialize_date(paper.published_at),
+                    "citation_count": paper.citation_count or 0,
+                    "keywords": keywords,
+                }
+            )
             if len(matches) >= top_k:
                 break
 
@@ -372,21 +384,25 @@ class IntelligenceService:
 
             citations = paper.citation_count or 0
             citation_values.append(citations)
-            serialized.append({
-                "id": str(paper.id),
-                "title": paper.title,
-                "doi": paper.doi,
-                "published_at": self._serialize_date(paper.published_at),
-                "citation_count": citations,
-                "keywords": keywords,
-                "abstract_preview": self._preview_text(paper.abstract),
-                "venue_id": str(paper.venue_id) if paper.venue_id else None,
-                "has_full_text": paper.has_full_text,
-                "summary": paper.summary,
-                "contributions": paper.contributions or [],
-            })
+            serialized.append(
+                {
+                    "id": str(paper.id),
+                    "title": paper.title,
+                    "doi": paper.doi,
+                    "published_at": self._serialize_date(paper.published_at),
+                    "citation_count": citations,
+                    "keywords": keywords,
+                    "abstract_preview": self._preview_text(paper.abstract),
+                    "venue_id": str(paper.venue_id) if paper.venue_id else None,
+                    "has_full_text": paper.has_full_text,
+                    "summary": paper.summary,
+                    "contributions": paper.contributions or [],
+                }
+            )
 
-        common_keywords = sorted(set.intersection(*keyword_sets)) if keyword_sets else []
+        common_keywords = (
+            sorted(set.intersection(*keyword_sets)) if keyword_sets else []
+        )
 
         return {
             "papers": serialized,
@@ -465,19 +481,21 @@ class IntelligenceService:
             if not shared_keywords:
                 continue
 
-            scored.append({
-                "id": str(candidate.id),
-                "title": candidate.title,
-                "doi": candidate.doi,
-                "published_at": self._serialize_date(candidate.published_at),
-                "citation_count": candidate.citation_count or 0,
-                "similarity_score": len(shared_keywords),
-                "reason": (
-                    f"shared keywords: {', '.join(shared_keywords[:3])}"
-                    if shared_keywords
-                    else "keyword overlap"
-                ),
-            })
+            scored.append(
+                {
+                    "id": str(candidate.id),
+                    "title": candidate.title,
+                    "doi": candidate.doi,
+                    "published_at": self._serialize_date(candidate.published_at),
+                    "citation_count": candidate.citation_count or 0,
+                    "similarity_score": len(shared_keywords),
+                    "reason": (
+                        f"shared keywords: {', '.join(shared_keywords[:3])}"
+                        if shared_keywords
+                        else "keyword overlap"
+                    ),
+                }
+            )
 
         scored.sort(
             key=lambda item: (
@@ -602,7 +620,9 @@ class IntelligenceService:
         seen: set[str] = set()
         for item in items:
             if isinstance(item, dict):
-                value = item.get("keyword") or item.get("name") or item.get("display_name")
+                value = (
+                    item.get("keyword") or item.get("name") or item.get("display_name")
+                )
             else:
                 value = item
             if not isinstance(value, str):

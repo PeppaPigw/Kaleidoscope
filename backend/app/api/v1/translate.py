@@ -23,7 +23,9 @@ _SYS_ZH2EN = (
 
 
 class TranslateRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=10000, description="Text to translate")
+    text: str = Field(
+        ..., min_length=1, max_length=10000, description="Text to translate"
+    )
     direction: str = Field(
         default="en2zh",
         pattern="^(en2zh|zh2en|auto)$",
@@ -40,8 +42,8 @@ class TranslateResponse(BaseModel):
 async def translate_text(body: TranslateRequest) -> TranslateResponse:
     """Translate text via the NVIDIA LLM translation API.
 
-    - **en2zh** (default): English → Chinese  
-    - **zh2en**: Chinese → English  
+    - **en2zh** (default): English → Chinese
+    - **zh2en**: Chinese → English
     - **auto**: same as en2zh
     """
     stripped = body.text.strip()

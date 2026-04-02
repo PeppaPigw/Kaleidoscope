@@ -119,6 +119,7 @@ class DeepAnalysisService:
         """Lazy-load LLM client."""
         if self._llm_client is None:
             from app.clients.llm_client import LLMClient
+
             self._llm_client = LLMClient()
         return self._llm_client
 
@@ -251,9 +252,11 @@ class DeepAnalysisService:
         try:
             response = await self._call_llm(prompt)
             result = json.loads(response)
-            log.info("validity_analysis_complete",
-                     threats=len(result.get("threats", [])),
-                     score=result.get("overall_score"))
+            log.info(
+                "validity_analysis_complete",
+                threats=len(result.get("threats", [])),
+                score=result.get("overall_score"),
+            )
             return {
                 "paper_id": paper_id,
                 "title": paper.title,
@@ -269,9 +272,7 @@ class DeepAnalysisService:
                 "error": str(e),
             }
 
-    async def compare_papers(
-        self, paper_id_a: str, paper_id_b: str
-    ) -> dict:
+    async def compare_papers(self, paper_id_a: str, paper_id_b: str) -> dict:
         """
         Compare two papers on methods, results, and approaches.
 

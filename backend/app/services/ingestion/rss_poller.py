@@ -107,7 +107,11 @@ class RSSPollerService:
             feed.poll_error_count = 0
             feed.last_error = None
 
-            log.info("polling_feed_complete", new_papers=len(papers), total_entries=len(parsed.entries))
+            log.info(
+                "polling_feed_complete",
+                new_papers=len(papers),
+                total_entries=len(parsed.entries),
+            )
             return papers
 
         except Exception as e:
@@ -148,12 +152,15 @@ class RSSPollerService:
         if abstract:
             # Strip HTML tags from feed summaries
             import re
+
             abstract = re.sub(r"<[^>]+>", "", abstract).strip()
 
         # Authors
         authors = []
         if "authors" in entry:
-            authors = [a.get("name", "") for a in entry.get("authors", []) if a.get("name")]
+            authors = [
+                a.get("name", "") for a in entry.get("authors", []) if a.get("name")
+            ]
         elif "author" in entry:
             authors = [entry["author"]]
 

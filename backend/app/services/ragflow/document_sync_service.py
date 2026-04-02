@@ -17,7 +17,10 @@ from app.models.paper import Paper
 from app.models.topic import PaperTopic
 from app.services.extraction.chunker import TextChunker
 from app.services.quality_service import QualityService
-from app.services.ragflow.dataset_registry import DatasetRegistryService, RagflowDocumentMapping
+from app.services.ragflow.dataset_registry import (
+    DatasetRegistryService,
+    RagflowDocumentMapping,
+)
 from app.services.ragflow.ragflow_client import RagflowClient
 
 logger = structlog.get_logger(__name__)
@@ -67,7 +70,10 @@ class DocumentSyncService:
             # Same hash but still processing — poll instead of re-uploading
             if mapping.parse_status == "processing" and mapping.ragflow_document_id:
                 return await self._poll_and_update(
-                    mapping, paper_id, log, entity_type="paper",
+                    mapping,
+                    paper_id,
+                    log,
+                    entity_type="paper",
                 )
 
         try:
@@ -87,7 +93,9 @@ class DocumentSyncService:
                         mapping.ragflow_document_id,
                     )
                 except Exception as exc:  # noqa: BLE001
-                    log.warning("ragflow_delete_previous_document_failed", error=str(exc))
+                    log.warning(
+                        "ragflow_delete_previous_document_failed", error=str(exc)
+                    )
 
             upload = await self.ragflow_client.upload_document(
                 dataset_id=dataset_id,
@@ -116,7 +124,9 @@ class DocumentSyncService:
                 parse_status=parse_status,
             )
             if parse_status == "failed":
-                await self.registry.mark_failed(str(saved.id), "RAGFlow reported failure")
+                await self.registry.mark_failed(
+                    str(saved.id), "RAGFlow reported failure"
+                )
 
             log.info(
                 "ragflow_sync_paper_complete",
@@ -146,12 +156,20 @@ class DocumentSyncService:
     async def sync_collection(self, collection_id: str) -> dict[str, Any]:
         """Sync every paper in a collection into a dedicated collection dataset."""
         if not settings.ragflow_sync_enabled:
-            return {"enabled": False, "status": "disabled", "collection_id": collection_id}
+            return {
+                "enabled": False,
+                "status": "disabled",
+                "collection_id": collection_id,
+            }
 
         log = logger.bind(collection_id=collection_id)
         collection = await self._get_collection(collection_id)
         if collection is None:
-            return {"enabled": True, "status": "not_found", "collection_id": collection_id}
+            return {
+                "enabled": True,
+                "status": "not_found",
+                "collection_id": collection_id,
+            }
 
         papers = await self._get_collection_papers(collection_id)
         paper_hashes: list[str] = []
@@ -195,7 +213,9 @@ class DocumentSyncService:
 
         try:
             dataset_id = await self._resolve_collection_dataset_id(
-                collection, collection_hash, mapping,
+                collection,
+                collection_hash,
+                mapping,
             )
             synced = 0
             errors: list[str] = []
@@ -277,7 +297,9 @@ class DocumentSyncService:
             "retraction_status": self._retraction_status(paper),
             "language": paper.language,
             "published_at": (
-                paper.published_at.isoformat() if paper.published_at is not None else None
+                paper.published_at.isoformat()
+                if paper.published_at is not None
+                else None
             ),
             "paper_type": paper.paper_type,
             "source_type": paper.source_type,
@@ -430,7 +452,9 @@ class DocumentSyncService:
     async def _collection_ids_for_paper(self, paper_id: str) -> list[str]:
         """Return all collection ids currently containing the paper."""
         result = await self.db.execute(
-            select(CollectionPaper.collection_id).where(CollectionPaper.paper_id == paper_id)
+            select(CollectionPaper.collection_id).where(
+                CollectionPaper.paper_id == paper_id
+            )
         )
         return [str(value) for value in result.scalars().all()]
 
@@ -452,7 +476,9 @@ class DocumentSyncService:
         if names:
             return names
         raw_metadata = paper.raw_metadata or {}
-        raw_authors = raw_metadata.get("authors_parsed") or raw_metadata.get("authors") or []
+        raw_authors = (
+            raw_metadata.get("authors_parsed") or raw_metadata.get("authors") or []
+        )
         return [str(author) for author in raw_authors if author]
 
     @staticmethod

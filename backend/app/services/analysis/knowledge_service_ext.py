@@ -104,7 +104,9 @@ class KnowledgeExtService:
             ),
         ]
 
-        logger.info("quiz_generated", paper_id=str(paper.id), question_count=len(questions))
+        logger.info(
+            "quiz_generated", paper_id=str(paper.id), question_count=len(questions)
+        )
         return {
             "paper_id": str(paper.id),
             "title": paper.title,
@@ -350,7 +352,9 @@ class KnowledgeExtService:
         seen: set[str] = set()
         for item in items:
             if isinstance(item, dict):
-                value = item.get("keyword") or item.get("name") or item.get("display_name")
+                value = (
+                    item.get("keyword") or item.get("name") or item.get("display_name")
+                )
             else:
                 value = item
             if not isinstance(value, str):

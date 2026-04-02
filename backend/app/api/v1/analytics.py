@@ -118,6 +118,7 @@ class DataCoverageResponse(BaseModel):
 
 # ─── Endpoints ─────────────────────────────────────────────────
 
+
 @router.get("/overview", response_model=OverviewResponse)
 async def get_overview(
     db: AsyncSession = Depends(get_db),
@@ -130,66 +131,84 @@ async def get_overview(
     base = select(Paper).where(Paper.deleted_at.is_(None))
 
     # Total papers
-    total = (await db.execute(
-        select(func.count()).select_from(base.subquery())
-    )).scalar() or 0
+    total = (
+        await db.execute(select(func.count()).select_from(base.subquery()))
+    ).scalar() or 0
 
     # With full text
-    fulltext = (await db.execute(
-        select(func.count()).select_from(
-            select(Paper).where(
-                Paper.deleted_at.is_(None),
-                Paper.has_full_text.is_(True),
-            ).subquery()
+    fulltext = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Paper)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.has_full_text.is_(True),
+                )
+                .subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     # By ingestion status
-    status_rows = (await db.execute(
-        select(
-            Paper.ingestion_status,
-            func.count(),
-        ).where(Paper.deleted_at.is_(None))
-        .group_by(Paper.ingestion_status)
-    )).all()
+    status_rows = (
+        await db.execute(
+            select(
+                Paper.ingestion_status,
+                func.count(),
+            )
+            .where(Paper.deleted_at.is_(None))
+            .group_by(Paper.ingestion_status)
+        )
+    ).all()
     by_status = {row[0]: row[1] for row in status_rows}
 
     # By source type
-    source_rows = (await db.execute(
-        select(
-            Paper.source_type,
-            func.count(),
-        ).where(Paper.deleted_at.is_(None))
-        .group_by(Paper.source_type)
-    )).all()
+    source_rows = (
+        await db.execute(
+            select(
+                Paper.source_type,
+                func.count(),
+            )
+            .where(Paper.deleted_at.is_(None))
+            .group_by(Paper.source_type)
+        )
+    ).all()
     by_source = {row[0]: row[1] for row in source_rows}
 
     # Average citation count
-    avg_cite = (await db.execute(
-        select(func.avg(Paper.citation_count)).where(
-            Paper.deleted_at.is_(None)
+    avg_cite = (
+        await db.execute(
+            select(func.avg(Paper.citation_count)).where(Paper.deleted_at.is_(None))
         )
-    )).scalar() or 0.0
+    ).scalar() or 0.0
 
     # Total authors (only those linked to live papers)
-    total_authors = (await db.execute(
-        select(func.count(func.distinct(PaperAuthor.author_id))).select_from(
-            PaperAuthor.__table__.join(
-                Paper.__table__,
-                PaperAuthor.paper_id == Paper.id,
+    total_authors = (
+        await db.execute(
+            select(func.count(func.distinct(PaperAuthor.author_id)))
+            .select_from(
+                PaperAuthor.__table__.join(
+                    Paper.__table__,
+                    PaperAuthor.paper_id == Paper.id,
+                )
             )
-        ).where(Paper.deleted_at.is_(None))
-    )).scalar() or 0
+            .where(Paper.deleted_at.is_(None))
+        )
+    ).scalar() or 0
 
     # Total references (only from live papers)
-    total_refs = (await db.execute(
-        select(func.count()).select_from(
-            PaperReference.__table__.join(
-                Paper.__table__,
-                PaperReference.citing_paper_id == Paper.id,
+    total_refs = (
+        await db.execute(
+            select(func.count())
+            .select_from(
+                PaperReference.__table__.join(
+                    Paper.__table__,
+                    PaperReference.citing_paper_id == Paper.id,
+                )
             )
-        ).where(Paper.deleted_at.is_(None))
-    )).scalar() or 0
+            .where(Paper.deleted_at.is_(None))
+        )
+    ).scalar() or 0
 
     return OverviewResponse(
         total_papers=total,
@@ -210,19 +229,23 @@ async def get_timeline(
     """Papers added over time, grouped by week."""
     cutoff = date.today() - timedelta(days=days)
 
-    rows = (await db.execute(
-        select(
-            func.date_trunc("week", Paper.created_at).label("week"),
-            func.count().label("cnt"),
-        ).where(
-            Paper.deleted_at.is_(None),
-            Paper.created_at >= cutoff,
-        ).group_by("week").order_by("week")
-    )).all()
+    rows = (
+        await db.execute(
+            select(
+                func.date_trunc("week", Paper.created_at).label("week"),
+                func.count().label("cnt"),
+            )
+            .where(
+                Paper.deleted_at.is_(None),
+                Paper.created_at >= cutoff,
+            )
+            .group_by("week")
+            .order_by("week")
+        )
+    ).all()
 
     points = [
-        TimelinePoint(date=row[0].strftime("%Y-%m-%d"), count=row[1])
-        for row in rows
+        TimelinePoint(date=row[0].strftime("%Y-%m-%d"), count=row[1]) for row in rows
     ]
     return TimelineResponse(points=points, granularity="week")
 
@@ -233,12 +256,14 @@ async def get_categories(
     db: AsyncSession = Depends(get_db),
 ):
     """Category/keyword distribution across the paper library."""
-    rows = (await db.execute(
-        select(Paper.keywords).where(
-            Paper.deleted_at.is_(None),
-            Paper.keywords.isnot(None),
+    rows = (
+        await db.execute(
+            select(Paper.keywords).where(
+                Paper.deleted_at.is_(None),
+                Paper.keywords.isnot(None),
+            )
         )
-    )).all()
+    ).all()
 
     counter: Counter[str] = Counter()
     for (kw_list,) in rows:
@@ -279,20 +304,22 @@ async def get_top_authors(
     db: AsyncSession = Depends(get_db),
 ):
     """Authors ranked by paper count in the library (live papers only)."""
-    rows = (await db.execute(
-        select(
-            Author.id,
-            Author.display_name,
-            func.count(PaperAuthor.paper_id).label("paper_count"),
-            func.coalesce(Author.citation_count, 0).label("total_cites"),
+    rows = (
+        await db.execute(
+            select(
+                Author.id,
+                Author.display_name,
+                func.count(PaperAuthor.paper_id).label("paper_count"),
+                func.coalesce(Author.citation_count, 0).label("total_cites"),
+            )
+            .join(PaperAuthor, Author.id == PaperAuthor.author_id)
+            .join(Paper, PaperAuthor.paper_id == Paper.id)
+            .where(Paper.deleted_at.is_(None))
+            .group_by(Author.id, Author.display_name, Author.citation_count)
+            .order_by(func.count(PaperAuthor.paper_id).desc())
+            .limit(limit)
         )
-        .join(PaperAuthor, Author.id == PaperAuthor.author_id)
-        .join(Paper, PaperAuthor.paper_id == Paper.id)
-        .where(Paper.deleted_at.is_(None))
-        .group_by(Author.id, Author.display_name, Author.citation_count)
-        .order_by(func.count(PaperAuthor.paper_id).desc())
-        .limit(limit)
-    )).all()
+    ).all()
 
     items = [
         AuthorItem(
@@ -312,12 +339,14 @@ async def get_keyword_cloud(
     db: AsyncSession = Depends(get_db),
 ):
     """Keyword frequency for word-cloud visualization."""
-    rows = (await db.execute(
-        select(Paper.keywords).where(
-            Paper.deleted_at.is_(None),
-            Paper.keywords.isnot(None),
+    rows = (
+        await db.execute(
+            select(Paper.keywords).where(
+                Paper.deleted_at.is_(None),
+                Paper.keywords.isnot(None),
+            )
         )
-    )).all()
+    ).all()
 
     counter: Counter[str] = Counter()
     papers_with_kw = 0
@@ -341,48 +370,56 @@ async def get_citation_network(
     db: AsyncSession = Depends(get_db),
 ):
     """Citation network summary statistics."""
-    total_papers = (await db.execute(
-        select(func.count()).select_from(
-            select(Paper.id).where(Paper.deleted_at.is_(None)).subquery()
+    total_papers = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Paper.id).where(Paper.deleted_at.is_(None)).subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
-    total_refs = (await db.execute(
-        select(func.count()).select_from(PaperReference)
-    )).scalar() or 0
+    total_refs = (
+        await db.execute(select(func.count()).select_from(PaperReference))
+    ).scalar() or 0
 
-    resolved = (await db.execute(
-        select(func.count()).select_from(
-            select(PaperReference.cited_paper_id).where(
-                PaperReference.cited_paper_id.isnot(None)
-            ).subquery()
+    resolved = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(PaperReference.cited_paper_id)
+                .where(PaperReference.cited_paper_id.isnot(None))
+                .subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     avg_refs = total_refs / total_papers if total_papers > 0 else 0.0
 
     # Top cited papers within library (join to live papers)
-    cited_rows = (await db.execute(
-        select(
-            PaperReference.cited_paper_id,
-            func.count().label("cite_count"),
+    cited_rows = (
+        await db.execute(
+            select(
+                PaperReference.cited_paper_id,
+                func.count().label("cite_count"),
+            )
+            .join(Paper, PaperReference.citing_paper_id == Paper.id)
+            .where(
+                PaperReference.cited_paper_id.isnot(None),
+                Paper.deleted_at.is_(None),
+            )
+            .group_by(PaperReference.cited_paper_id)
+            .order_by(func.count().desc())
+            .limit(10)
         )
-        .join(Paper, PaperReference.citing_paper_id == Paper.id)
-        .where(
-            PaperReference.cited_paper_id.isnot(None),
-            Paper.deleted_at.is_(None),
-        )
-        .group_by(PaperReference.cited_paper_id)
-        .order_by(func.count().desc())
-        .limit(10)
-    )).all()
+    ).all()
 
     # Batch-fetch titles to avoid N+1
     cited_ids = [row[0] for row in cited_rows]
     if cited_ids:
-        title_rows = (await db.execute(
-            select(Paper.id, Paper.title).where(Paper.id.in_(cited_ids))
-        )).all()
+        title_rows = (
+            await db.execute(
+                select(Paper.id, Paper.title).where(Paper.id.in_(cited_ids))
+            )
+        ).all()
         title_map = {str(r[0]): r[1] for r in title_rows}
     else:
         title_map = {}
@@ -419,11 +456,13 @@ async def get_data_coverage(
     - citation_count needed for sleeping-beauty and emerging-author signals
     - authors/institutions needed for researcher analytics
     """
-    total = (await db.execute(
-        select(func.count()).select_from(
-            select(Paper.id).where(Paper.deleted_at.is_(None)).subquery()
+    total = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Paper.id).where(Paper.deleted_at.is_(None)).subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     if total == 0:
         return DataCoverageResponse(
@@ -433,70 +472,114 @@ async def get_data_coverage(
         )
 
     async def _count(condition) -> int:
-        return (await db.execute(
-            select(func.count()).select_from(
-                select(Paper.id).where(Paper.deleted_at.is_(None), condition).subquery()
+        return (
+            await db.execute(
+                select(func.count()).select_from(
+                    select(Paper.id)
+                    .where(Paper.deleted_at.is_(None), condition)
+                    .subquery()
+                )
             )
-        )).scalar() or 0
+        ).scalar() or 0
 
     with_date = await _count(Paper.published_at.isnot(None))
     # Non-empty keyword array (jsonb_array_length > 0 guards against [] entries)
-    with_kw = (await db.execute(
-        select(func.count()).select_from(
-            select(Paper.id).where(
-                Paper.deleted_at.is_(None),
-                Paper.keywords.isnot(None),
-                func.jsonb_array_length(Paper.keywords) > 0,
-            ).subquery()
+    with_kw = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Paper.id)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.keywords.isnot(None),
+                    func.jsonb_array_length(Paper.keywords) > 0,
+                )
+                .subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
     # Non-blank abstract
-    with_abs = (await db.execute(
-        select(func.count()).select_from(
-            select(Paper.id).where(
-                Paper.deleted_at.is_(None),
-                Paper.abstract.isnot(None),
-                func.length(func.coalesce(Paper.abstract, "")) > 0,
-            ).subquery()
+    with_abs = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Paper.id)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.abstract.isnot(None),
+                    func.length(func.coalesce(Paper.abstract, "")) > 0,
+                )
+                .subquery()
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
     # Citation data ready means the field was fetched/updated (not just defaulting to 0)
     with_cite = await _count(Paper.citation_count_updated_at.isnot(None))
     with_fulltext = await _count(Paper.has_full_text.is_(True))
 
     # Authors coverage: papers with ≥1 linked author
-    with_authors = (await db.execute(
-        select(func.count(func.distinct(PaperAuthor.paper_id))).select_from(
-            PaperAuthor.__table__.join(
-                Paper.__table__, PaperAuthor.paper_id == Paper.id
+    with_authors = (
+        await db.execute(
+            select(func.count(func.distinct(PaperAuthor.paper_id)))
+            .select_from(
+                PaperAuthor.__table__.join(
+                    Paper.__table__, PaperAuthor.paper_id == Paper.id
+                )
             )
-        ).where(Paper.deleted_at.is_(None))
-    )).scalar() or 0
+            .where(Paper.deleted_at.is_(None))
+        )
+    ).scalar() or 0
 
     # Institution coverage: papers with ≥1 author having institution
     from app.models.author import Institution
-    with_inst = (await db.execute(
-        select(func.count(func.distinct(PaperAuthor.paper_id))).select_from(
-            PaperAuthor.__table__
-            .join(Paper.__table__, PaperAuthor.paper_id == Paper.id)
-            .join(Author.__table__, PaperAuthor.author_id == Author.id)
-        ).where(
-            Paper.deleted_at.is_(None),
-            Author.institution_id.isnot(None),
+
+    with_inst = (
+        await db.execute(
+            select(func.count(func.distinct(PaperAuthor.paper_id)))
+            .select_from(
+                PaperAuthor.__table__.join(
+                    Paper.__table__, PaperAuthor.paper_id == Paper.id
+                ).join(Author.__table__, PaperAuthor.author_id == Author.id)
+            )
+            .where(
+                Paper.deleted_at.is_(None),
+                Author.institution_id.isnot(None),
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     def _pct(n: int) -> float:
         return round(100.0 * n / total, 1) if total else 0.0
 
     fields = [
-        CoverageField(field="published_at",  present=with_date,     total=total, pct=_pct(with_date)),
-        CoverageField(field="keywords",       present=with_kw,       total=total, pct=_pct(with_kw)),
-        CoverageField(field="abstract",       present=with_abs,      total=total, pct=_pct(with_abs)),
-        CoverageField(field="citation_count", present=with_cite,     total=total, pct=_pct(with_cite)),
-        CoverageField(field="full_text",      present=with_fulltext, total=total, pct=_pct(with_fulltext)),
-        CoverageField(field="authors_linked", present=with_authors,  total=total, pct=_pct(with_authors)),
-        CoverageField(field="institution_linked", present=with_inst, total=total, pct=_pct(with_inst)),
+        CoverageField(
+            field="published_at", present=with_date, total=total, pct=_pct(with_date)
+        ),
+        CoverageField(
+            field="keywords", present=with_kw, total=total, pct=_pct(with_kw)
+        ),
+        CoverageField(
+            field="abstract", present=with_abs, total=total, pct=_pct(with_abs)
+        ),
+        CoverageField(
+            field="citation_count", present=with_cite, total=total, pct=_pct(with_cite)
+        ),
+        CoverageField(
+            field="full_text",
+            present=with_fulltext,
+            total=total,
+            pct=_pct(with_fulltext),
+        ),
+        CoverageField(
+            field="authors_linked",
+            present=with_authors,
+            total=total,
+            pct=_pct(with_authors),
+        ),
+        CoverageField(
+            field="institution_linked",
+            present=with_inst,
+            total=total,
+            pct=_pct(with_inst),
+        ),
     ]
 
     inst_pct = _pct(with_inst)

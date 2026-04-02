@@ -1,11 +1,16 @@
 """FastAPI application factory with middleware, exception handlers, and router registration."""
 
+import asyncio
 import time as _time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import structlog
 from fastapi import FastAPI, Request
-from fastapi.exceptions import HTTPException as FastAPIHTTPException, RequestValidationError
+from fastapi.exceptions import (
+    HTTPException as FastAPIHTTPException,
+    RequestValidationError,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -20,10 +25,164 @@ from app.exceptions import (
 logger = structlog.get_logger(__name__)
 
 
+async def _background_enrich_authors() -> None:
+    """
+    Enrich all authors that don't yet have a Semantic Scholar ID.
+    Runs as a fire-and-forget background task on startup.
+    Processes in small batches to respect S2 free-tier rate limits.
+    """
+    from sqlalchemy import select
+    from app.models.author import Author
+    from app.dependencies import async_session_factory
+    from app.services.enrichment.author_enrichment import AuthorEnrichmentService
+
+    try:
+        # Delay startup enrichment so foreground requests always get first pick of S2 quota
+        await asyncio.sleep(300)  # 5 minutes
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Author.id, Author.display_name)
+                .where(
+                    Author.deleted_at.is_(None),
+                    Author.semantic_scholar_id.is_(None),
+                )
+                .order_by(Author.display_name)
+            )
+            rows = result.all()
+
+        if not rows:
+            logger.info(
+                "author_enrich_startup_skip", reason="all authors already enriched"
+            )
+            return
+
+        logger.info("author_enrich_startup_begin", count=len(rows))
+        ok = no_match = errors = 0
+
+        for i in range(0, len(rows), 5):
+            batch = rows[i : i + 5]
+
+            async def _one(author_id: str, name: str) -> None:
+                nonlocal ok, no_match, errors
+                try:
+                    async with async_session_factory() as db:
+                        svc = AuthorEnrichmentService(db, background=True)
+                        res = await svc.enrich(author_id)
+                        await svc.close()
+                    status = res.get("status", "error")
+                    if status == "ok":
+                        ok += 1
+                        logger.info(
+                            "author_enriched_bg",
+                            name=name,
+                            s2_id=res.get("s2_id"),
+                            reason=res.get("match_reason"),
+                        )
+                    elif status == "no_match":
+                        no_match += 1
+                    else:
+                        errors += 1
+                except Exception as e:
+                    errors += 1
+                    logger.warning(
+                        "author_enrich_bg_error", name=name, error=str(e)[:120]
+                    )
+
+            await asyncio.gather(
+                *[_one(str(r.id), r.display_name) for r in batch],
+                return_exceptions=True,
+            )
+            if i + 5 < len(rows):
+                await asyncio.sleep(4)  # stay under 100 req / 5 min
+
+        logger.info(
+            "author_enrich_startup_done", ok=ok, no_match=no_match, errors=errors
+        )
+
+    except Exception as e:
+        logger.warning("author_enrich_startup_failed", error=str(e))
+
+
+async def _background_label_papers() -> None:
+    """
+    Label all papers that don't yet have taxonomy labels.
+    Runs as a fire-and-forget background task on startup.
+    Uses concurrency=50 (LLM API supports it) with asyncio.Semaphore.
+    """
+    from sqlalchemy import select
+    from app.models.paper import Paper
+    from app.dependencies import async_session_factory
+    from app.services.analysis.labeling_service import LabelingService
+
+    try:
+        # Start after author enrichment is well underway
+        await asyncio.sleep(600)  # 10 minutes
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Paper.id)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.paper_labels.is_(None),
+                )
+                .order_by(Paper.created_at.desc())
+            )
+            paper_ids = [row[0] for row in result.all()]
+
+        if not paper_ids:
+            logger.info("label_startup_skip", reason="all papers already labeled")
+            return
+
+        logger.info("label_startup_begin", count=len(paper_ids))
+        done = errors = 0
+        sem = asyncio.Semaphore(50)
+
+        async def _one(paper_id) -> None:
+            nonlocal done, errors
+            async with sem:
+                try:
+                    async with async_session_factory() as db:
+                        r = await db.execute(
+                            select(Paper).where(Paper.id == paper_id)
+                        )
+                        paper = r.scalar_one_or_none()
+                        if paper is None or paper.paper_labels is not None:
+                            return
+                        svc = LabelingService(db)
+                        await svc.label_paper(paper)
+                        await db.commit()
+                        await svc.close()
+                    done += 1
+                except Exception as e:
+                    errors += 1
+                    logger.warning(
+                        "label_bg_error",
+                        paper_id=str(paper_id),
+                        error=str(e)[:120],
+                    )
+
+        await asyncio.gather(*[_one(pid) for pid in paper_ids], return_exceptions=True)
+        logger.info("label_startup_done", done=done, errors=errors)
+
+    except Exception as e:
+        logger.warning("label_startup_failed", error=str(e))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ──────────────────────────────────────────────────
+    asyncio.create_task(_background_enrich_authors())
+    asyncio.create_task(_background_label_papers())
+    yield
+    # ── Shutdown ─────────────────────────────────────────────────
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Kaleidoscope API",
+        lifespan=lifespan,
         description=(
             "Academic Paper Intelligence Platform — "
             "Ingest, search, and analyze scholarly papers with AI."
@@ -168,6 +327,7 @@ def create_app() -> FastAPI:
     from app.api.v1.trend_ext import router as trend_ext_router
     from app.api.v1.writing import router as writing_router
     from app.api.v1.alerts import router as alerts_router
+
     # P3 routers
     from app.api.v1.claims import router as claims_router
     from app.api.v1.cross_paper import router as cross_paper_router
@@ -206,27 +366,33 @@ def create_app() -> FastAPI:
     app.include_router(quality_router, prefix="/api/v1")
     # Content/MinerU router
     from app.api.v1.content import router as content_router
+
     app.include_router(content_router, prefix="/api/v1")
     # Analytics router
     from app.api.v1.analytics import router as analytics_router
+
     app.include_router(analytics_router, prefix="/api/v1")
     # Researcher analytics router
     app.include_router(researchers_router, prefix="/api/v1")
     # Batch 6: Collaboration & Experiments
     from app.api.v1.collaboration import router as collaboration_router
     from app.api.v1.experiments import router as experiments_router
+
     app.include_router(collaboration_router, prefix="/api/v1")
     app.include_router(experiments_router, prefix="/api/v1")
     # Admin + SSE (Features 7/8/9/25/26/35/42)
     from app.api.v1.admin import router as admin_router
     from app.api.v1.sse import router as sse_router
+
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(sse_router, prefix="/api/v1")
     # RAGFlow evaluation / observability
     from app.api.v1.evaluation import router as eval_router
+
     app.include_router(eval_router, prefix="/api/v1")
     # Translation proxy (keeps API key server-side)
     from app.api.v1.translate import router as translate_router
+
     app.include_router(translate_router, prefix="/api/v1")
 
     # --- Health Check ---

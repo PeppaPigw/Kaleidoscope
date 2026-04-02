@@ -49,8 +49,12 @@ class MetadataEnricherService:
 
         Routes to the appropriate enrichment path based on available identifiers.
         """
-        log = logger.bind(paper_id=str(paper.id), doi=paper.doi,
-                          arxiv_id=paper.arxiv_id, pmid=paper.pmid)
+        log = logger.bind(
+            paper_id=str(paper.id),
+            doi=paper.doi,
+            arxiv_id=paper.arxiv_id,
+            pmid=paper.pmid,
+        )
 
         # ── PMID path: resolve via PubMed first ─────────────────
         if paper.pmid and not paper.doi:
@@ -122,20 +126,23 @@ class MetadataEnricherService:
         """
         url = f"{PUBMED_EFETCH_URL}/efetch.fcgi"
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(url, params={
-                "db": "pubmed",
-                "id": pmid,
-                "rettype": "xml",
-                "retmode": "xml",
-            })
+            resp = await client.get(
+                url,
+                params={
+                    "db": "pubmed",
+                    "id": pmid,
+                    "rettype": "xml",
+                    "retmode": "xml",
+                },
+            )
             if resp.status_code != 200:
                 return None
 
             # Extract DOI from XML response
             import re
+
             doi_match = re.search(
-                r'<ArticleId\s+IdType="doi">([^<]+)</ArticleId>',
-                resp.text
+                r'<ArticleId\s+IdType="doi">([^<]+)</ArticleId>', resp.text
             )
             if doi_match:
                 return normalize_doi(doi_match.group(1))
@@ -151,12 +158,15 @@ class MetadataEnricherService:
         url = f"{PUBMED_EFETCH_URL}/efetch.fcgi"
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url, params={
-                    "db": "pubmed",
-                    "id": paper.pmid,
-                    "rettype": "xml",
-                    "retmode": "xml",
-                })
+                resp = await client.get(
+                    url,
+                    params={
+                        "db": "pubmed",
+                        "id": paper.pmid,
+                        "rettype": "xml",
+                        "retmode": "xml",
+                    },
+                )
                 if resp.status_code != 200:
                     return
 
@@ -165,8 +175,7 @@ class MetadataEnricherService:
                 # Title
                 if not paper.title or paper.title == paper.pmid:
                     title_match = re.search(
-                        r'<ArticleTitle>(.+?)</ArticleTitle>',
-                        resp.text, re.DOTALL
+                        r"<ArticleTitle>(.+?)</ArticleTitle>", resp.text, re.DOTALL
                     )
                     if title_match:
                         paper.title = title_match.group(1).strip()
@@ -174,16 +183,19 @@ class MetadataEnricherService:
                 # Abstract
                 if not paper.abstract:
                     abs_match = re.search(
-                        r'<AbstractText[^>]*>(.+?)</AbstractText>',
-                        resp.text, re.DOTALL
+                        r"<AbstractText[^>]*>(.+?)</AbstractText>", resp.text, re.DOTALL
                     )
                     if abs_match:
                         paper.abstract = abs_match.group(1).strip()
 
                 # Published date
                 if not paper.published_at:
-                    year_match = re.search(r'<PubDate>.*?<Year>(\d{4})</Year>', resp.text, re.DOTALL)
-                    month_match = re.search(r'<PubDate>.*?<Month>(\d{1,2})</Month>', resp.text, re.DOTALL)
+                    year_match = re.search(
+                        r"<PubDate>.*?<Year>(\d{4})</Year>", resp.text, re.DOTALL
+                    )
+                    month_match = re.search(
+                        r"<PubDate>.*?<Month>(\d{1,2})</Month>", resp.text, re.DOTALL
+                    )
                     if year_match:
                         try:
                             paper.published_at = date(
@@ -337,7 +349,9 @@ class MetadataEnricherService:
             if concepts:
                 paper.keywords = [
                     c["display_name"]
-                    for c in sorted(concepts, key=lambda x: x.get("score", 0), reverse=True)[:10]
+                    for c in sorted(
+                        concepts, key=lambda x: x.get("score", 0), reverse=True
+                    )[:10]
                 ]
 
         if paper.raw_metadata is None:

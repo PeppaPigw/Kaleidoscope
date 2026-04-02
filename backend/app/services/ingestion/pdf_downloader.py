@@ -98,7 +98,9 @@ class PDFDownloaderService:
 
         Returns AcquisitionResult with success status, content type, and storage path.
         """
-        log = logger.bind(paper_id=str(paper.id), doi=paper.doi, arxiv_id=paper.arxiv_id)
+        log = logger.bind(
+            paper_id=str(paper.id), doi=paper.doi, arxiv_id=paper.arxiv_id
+        )
         attempted_sources: list[str] = []
 
         # 1. arXiv — try LaTeX source first (best quality), then PDF
@@ -120,10 +122,16 @@ class PDFDownloaderService:
                         sidecar_key = f"papers/{doi_hash}/arxiv_all_files.json"
                         self._persist_content(
                             sidecar_key,
-                            json.dumps(latex_data["all_files"], ensure_ascii=False).encode("utf-8"),
+                            json.dumps(
+                                latex_data["all_files"], ensure_ascii=False
+                            ).encode("utf-8"),
                         )
-                    log.info("fulltext_acquired", source="arxiv_latex", type="tex",
-                             files=len(latex_data.get("all_files", {})))
+                    log.info(
+                        "fulltext_acquired",
+                        source="arxiv_latex",
+                        type="tex",
+                        files=len(latex_data.get("all_files", {})),
+                    )
                     return AcquisitionResult(
                         success=True,
                         content_type="tex",
@@ -148,13 +156,17 @@ class PDFDownloaderService:
         # 2. Known OA journal patterns
         if paper.doi:
             for domain, url_fn in self.OA_PDF_PATTERNS.items():
-                if paper.remote_urls and any(domain in (u.get("url", "") or "") for u in paper.remote_urls):
+                if paper.remote_urls and any(
+                    domain in (u.get("url", "") or "") for u in paper.remote_urls
+                ):
                     attempted_sources.append(f"oa_{domain}")
                     try:
                         url = url_fn(paper.doi)
                         result = await self._download_pdf(url, paper, f"oa_{domain}")
                         if result.success:
-                            log.info("fulltext_acquired", source=f"oa_{domain}", type="pdf")
+                            log.info(
+                                "fulltext_acquired", source=f"oa_{domain}", type="pdf"
+                            )
                             return result
                     except Exception as e:
                         log.warning("oa_pdf_failed", domain=domain, error=str(e))
@@ -180,9 +192,13 @@ class PDFDownloaderService:
                 s2_data = await self.s2.get_paper(s2_id)
                 oa_pdf = s2_data.get("openAccessPdf", {})
                 if oa_pdf and oa_pdf.get("url"):
-                    result = await self._download_pdf(oa_pdf["url"], paper, "semantic_scholar")
+                    result = await self._download_pdf(
+                        oa_pdf["url"], paper, "semantic_scholar"
+                    )
                     if result.success:
-                        log.info("fulltext_acquired", source="semantic_scholar", type="pdf")
+                        log.info(
+                            "fulltext_acquired", source="semantic_scholar", type="pdf"
+                        )
                         return result
             except Exception as e:
                 log.warning("s2_pdf_failed", error=str(e))
@@ -195,7 +211,11 @@ class PDFDownloaderService:
             try:
                 result = await self._try_elsevier_tdm(paper)
                 if result.success:
-                    log.info("fulltext_acquired", source="elsevier_tdm", type=result.content_type)
+                    log.info(
+                        "fulltext_acquired",
+                        source="elsevier_tdm",
+                        type=result.content_type,
+                    )
                     return result
             except Exception as e:
                 log.warning("elsevier_tdm_failed", error=str(e))
@@ -206,7 +226,11 @@ class PDFDownloaderService:
             try:
                 result = await self._try_wiley_tdm(paper)
                 if result.success:
-                    log.info("fulltext_acquired", source="wiley_tdm", type=result.content_type)
+                    log.info(
+                        "fulltext_acquired",
+                        source="wiley_tdm",
+                        type=result.content_type,
+                    )
                     return result
             except Exception as e:
                 log.warning("wiley_tdm_failed", error=str(e))
@@ -217,7 +241,11 @@ class PDFDownloaderService:
             try:
                 result = await self._try_springer_tdm(paper)
                 if result.success:
-                    log.info("fulltext_acquired", source="springer_tdm", type=result.content_type)
+                    log.info(
+                        "fulltext_acquired",
+                        source="springer_tdm",
+                        type=result.content_type,
+                    )
                     return result
             except Exception as e:
                 log.warning("springer_tdm_failed", error=str(e))
@@ -286,7 +314,9 @@ class PDFDownloaderService:
                     )
 
                 # Persist the PDF
-                doi_hash = hashlib.sha256((paper.doi or paper.title).encode()).hexdigest()[:16]
+                doi_hash = hashlib.sha256(
+                    (paper.doi or paper.title).encode()
+                ).hexdigest()[:16]
                 object_key = f"papers/{doi_hash}/{source}.pdf"
                 self._persist_content(object_key, resp.content)
 
@@ -322,7 +352,9 @@ class PDFDownloaderService:
                         "Accept": "text/xml",
                     },
                 )
-                if resp.status_code == 200 and "xml" in resp.headers.get("content-type", ""):
+                if resp.status_code == 200 and "xml" in resp.headers.get(
+                    "content-type", ""
+                ):
                     object_key = f"papers/{doi_hash}/elsevier_fulltext.xml"
                     self._persist_content(object_key, resp.content)
                     return AcquisitionResult(

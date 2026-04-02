@@ -10,7 +10,12 @@ from app.schemas.paper import (
     PaperResponse,
 )
 from app.schemas.search import SearchHit, SearchRequest, SearchResponse
-from app.schemas.feed import RSSFeedCreate, RSSFeedListResponse, RSSFeedResponse, PollResult
+from app.schemas.feed import (
+    RSSFeedCreate,
+    RSSFeedListResponse,
+    RSSFeedResponse,
+    PollResult,
+)
 
 __all__ = [
     "PaperImportRequest",

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.services.analysis.researcher_service import ResearcherService
+from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 from app.schemas.researchers import (
     AuthorProfileResponse,
     CollaborationNetworkResponse,
@@ -25,11 +26,14 @@ router = APIRouter(prefix="/researchers", tags=["researchers"])
 
 # ─── Emerging Authors ─────────────────────────────────────────────
 
+
 @router.get("/emerging", response_model=EmergingAuthorsResponse)
 async def emerging_authors(
     top_k: int = Query(20, ge=1, le=100, description="Number of authors to return"),
     recent_years: int = Query(
-        2, ge=1, le=5,
+        2,
+        ge=1,
+        le=5,
         description="How many years back counts as 'emerging' (based on earliest library paper date)",
     ),
     db: AsyncSession = Depends(get_db),
@@ -49,7 +53,39 @@ async def emerging_authors(
     return EmergingAuthorsResponse(authors=authors)
 
 
+# ─── Semantic Scholar Enrichment ──────────────────────────────────
+
+
+@router.post("/{author_id}/enrich", summary="Enrich author from Semantic Scholar")
+async def enrich_author(
+    author_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Fetch and persist author metadata from Semantic Scholar.
+
+    Matching priority:
+    1. Existing semantic_scholar_id → direct fetch
+    2. ORCID match among search results
+    3. Name + institution similarity (threshold 0.82)
+    4. Name similarity alone (threshold 0.90)
+
+    Returns the enriched fields and the match reason.
+    Idempotent — safe to call multiple times.
+    """
+    svc = AuthorEnrichmentService(db)
+    try:
+        result = await svc.enrich(str(author_id))
+    finally:
+        await svc.close()
+
+    if result["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="Author not found")
+    return result
+
+
 # ─── Author Profile ───────────────────────────────────────────────
+
 
 @router.get("/{author_id}/profile", response_model=AuthorProfileResponse)
 async def get_author_profile(
@@ -72,11 +108,14 @@ async def get_author_profile(
 
 # ─── Collaboration Networks ───────────────────────────────────────
 
+
 @router.get("/{author_id}/network", response_model=CollaborationNetworkResponse)
 async def author_ego_network(
     author_id: UUID,
     min_collaborations: int = Query(
-        1, ge=1, le=20,
+        1,
+        ge=1,
+        le=20,
         description="Minimum shared papers to include an edge",
     ),
     db: AsyncSession = Depends(get_db),
@@ -103,11 +142,15 @@ async def author_ego_network(
 @router.get("/network", response_model=CollaborationNetworkResponse)
 async def global_network(
     top_k: int = Query(
-        50, ge=5, le=200,
+        50,
+        ge=5,
+        le=200,
         description="How many top authors (by library paper count) to include as nodes",
     ),
     min_collaborations: int = Query(
-        2, ge=1, le=20,
+        2,
+        ge=1,
+        le=20,
         description="Minimum shared papers to draw an edge",
     ),
     db: AsyncSession = Depends(get_db),

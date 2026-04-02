@@ -1,4 +1,5 @@
 """Celery tasks for RAGFlow sync and reconciliation."""
+
 # mypy: disable-error-code="untyped-decorator"
 
 from __future__ import annotations
@@ -95,7 +96,10 @@ def poll_parse_status_task() -> dict[str, Any]:
                 entity_id = str(mapping.paper_id or mapping.collection_id)
                 entity_type = "paper" if mapping.paper_id else "collection"
                 result = await service._poll_and_update(
-                    mapping, entity_id, logger, entity_type=entity_type,
+                    mapping,
+                    entity_id,
+                    logger,
+                    entity_type=entity_type,
                 )
                 status = result.get("status", "processing")
                 if status == "done":

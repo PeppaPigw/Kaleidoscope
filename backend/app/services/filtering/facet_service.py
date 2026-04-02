@@ -64,10 +64,7 @@ class FacetService:
         )
         query = self._apply_base_filter(query, base_filter)
         rows = await self.db.execute(query)
-        return [
-            {"value": int(r.year), "count": r.count}
-            for r in rows.all() if r.year
-        ]
+        return [{"value": int(r.year), "count": r.count} for r in rows.all() if r.year]
 
     async def _facet_venue(self, base_filter: dict | None) -> list[dict]:
         """Venue distribution (top venues by paper count)."""
@@ -156,8 +153,7 @@ class FacetService:
         query = self._apply_base_filter(query, base_filter)
         rows = await self.db.execute(query)
         return [
-            {"value": "yes" if r.has_ft else "no", "count": r.count}
-            for r in rows.all()
+            {"value": "yes" if r.has_ft else "no", "count": r.count} for r in rows.all()
         ]
 
     async def _facet_sjr_quartile(self, base_filter: dict | None) -> list[dict]:
@@ -199,20 +195,20 @@ class FacetService:
             return query
         if base_filter.get("year_from"):
             from datetime import date
+
             query = query.where(
                 Paper.published_at >= date(base_filter["year_from"], 1, 1)
             )
         if base_filter.get("year_to"):
             from datetime import date
+
             query = query.where(
                 Paper.published_at <= date(base_filter["year_to"], 12, 31)
             )
         if base_filter.get("oa_status"):
             query = query.where(Paper.oa_status == base_filter["oa_status"])
         if base_filter.get("has_full_text") is not None:
-            query = query.where(
-                Paper.has_full_text == base_filter["has_full_text"]
-            )
+            query = query.where(Paper.has_full_text == base_filter["has_full_text"])
         if base_filter.get("paper_type"):
             query = query.where(Paper.paper_type == base_filter["paper_type"])
         return query
@@ -254,19 +250,19 @@ class FilteredQueryService:
         """
         filters = filters or {}
         query = select(Paper).where(Paper.deleted_at.is_(None))
-        count_query = (
-            select(func.count(Paper.id)).where(Paper.deleted_at.is_(None))
-        )
+        count_query = select(func.count(Paper.id)).where(Paper.deleted_at.is_(None))
 
         # --- Apply filters ---
         if filters.get("year_from"):
             from datetime import date
+
             cond = Paper.published_at >= date(filters["year_from"], 1, 1)
             query = query.where(cond)
             count_query = count_query.where(cond)
 
         if filters.get("year_to"):
             from datetime import date
+
             cond = Paper.published_at <= date(filters["year_to"], 12, 31)
             query = query.where(cond)
             count_query = count_query.where(cond)
@@ -298,6 +294,7 @@ class FilteredQueryService:
 
         if filters.get("keywords"):
             from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
             kw_conditions = [
                 Paper.keywords.cast(PG_JSONB).contains([kw])
                 for kw in filters["keywords"]

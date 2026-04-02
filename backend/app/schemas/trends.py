@@ -15,7 +15,7 @@ class KeywordTrendItem(BaseModel):
     keyword: str
     total_count: int
     growth_rate: float
-    trend: str          # "rising" | "stable" | "declining"
+    trend: str  # "rising" | "stable" | "declining"
     per_year: dict[str, int]
 
 

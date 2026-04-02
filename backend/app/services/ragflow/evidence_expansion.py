@@ -41,7 +41,10 @@ class EvidenceExpansionService:
 
         # 1. RETRIEVE — vector/keyword chunks from RAGFlow
         chunks = await self._retrieve(
-            query, collection_id, paper_id, top_k,
+            query,
+            collection_id,
+            paper_id,
+            top_k,
         )
         log.info("evidence_retrieved", chunk_count=len(chunks))
 
@@ -102,7 +105,8 @@ class EvidenceExpansionService:
             return []
 
     async def _expand_via_graph(
-        self, chunks: list[dict[str, Any]],
+        self,
+        chunks: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Expand top chunk papers via citation graph neighborhood."""
         from app.services.graph.citation_graph import CitationGraphService
@@ -110,9 +114,8 @@ class EvidenceExpansionService:
         graph = CitationGraphService(self.db)
         paper_ids: set[str] = set()
         for chunk in chunks[:5]:
-            pid = (
-                chunk.get("metadata", {}).get("paper_id")
-                or chunk.get("document_id", "")
+            pid = chunk.get("metadata", {}).get("paper_id") or chunk.get(
+                "document_id", ""
             )
             if pid:
                 paper_ids.add(pid)
@@ -123,13 +126,15 @@ class EvidenceExpansionService:
                 citations = await graph.get_citations(pid, direction="both", limit=10)
                 for direction in ("forward_citations", "backward_citations"):
                     for cite in citations.get(direction, []):
-                        expanded.append({
-                            "paper_id": cite.get("id", ""),
-                            "title": cite.get("title", ""),
-                            "year": cite.get("year"),
-                            "relation": direction.replace("_citations", ""),
-                            "source_paper_id": pid,
-                        })
+                        expanded.append(
+                            {
+                                "paper_id": cite.get("id", ""),
+                                "title": cite.get("title", ""),
+                                "year": cite.get("year"),
+                                "relation": direction.replace("_citations", ""),
+                                "source_paper_id": pid,
+                            }
+                        )
             except Exception:  # noqa: BLE001
                 continue
 

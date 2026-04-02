@@ -17,9 +17,9 @@ logger = structlog.get_logger(__name__)
 # Production: replace with Prometheus counter or a dedicated cost_events table.
 # ---------------------------------------------------------------------------
 
-_LLM_COST_BY_MODEL: dict[str, float] = {}   # model_name -> cumulative USD cost
-_LLM_CALLS_BY_MODEL: dict[str, int] = {}    # model_name -> call count
-_LLM_TOKENS_BY_MODEL: dict[str, int] = {}   # model_name -> prompt+completion tokens
+_LLM_COST_BY_MODEL: dict[str, float] = {}  # model_name -> cumulative USD cost
+_LLM_CALLS_BY_MODEL: dict[str, int] = {}  # model_name -> call count
+_LLM_TOKENS_BY_MODEL: dict[str, int] = {}  # model_name -> prompt+completion tokens
 
 
 def record_llm_usage(
@@ -70,11 +70,16 @@ class AdminService:
         queued_ids: list[str] = []
         for paper in papers:
             try:
-                from app.tasks.ingest_tasks import ingest_paper  # local to avoid circ. import
+                from app.tasks.ingest_tasks import (
+                    ingest_paper,
+                )  # local to avoid circ. import
+
                 ingest_paper.delay(str(paper.id), "doi" if paper.doi else "arxiv")
                 queued_ids.append(str(paper.id))
             except Exception as exc:  # noqa: BLE001
-                logger.warning("reprocess_queue_failed", paper_id=str(paper.id), error=str(exc))
+                logger.warning(
+                    "reprocess_queue_failed", paper_id=str(paper.id), error=str(exc)
+                )
 
         logger.info(
             "admin_reprocess_queued",
@@ -114,11 +119,13 @@ class AdminService:
             "total_llm_calls": total_calls,
             "total_tokens": total_tokens,
             "total_cost_usd": round(total_cost, 6),
-            "cost_per_paper_usd": round(total_cost / paper_count, 6) if paper_count else None,
+            "cost_per_paper_usd": (
+                round(total_cost / paper_count, 6) if paper_count else None
+            ),
             "paper_count": paper_count,
             "breakdown_by_model": breakdown,
             "note": "In-process counters reset on worker restart. "
-                    "Integrate Prometheus for persistence.",
+            "Integrate Prometheus for persistence.",
         }
 
     # ── Feature 26: Weekly Digest ────────────────────────────────────────────

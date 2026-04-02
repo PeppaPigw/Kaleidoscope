@@ -18,10 +18,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE userrole AS ENUM ('personal', 'member', 'reviewer', 'admin')")
+    op.execute(
+        "CREATE TYPE userrole AS ENUM ('personal', 'member', 'reviewer', 'admin')"
+    )
     op.create_table(
         "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa.Column(
+            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
+        ),
         sa.Column("email", sa.String(length=255), nullable=False, unique=True),
         sa.Column("username", sa.String(length=100), nullable=False, unique=True),
         sa.Column("hashed_password", sa.String(length=255), nullable=True),
@@ -31,9 +35,16 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'personal'"),
         ),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column(
+            "is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")
+        ),
         sa.Column("display_name", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     )

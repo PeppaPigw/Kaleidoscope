@@ -18,6 +18,18 @@ from app.dependencies import get_db
 router = APIRouter(prefix="/papers", tags=["content"])
 
 
+def _normalize_record_list(value: object) -> list[dict]:
+    """Return only list-shaped JSON records expected by the content response.
+
+    Historical data may contain MinerU layout dicts in `parsed_figures`.
+    The content API should degrade gracefully instead of crashing on those rows.
+    """
+    if not isinstance(value, list):
+        return []
+
+    return [item for item in value if isinstance(item, dict)]
+
+
 class ImportUrlRequest(BaseModel):
     url: str
     title: str | None = None
@@ -72,6 +84,8 @@ async def get_paper_content(
         raise HTTPException(status_code=404, detail="Paper not found")
 
     # Build content response with fallback chain
+    sections = _normalize_record_list(paper.parsed_sections)
+    figures = _normalize_record_list(paper.parsed_figures)
     md = paper.full_text_markdown or ""
     abs_len = len(paper.abstract or "")
 
@@ -83,10 +97,10 @@ async def get_paper_content(
         # No abstract reference — trust it if it's reasonably long
         markdown = md
         fmt = "markdown"
-    elif paper.parsed_sections:
+    elif sections:
         # Reconstruct from parsed_sections
         md_parts = []
-        for sec in paper.parsed_sections:
+        for sec in sections:
             level = sec.get("level", 1)
             heading = sec.get("title") or sec.get("heading", "")
             md_parts.append(f"{'#' * level} {heading}\n")
@@ -111,8 +125,8 @@ async def get_paper_content(
         format=fmt,
         remote_urls=paper.remote_urls,
         markdown_provenance=paper.markdown_provenance,
-        sections=paper.parsed_sections or [],
-        figures=paper.parsed_figures or [],
+        sections=sections,
+        figures=figures,
     )
 
 
@@ -151,7 +165,13 @@ async def import_from_url(
         doi=doi,
         source_type="remote",
         ingestion_status="importing",
-        remote_urls=[{"url": req.url, "source": "user_import", "type": "html" if req.is_html else "pdf"}],
+        remote_urls=[
+            {
+                "url": req.url,
+                "source": "user_import",
+                "type": "html" if req.is_html else "pdf",
+            }
+        ],
     )
     db.add(paper)
     await db.flush()
@@ -262,6 +282,92 @@ async def reparse_paper(
         markdown_length=parse_result.get("markdown_length"),
         sections=parse_result.get("sections"),
         references=parse_result.get("references"),
+    )
+
+
+class LabelResponse(BaseModel):
+    paper_id: str
+    labels: dict
+    labeled_at: str | None = None
+    text_source: str  # "full_text", "abstract_only", "unavailable"
+
+
+@router.get("/{paper_id}/labels", response_model=LabelResponse)
+async def get_paper_labels(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return existing taxonomy labels for a paper (does not trigger LLM call)."""
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if not paper.paper_labels:
+        raise HTTPException(
+            status_code=404,
+            detail="Labels not generated yet. POST to /labels to generate.",
+        )
+    return LabelResponse(
+        paper_id=str(paper.id),
+        labels=paper.paper_labels,
+        labeled_at=paper.paper_labels_at.isoformat() if paper.paper_labels_at else None,
+        text_source=(
+            "full_text"
+            if paper.has_full_text
+            else ("abstract_only" if paper.abstract else "unavailable")
+        ),
+    )
+
+
+@router.post("/{paper_id}/labels", response_model=LabelResponse)
+async def generate_paper_labels(
+    paper_id: uuid.UUID,
+    force: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate (or regenerate) taxonomy labels for a paper via LLM.
+
+    Uses full text when available, falls back to abstract.
+    Set ?force=true to re-label an already-labeled paper.
+    """
+    from app.models.paper import Paper
+    from app.services.analysis.labeling_service import LabelingService
+    from app.services.extraction.chunker import TextChunker
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    fulltext = TextChunker.prepare_paper_text(paper)
+    text_source = (
+        "full_text"
+        if (paper.has_full_text and len(fulltext) > len(paper.abstract or "") * 2)
+        else ("abstract_only" if paper.abstract else "unavailable")
+    )
+
+    svc = LabelingService(db)
+    try:
+        labels = await svc.label_paper(paper, force=force)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Labeling failed: {exc}")
+    finally:
+        await svc.close()
+
+    await db.commit()
+
+    return LabelResponse(
+        paper_id=str(paper.id),
+        labels=labels,
+        labeled_at=paper.paper_labels_at.isoformat() if paper.paper_labels_at else None,
+        text_source=text_source,
     )
 
 

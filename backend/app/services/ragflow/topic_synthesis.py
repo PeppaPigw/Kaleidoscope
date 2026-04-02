@@ -60,11 +60,13 @@ class TopicSynthesisService:
                     top_k=10,
                     expand_graph=True,
                 )
-                all_evidence.append({
-                    "query": q,
-                    "chunks": pack.get("chunks", [])[:5],
-                    "expanded_papers": pack.get("expanded_papers", [])[:10],
-                })
+                all_evidence.append(
+                    {
+                        "query": q,
+                        "chunks": pack.get("chunks", [])[:5],
+                        "expanded_papers": pack.get("expanded_papers", [])[:10],
+                    }
+                )
             except Exception as exc:  # noqa: BLE001
                 log.warning("seed_query_failed", query=q, error=str(exc))
 
@@ -73,7 +75,9 @@ class TopicSynthesisService:
         if topic_query:
             try:
                 result = await self.query_svc.ask_workspace(
-                    collection_id, topic_query, top_k=15,
+                    collection_id,
+                    topic_query,
+                    top_k=15,
                 )
                 main_answer = result.get("answer")
             except Exception as exc:  # noqa: BLE001
@@ -83,9 +87,8 @@ class TopicSynthesisService:
         paper_ids: set[str] = set()
         for ev in all_evidence:
             for chunk in ev.get("chunks", []):
-                pid = (
-                    chunk.get("metadata", {}).get("paper_id")
-                    or chunk.get("document_id", "")
+                pid = chunk.get("metadata", {}).get("paper_id") or chunk.get(
+                    "document_id", ""
                 )
                 if pid:
                     paper_ids.add(pid)

@@ -4,7 +4,13 @@ from app.models.alert import Alert, AlertRule, Digest
 from app.models.author import Author, Institution, PaperAuthor
 from app.models.base import Base
 from app.models.claim import Claim, EvidenceLink
-from app.models.collection import Collection, CollectionPaper, PaperTag, Tag, UserReadingStatus
+from app.models.collection import (
+    Collection,
+    CollectionPaper,
+    PaperTag,
+    Tag,
+    UserReadingStatus,
+)
 from app.models.feed import RSSFeed
 from app.models.governance import (
     AuditLog,

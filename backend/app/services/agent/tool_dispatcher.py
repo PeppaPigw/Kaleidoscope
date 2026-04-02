@@ -28,7 +28,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query text"},
-                "mode": {"type": "string", "enum": ["keyword", "semantic", "hybrid"], "default": "hybrid"},
+                "mode": {
+                    "type": "string",
+                    "enum": ["keyword", "semantic", "hybrid"],
+                    "default": "hybrid",
+                },
                 "limit": {"type": "integer", "default": 10, "maximum": 50},
             },
             "required": ["query"],
@@ -40,7 +44,10 @@ TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "identifier": {"type": "string", "description": "Paper ID, DOI, or arXiv ID"},
+                "identifier": {
+                    "type": "string",
+                    "description": "Paper ID, DOI, or arXiv ID",
+                },
             },
             "required": ["identifier"],
         },
@@ -52,7 +59,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "paper_id": {"type": "string", "description": "Paper ID"},
-                "direction": {"type": "string", "enum": ["forward", "backward", "both"], "default": "both"},
+                "direction": {
+                    "type": "string",
+                    "enum": ["forward", "backward", "both"],
+                    "default": "both",
+                },
                 "limit": {"type": "integer", "default": 20},
             },
             "required": ["paper_id"],
@@ -77,7 +88,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "paper_id": {"type": "string", "description": "Paper ID"},
-                "level": {"type": "string", "enum": ["tweet", "abstract", "executive", "detailed"], "default": "abstract"},
+                "level": {
+                    "type": "string",
+                    "enum": ["tweet", "abstract", "executive", "detailed"],
+                    "default": "abstract",
+                },
             },
             "required": ["paper_id"],
         },
@@ -89,7 +104,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "paper_id": {"type": "string", "description": "Paper ID"},
-                "extract_type": {"type": "string", "enum": ["highlights", "methods"], "default": "highlights"},
+                "extract_type": {
+                    "type": "string",
+                    "enum": ["highlights", "methods"],
+                    "default": "highlights",
+                },
             },
             "required": ["paper_id"],
         },
@@ -101,7 +120,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "paper_id": {"type": "string", "description": "Paper ID"},
-                "question": {"type": "string", "description": "Question to ask about the paper"},
+                "question": {
+                    "type": "string",
+                    "description": "Question to ask about the paper",
+                },
             },
             "required": ["paper_id", "question"],
         },
@@ -112,8 +134,15 @@ TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "paper_ids": {"type": "array", "items": {"type": "string"}, "description": "List of paper IDs"},
-                "question": {"type": "string", "description": "Question to ask across papers"},
+                "paper_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of paper IDs",
+                },
+                "question": {
+                    "type": "string",
+                    "description": "Question to ask across papers",
+                },
             },
             "required": ["paper_ids", "question"],
         },
@@ -124,8 +153,15 @@ TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "identifier": {"type": "string", "description": "DOI, arXiv ID, PMID, or URL"},
-                "identifier_type": {"type": "string", "enum": ["doi", "arxiv", "pmid", "url", "title"], "default": "doi"},
+                "identifier": {
+                    "type": "string",
+                    "description": "DOI, arXiv ID, PMID, or URL",
+                },
+                "identifier_type": {
+                    "type": "string",
+                    "enum": ["doi", "arxiv", "pmid", "url", "title"],
+                    "default": "doi",
+                },
             },
             "required": ["identifier"],
         },
@@ -145,7 +181,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "collection_id": {"type": "string", "description": "Collection ID"},
-                "paper_ids": {"type": "array", "items": {"type": "string"}, "description": "Paper IDs to add"},
+                "paper_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Paper IDs to add",
+                },
             },
             "required": ["collection_id", "paper_ids"],
         },
@@ -156,8 +196,16 @@ TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "paper_ids": {"type": "array", "items": {"type": "string"}, "description": "Paper IDs to export"},
-                "format": {"type": "string", "enum": ["bibtex", "ris", "csl_json"], "default": "bibtex"},
+                "paper_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Paper IDs to export",
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["bibtex", "ris", "csl_json"],
+                    "default": "bibtex",
+                },
             },
             "required": ["paper_ids"],
         },
@@ -169,7 +217,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "limit": {"type": "integer", "default": 20},
-                "status": {"type": "string", "enum": ["indexed", "enriched", "discovered"], "description": "Filter by ingestion status"},
+                "status": {
+                    "type": "string",
+                    "enum": ["indexed", "enriched", "discovered"],
+                    "description": "Filter by ingestion status",
+                },
             },
         },
     },
@@ -246,6 +298,7 @@ class ToolDispatcher:
 
     async def _handle_get_citations(self, args: dict) -> dict:
         from app.services.graph.citation_graph import CitationGraphService
+
         svc = CitationGraphService(self.db)
         return await svc.get_citations(
             args["paper_id"],
@@ -255,14 +308,17 @@ class ToolDispatcher:
 
     async def _handle_find_similar(self, args: dict) -> dict:
         from app.services.graph.citation_graph import RecommendationService
+
         svc = RecommendationService(self.db)
         results = await svc.recommend_similar(
-            args["paper_id"], limit=args.get("limit", 10),
+            args["paper_id"],
+            limit=args.get("limit", 10),
         )
         return {"similar_papers": results}
 
     async def _handle_summarize_paper(self, args: dict) -> dict:
         from app.services.extraction.summarizer import SummarizationService
+
         result = await self.db.execute(
             select(Paper).where(Paper.id == args["paper_id"])
         )
@@ -277,6 +333,7 @@ class ToolDispatcher:
 
     async def _handle_extract_info(self, args: dict) -> dict:
         from app.services.extraction.extractor import ExtractionService
+
         result = await self.db.execute(
             select(Paper).where(Paper.id == args["paper_id"])
         )
@@ -293,6 +350,7 @@ class ToolDispatcher:
 
     async def _handle_ask_paper(self, args: dict) -> dict:
         from app.services.extraction.qa_engine import PaperQAEngine
+
         svc = PaperQAEngine(self.db)
         try:
             result = await svc.ask(args["paper_id"], args["question"])
@@ -302,6 +360,7 @@ class ToolDispatcher:
 
     async def _handle_ask_papers(self, args: dict) -> dict:
         from app.services.extraction.qa_engine import PaperQAEngine
+
         svc = PaperQAEngine(self.db)
         try:
             result = await svc.ask_collection(args["paper_ids"], args["question"])
@@ -311,6 +370,7 @@ class ToolDispatcher:
 
     async def _handle_import_paper(self, args: dict) -> dict:
         from app.tasks.ingest_tasks import ingest_paper
+
         task = ingest_paper.delay(
             identifier=args["identifier"],
             id_type=args.get("identifier_type", "doi"),
@@ -319,6 +379,7 @@ class ToolDispatcher:
 
     async def _handle_list_collections(self, args: dict) -> dict:
         from app.services.collection_service import CollectionService
+
         svc = CollectionService(self.db)
         collections = await svc.list_collections()
         return {
@@ -330,15 +391,18 @@ class ToolDispatcher:
 
     async def _handle_add_to_collection(self, args: dict) -> dict:
         from app.services.collection_service import CollectionService
+
         svc = CollectionService(self.db)
         added = await svc.add_papers(
-            args["collection_id"], args["paper_ids"],
+            args["collection_id"],
+            args["paper_ids"],
         )
         await self.db.commit()
         return {"added": added}
 
     async def _handle_export_citations(self, args: dict) -> dict:
         from app.services.export_service import ExportService
+
         svc = ExportService(self.db)
         content = await svc.export_papers(
             args["paper_ids"],
@@ -374,4 +438,3 @@ class ToolDispatcher:
 
 # Backward compat alias
 MCPToolDispatcher = ToolDispatcher
-

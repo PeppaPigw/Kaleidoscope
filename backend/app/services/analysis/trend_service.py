@@ -39,9 +39,7 @@ class TopicService:
         elif sort_by == "trend":
             order = Topic.trend_direction.asc()
 
-        result = await self.db.execute(
-            select(Topic).order_by(order).limit(limit)
-        )
+        result = await self.db.execute(select(Topic).order_by(order).limit(limit))
         topics = result.scalars().all()
         return [
             {
@@ -57,16 +55,20 @@ class TopicService:
 
     async def get_topic(self, topic_id: str) -> dict | None:
         """Get topic detail with representative papers."""
-        result = await self.db.execute(
-            select(Topic).where(Topic.id == topic_id)
-        )
+        result = await self.db.execute(select(Topic).where(Topic.id == topic_id))
         topic = result.scalar_one_or_none()
         if not topic:
             return None
 
         # Get associated papers
         papers_result = await self.db.execute(
-            select(Paper.id, Paper.title, Paper.doi, Paper.published_at, PaperTopic.probability)
+            select(
+                Paper.id,
+                Paper.title,
+                Paper.doi,
+                Paper.published_at,
+                PaperTopic.probability,
+            )
             .join(PaperTopic, PaperTopic.paper_id == Paper.id)
             .where(PaperTopic.topic_id == topic_id, Paper.deleted_at.is_(None))
             .order_by(PaperTopic.probability.desc())
@@ -103,8 +105,9 @@ class TopicService:
 
         # 1. Load abstracts
         result = await self.db.execute(
-            select(Paper.id, Paper.abstract)
-            .where(Paper.deleted_at.is_(None), Paper.abstract.is_not(None))
+            select(Paper.id, Paper.abstract).where(
+                Paper.deleted_at.is_(None), Paper.abstract.is_not(None)
+            )
         )
         rows = result.all()
         if len(rows) < 20:
@@ -133,12 +136,8 @@ class TopicService:
             return {"status": "error", "reason": str(e)}
 
         # 3. Clear old topic assignments
-        await self.db.execute(
-            PaperTopic.__table__.delete()
-        )
-        await self.db.execute(
-            Topic.__table__.delete()
-        )
+        await self.db.execute(PaperTopic.__table__.delete())
+        await self.db.execute(Topic.__table__.delete())
 
         # 4. Create new topics and assignments
         topic_info = topic_model.get_topic_info()
@@ -154,9 +153,7 @@ class TopicService:
             keywords = [w for w, _ in (topic_words or [])[:10]]
 
             # Get representative doc indices
-            rep_indices = [
-                i for i, t in enumerate(topics_assigned) if t == bt_id
-            ][:5]
+            rep_indices = [i for i, t in enumerate(topics_assigned) if t == bt_id][:5]
             rep_docs = [paper_ids[i] for i in rep_indices]
 
             topic = Topic(
@@ -200,9 +197,7 @@ class TrendService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def hot_keywords(
-        self, top_k: int = 30, years_back: int = 3
-    ) -> list[dict]:
+    async def hot_keywords(self, top_k: int = 30, years_back: int = 3) -> list[dict]:
         """
         Discover hot keywords by frequency growth rate.
 
@@ -212,8 +207,7 @@ class TrendService:
         cutoff = date.today() - timedelta(days=years_back * 365)
 
         result = await self.db.execute(
-            select(Paper.keywords, Paper.published_at)
-            .where(
+            select(Paper.keywords, Paper.published_at).where(
                 Paper.deleted_at.is_(None),
                 Paper.keywords.is_not(None),
                 Paper.published_at >= cutoff,
@@ -255,13 +249,19 @@ class TrendService:
                 growth = (last_count - first_count) / first_count
 
             per_year = {y: year_counts[y].get(kw, 0) for y in years}
-            growth_data.append({
-                "keyword": kw,
-                "total_count": total,
-                "growth_rate": round(growth, 3),
-                "per_year": per_year,
-                "trend": "rising" if growth > 0.3 else "declining" if growth < -0.3 else "stable",
-            })
+            growth_data.append(
+                {
+                    "keyword": kw,
+                    "total_count": total,
+                    "growth_rate": round(growth, 3),
+                    "per_year": per_year,
+                    "trend": (
+                        "rising"
+                        if growth > 0.3
+                        else "declining" if growth < -0.3 else "stable"
+                    ),
+                }
+            )
 
         growth_data.sort(key=lambda x: x["growth_rate"], reverse=True)
         return growth_data[:top_k]
@@ -319,6 +319,7 @@ class TrendService:
         citation count relative to their age. Proxy score = citation_count / sqrt(years_old).
         """
         import math
+
         cutoff_old = date.today() - timedelta(days=5 * 365)
         cutoff_recent = date.today() - timedelta(days=2 * 365)
 
@@ -337,20 +338,25 @@ class TrendService:
         papers = result.scalars().all()
         results = []
         for p in papers:
-            years_old = (date.today() - p.published_at).days // 365 if p.published_at else None
+            years_old = (
+                (date.today() - p.published_at).days // 365 if p.published_at else None
+            )
             proxy = (
                 round(p.citation_count / math.sqrt(max(years_old, 1)), 2)
-                if years_old and years_old > 0 else None
+                if years_old and years_old > 0
+                else None
             )
-            results.append({
-                "id": str(p.id),
-                "title": p.title,
-                "doi": p.doi,
-                "published_at": str(p.published_at) if p.published_at else None,
-                "citation_count": p.citation_count,
-                "years_old": years_old,
-                "proxy_score": proxy,
-            })
+            results.append(
+                {
+                    "id": str(p.id),
+                    "title": p.title,
+                    "doi": p.doi,
+                    "published_at": str(p.published_at) if p.published_at else None,
+                    "citation_count": p.citation_count,
+                    "years_old": years_old,
+                    "proxy_score": proxy,
+                }
+            )
 
         results.sort(key=lambda x: (x["proxy_score"] or 0), reverse=True)
         return results[:top_k]
@@ -370,8 +376,7 @@ class TrendService:
         cutoff = date.today() - timedelta(days=years_back * 365)
 
         result = await self.db.execute(
-            select(Paper.keywords, Paper.published_at)
-            .where(
+            select(Paper.keywords, Paper.published_at).where(
                 Paper.deleted_at.is_(None),
                 Paper.keywords.is_not(None),
                 Paper.published_at >= cutoff,
@@ -418,8 +423,7 @@ class TrendService:
         cutoff = date.today() - timedelta(days=years_back * 365)
 
         result = await self.db.execute(
-            select(Paper.keywords)
-            .where(
+            select(Paper.keywords).where(
                 Paper.deleted_at.is_(None),
                 Paper.keywords.is_not(None),
                 Paper.published_at >= cutoff,
@@ -432,7 +436,11 @@ class TrendService:
         for (kw_list,) in result.all():
             if not isinstance(kw_list, list):
                 continue
-            normalized = [kw.lower().strip() for kw in kw_list if isinstance(kw, str) and kw.strip()]
+            normalized = [
+                kw.lower().strip()
+                for kw in kw_list
+                if isinstance(kw, str) and kw.strip()
+            ]
             all_keyword_lists.append(normalized)
             freq.update(normalized)
 
@@ -455,4 +463,3 @@ class TrendService:
             "edges": edges,
             "total_papers_analyzed": len(all_keyword_lists),
         }
-

@@ -58,14 +58,16 @@ async def _event_stream(
     heartbeat_interval: int,
 ) -> AsyncGenerator[str, None]:
     """Yield SSE-formatted messages until the client disconnects."""
-    yield "data: {\"type\": \"connected\"}\n\n"
+    yield 'data: {"type": "connected"}\n\n'
     try:
         while True:
             # Check for client disconnect on each loop
             if await request.is_disconnected():
                 break
             try:
-                message = await asyncio.wait_for(queue.get(), timeout=heartbeat_interval)
+                message = await asyncio.wait_for(
+                    queue.get(), timeout=heartbeat_interval
+                )
                 payload = json.dumps(message, default=str)
                 yield f"data: {payload}\n\n"
             except asyncio.TimeoutError:
@@ -127,9 +129,7 @@ async def recent_events(
     Clients can call this on reconnect to catch up on missed events.
     """
     result = await db.execute(
-        select(AuditLog)
-        .order_by(AuditLog.created_at.desc())
-        .limit(limit)
+        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
     )
     entries = result.scalars().all()
     return {

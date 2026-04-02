@@ -1,13 +1,24 @@
 <script setup lang="ts">
 // Default layout — sidebar + topbar chrome
+const route = useRoute()
+
+const hideTopbar = computed(() => route.meta.hideTopbar === true)
+const isFlushContent = computed(() => route.meta.flushContent === true)
 </script>
 
 <template>
   <div class="ks-layout">
     <LayoutAppSidebar />
     <div class="ks-layout__main">
-      <LayoutAppTopbar />
-      <main class="ks-layout__content">
+      <LayoutAppTopbar v-if="!hideTopbar" />
+      <main
+        :class="[
+          'ks-layout__content',
+          {
+            'ks-layout__content--flush': isFlushContent,
+          },
+        ]"
+      >
         <slot />
       </main>
     </div>
@@ -38,9 +49,21 @@
   padding: 28px 36px;
 }
 
+.ks-layout__content--flush {
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: none;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
 @media (max-width: 1280px) {
   .ks-layout__content {
     padding: 24px 28px;
+  }
+
+  .ks-layout__content--flush {
+    padding: 8px 10px;
   }
 }
 
@@ -51,6 +74,10 @@
 
   .ks-layout__content {
     padding: 16px 24px;
+  }
+
+  .ks-layout__content--flush {
+    padding: 6px 8px;
   }
 }
 </style>

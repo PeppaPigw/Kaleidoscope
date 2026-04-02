@@ -265,7 +265,9 @@ async def test_workspace_ask_disabled_before_collection_lookup():
 
     collection_id = uuid4()
     db = MagicMock()
-    db.execute = AsyncMock(side_effect=AssertionError("collection lookup should not run"))
+    db.execute = AsyncMock(
+        side_effect=AssertionError("collection lookup should not run")
+    )
 
     async def mock_db():
         yield db

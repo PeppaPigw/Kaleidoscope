@@ -128,7 +128,7 @@ def extract_doi_from_url(url: str) -> str | None:
     if doi_match:
         doi = doi_match.group(0)
         # Clean trailing punctuation
-        doi = doi.rstrip('.,;:)]\'"')
+        doi = doi.rstrip(".,;:)]'\"")
         return normalize_doi(doi)
 
     # Nature articles: nature.com/articles/{suffix}

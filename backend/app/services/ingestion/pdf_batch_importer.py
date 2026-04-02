@@ -99,9 +99,7 @@ class PDFBatchImporter:
             "match_type": None,
         }
 
-    async def import_zip(
-        self, zip_content: bytes, user_id: str | None = None
-    ) -> dict:
+    async def import_zip(self, zip_content: bytes, user_id: str | None = None) -> dict:
         """
         Import a ZIP archive of PDFs.
 
@@ -113,7 +111,8 @@ class PDFBatchImporter:
         try:
             with zipfile.ZipFile(io.BytesIO(zip_content)) as zf:
                 pdf_names = [
-                    n for n in zf.namelist()
+                    n
+                    for n in zf.namelist()
                     if n.lower().endswith(".pdf") and not n.startswith("__MACOSX")
                 ]
 
@@ -145,9 +144,7 @@ class PDFBatchImporter:
             "error_details": errors,
         }
 
-    async def check_duplicates(
-        self, paper_ids: list[str] | None = None
-    ) -> list[dict]:
+    async def check_duplicates(self, paper_ids: list[str] | None = None) -> list[dict]:
         """
         Scan for duplicate papers in the library.
 
@@ -166,18 +163,21 @@ class PDFBatchImporter:
         )
         for row in doi_dupes.all():
             papers_result = await self.db.execute(
-                select(Paper.id, Paper.title, Paper.doi)
-                .where(Paper.doi == row.doi, Paper.deleted_at.is_(None))
+                select(Paper.id, Paper.title, Paper.doi).where(
+                    Paper.doi == row.doi, Paper.deleted_at.is_(None)
+                )
             )
             papers = [
                 {"id": str(p.id), "title": p.title, "doi": p.doi}
                 for p in papers_result.all()
             ]
-            groups.append({
-                "match_type": "doi_exact",
-                "match_value": row.doi,
-                "papers": papers,
-            })
+            groups.append(
+                {
+                    "match_type": "doi_exact",
+                    "match_value": row.doi,
+                    "papers": papers,
+                }
+            )
 
         # 2. Title-based duplicates (exact lowercase match)
         title_dupes = await self.db.execute(
@@ -191,8 +191,7 @@ class PDFBatchImporter:
         )
         for row in title_dupes.all():
             papers_result = await self.db.execute(
-                select(Paper.id, Paper.title, Paper.doi)
-                .where(
+                select(Paper.id, Paper.title, Paper.doi).where(
                     func.lower(Paper.title) == row.ltitle,
                     Paper.deleted_at.is_(None),
                 )
@@ -207,11 +206,13 @@ class PDFBatchImporter:
                 and set(p["id"] for p in g["papers"]) == set(p["id"] for p in papers)
                 for g in groups
             ):
-                groups.append({
-                    "match_type": "title_exact",
-                    "match_value": row.ltitle,
-                    "papers": papers,
-                })
+                groups.append(
+                    {
+                        "match_type": "title_exact",
+                        "match_value": row.ltitle,
+                        "papers": papers,
+                    }
+                )
 
         return groups
 
@@ -220,18 +221,20 @@ class PDFBatchImporter:
         base = select(func.count(Paper.id)).where(Paper.deleted_at.is_(None))
 
         total = (await self.db.execute(base)).scalar() or 0
-        local = (await self.db.execute(
-            base.where(Paper.source_type.in_(["local_upload", "local_folder"]))
-        )).scalar() or 0
-        with_fulltext = (await self.db.execute(
-            base.where(Paper.has_full_text == True)
-        )).scalar() or 0
-        parsed = (await self.db.execute(
-            base.where(Paper.ingestion_status == "parsed")
-        )).scalar() or 0
-        indexed = (await self.db.execute(
-            base.where(Paper.ingestion_status == "indexed")
-        )).scalar() or 0
+        local = (
+            await self.db.execute(
+                base.where(Paper.source_type.in_(["local_upload", "local_folder"]))
+            )
+        ).scalar() or 0
+        with_fulltext = (
+            await self.db.execute(base.where(Paper.has_full_text == True))
+        ).scalar() or 0
+        parsed = (
+            await self.db.execute(base.where(Paper.ingestion_status == "parsed"))
+        ).scalar() or 0
+        indexed = (
+            await self.db.execute(base.where(Paper.ingestion_status == "indexed"))
+        ).scalar() or 0
 
         return {
             "total_papers": total,
@@ -248,19 +251,20 @@ class PDFBatchImporter:
         """Find existing paper by content hash (stored in raw_metadata)."""
         # Use JSONB containment query
         from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
         result = await self.db.execute(
-            select(Paper).where(
+            select(Paper)
+            .where(
                 Paper.raw_metadata.cast(PG_JSONB).contains(
                     {"content_hash": content_hash}
                 ),
                 Paper.deleted_at.is_(None),
-            ).limit(1)
+            )
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
-    async def _store_pdf(
-        self, paper_id: str, filename: str, content: bytes
-    ) -> str:
+    async def _store_pdf(self, paper_id: str, filename: str, content: bytes) -> str:
         """
         Store PDF to the same location used by PDFDownloaderService.
 
@@ -269,6 +273,7 @@ class PDFBatchImporter:
         during the parse task.
         """
         from app.services.ingestion.pdf_downloader import PDFDownloaderService
+
         object_key = f"papers/{paper_id}/local_upload.pdf"
         PDFDownloaderService._persist_content(object_key, content)
         return object_key

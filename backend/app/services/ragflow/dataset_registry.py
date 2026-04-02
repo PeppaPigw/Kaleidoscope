@@ -1,4 +1,5 @@
 """RAGFlow dataset/document registry model and service."""
+
 # mypy: disable-error-code="misc"
 
 from __future__ import annotations
@@ -40,8 +41,12 @@ class RagflowDocumentMapping(Base):
     ragflow_dataset_id: Mapped[str] = mapped_column(String(255), nullable=False)
     ragflow_document_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sync_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    parse_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parse_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending"
+    )
+    synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

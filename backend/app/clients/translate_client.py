@@ -148,10 +148,7 @@ class TranslateClient:
             return_exceptions=True,
         )
 
-        return [
-            r if isinstance(r, str) else ""
-            for r in results
-        ]
+        return [r if isinstance(r, str) else "" for r in results]
 
     async def close(self) -> None:
         """Close the HTTP client."""

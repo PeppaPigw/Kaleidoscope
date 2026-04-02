@@ -2,10 +2,12 @@
 /**
  * MarkdownCanvas — renders paper full-text as styled markdown.
  *
- * Renders pre-fetched paper markdown with a table of contents sidebar
- * navigation. The page owns the API request so content is fetched once.
+ * Renders pre-fetched paper markdown through a full remark/rehype pipeline.
+ * The page owns the API request so content is fetched once.
  */
 import type { PaperContent } from '~/composables/useApi'
+import type { RenderedMarkdownHeading } from '../../utils/markdown'
+import { renderPaperMarkdown } from '../../utils/markdown'
 
 export interface MarkdownCanvasProps {
   title: string
@@ -15,104 +17,179 @@ export interface MarkdownCanvasProps {
 }
 
 const props = defineProps<MarkdownCanvasProps>()
-const uid = useId()
+const emit = defineEmits<{
+  outlineChange: [headings: RenderedMarkdownHeading[]]
+  activeHeadingChange: [headingId: string | null]
+}>()
 
 const fontSize = ref(16)
-const activeSection = ref('')
 const content = computed(() => props.content)
 const pending = computed(() => props.pending ?? false)
 const errorMessage = computed(() => props.error ?? null)
+const renderPending = ref(false)
+const renderError = ref<string | null>(null)
+const renderedHtml = ref('')
+const contentFormat = computed(() => content.value?.format ?? 'unknown')
+const displayError = computed(() => errorMessage.value || renderError.value)
+const busy = computed(() => pending.value || renderPending.value)
+const contentRef = ref<HTMLElement | null>(null)
+const renderedRef = ref<HTMLElement | null>(null)
 
-// Parse table of contents from sections
-const toc = computed(() => {
-  if (!content.value) return []
-  const sections = (content.value as any)?.sections || []
-  return sections.map((s: any, i: number) => ({
-    id: `section-${i}`,
-    title: s.title || 'Untitled',
-    level: s.level || 1,
-  }))
-})
+let trackedScrollContainer: HTMLElement | null = null
+let syncFrameId: number | null = null
 
-// Convert raw markdown to HTML segments per section
-const renderedSections = computed(() => {
-  if (!content.value) return []
-  const md = (content.value as any)?.markdown || ''
-  const sections = (content.value as any)?.sections || []
-
-  if (!sections.length) {
-    // No sections — render whole document
-    return [{
-      id: 'section-full',
-      title: props.title,
-      level: 1,
-      html: markdownToHtml(md),
-    }]
-  }
-
-  return sections.map((s: any, i: number) => ({
-    id: `section-${i}`,
-    title: s.title || 'Untitled',
-    level: s.level || 1,
-    html: markdownToHtml(
-      (s.paragraphs || []).join('\n\n')
-    ),
-  }))
-})
-
-const contentFormat = computed(() => (content.value as any)?.format || 'unknown')
-
-/**
- * Lightweight markdown→HTML converter for paper content.
- * Handles headers, bold, italic, links, code, lists, block quotes, images, tables.
- */
-function markdownToHtml(md: string): string {
-  let html = md
-    // Escape HTML entities
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Headers (already sections, so skip # lines)
-    .replace(/^#{1,6}\s+(.+)$/gm, '<h4 class="ks-mc__subhead">$1</h4>')
-    // Bold
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code class="ks-mc__inline-code">$1</code>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Images
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<figure class="ks-mc__figure"><img src="$2" alt="$1" loading="lazy" /><figcaption>$1</figcaption></figure>')
-    // Block quotes
-    .replace(/^>\s+(.+)$/gm, '<blockquote class="ks-mc__blockquote">$1</blockquote>')
-    // Unordered lists
-    .replace(/^[-*]\s+(.+)$/gm, '<li class="ks-mc__li">$1</li>')
-    // Math blocks (LaTeX $...$)
-    .replace(/\$\$([^$]+)\$\$/g, '<div class="ks-mc__math">$1</div>')
-    .replace(/\$([^$]+)\$/g, '<span class="ks-mc__math-inline">$1</span>')
-    // Paragraphs (double newlines)
-    .replace(/\n\n/g, '</p><p class="ks-mc__para">')
-
-  // Wrap in paragraph tags
-  html = `<p class="ks-mc__para">${html}</p>`
-  // Clean up empty paragraphs
-  html = html.replace(/<p class="ks-mc__para"><\/p>/g, '')
-
-  return html
+function getHeadingElements(): HTMLElement[] {
+  return Array.from(
+    renderedRef.value?.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]') ?? [],
+  )
 }
 
-function scrollToSection(sectionId: string) {
-  activeSection.value = sectionId
-  const el = document.getElementById(sectionId)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+function syncActiveHeading() {
+  syncFrameId = null
+
+  if (busy.value || !contentRef.value) {
+    emit('activeHeadingChange', null)
+    return
+  }
+
+  const headings = getHeadingElements()
+  if (headings.length === 0) {
+    emit('activeHeadingChange', null)
+    return
+  }
+
+  const containerTop = contentRef.value.getBoundingClientRect().top
+  const activationOffset = 96
+  let activeHeading = headings[0] ?? null
+
+  for (const heading of headings) {
+    const offsetFromTop = heading.getBoundingClientRect().top - containerTop
+    if (offsetFromTop <= activationOffset)
+      activeHeading = heading
+    else
+      break
+  }
+
+  emit('activeHeadingChange', activeHeading?.id ?? null)
+}
+
+function scheduleActiveHeadingSync() {
+  if (syncFrameId !== null)
+    return
+
+  syncFrameId = window.requestAnimationFrame(syncActiveHeading)
+}
+
+function detachScrollTracking() {
+  if (trackedScrollContainer) {
+    trackedScrollContainer.removeEventListener('scroll', scheduleActiveHeadingSync)
+    trackedScrollContainer = null
   }
 }
+
+function attachScrollTracking() {
+  detachScrollTracking()
+
+  if (!contentRef.value || busy.value)
+    return
+
+  trackedScrollContainer = contentRef.value
+  trackedScrollContainer.addEventListener('scroll', scheduleActiveHeadingSync, { passive: true })
+}
+
+watch(
+  () => ({
+    markdown: content.value?.markdown ?? '',
+    sections: content.value?.sections ?? [],
+  }),
+  async (payload, _previous, onCleanup) => {
+    let cancelled = false
+    onCleanup(() => {
+      cancelled = true
+    })
+
+    if (!content.value) {
+      renderedHtml.value = ''
+      renderError.value = null
+      emit('outlineChange', [])
+      return
+    }
+
+    renderPending.value = true
+    renderError.value = null
+
+    try {
+      const rendered = await renderPaperMarkdown(payload.markdown, {
+        title: props.title,
+        sections: payload.sections,
+      })
+
+      if (cancelled)
+        return
+
+      renderedHtml.value = rendered.html
+      emit('outlineChange', rendered.headings)
+    }
+    catch (error) {
+      if (cancelled)
+        return
+
+      renderedHtml.value = ''
+      renderError.value = error instanceof Error
+        ? error.message
+        : 'Failed to render paper content'
+      emit('outlineChange', [])
+    }
+    finally {
+      if (!cancelled)
+        renderPending.value = false
+    }
+  },
+  { immediate: true, deep: true },
+)
+
+watch(
+  () => renderedHtml.value,
+  async () => {
+    await nextTick()
+    attachScrollTracking()
+    scheduleActiveHeadingSync()
+  },
+  { flush: 'post' },
+)
+
+watch(fontSize, async () => {
+  await nextTick()
+  scheduleActiveHeadingSync()
+})
+
+watch(busy, async (isBusy) => {
+  if (isBusy) {
+    detachScrollTracking()
+    emit('activeHeadingChange', null)
+    return
+  }
+
+  await nextTick()
+  attachScrollTracking()
+  scheduleActiveHeadingSync()
+})
+
+onMounted(() => {
+  window.addEventListener('resize', scheduleActiveHeadingSync)
+})
+
+onBeforeUnmount(() => {
+  detachScrollTracking()
+  window.removeEventListener('resize', scheduleActiveHeadingSync)
+
+  if (syncFrameId !== null)
+    window.cancelAnimationFrame(syncFrameId)
+})
 </script>
 
 <template>
-  <div class="ks-mc" :aria-labelledby="`${uid}-title`">
+  <div class="ks-mc" :aria-label="`Paper content for ${title}`">
     <!-- Toolbar -->
     <div class="ks-mc__toolbar">
       <div class="ks-mc__meta">
@@ -128,33 +205,29 @@ function scrollToSection(sectionId: string) {
     </div>
 
     <!-- Loading -->
-    <div v-if="pending" class="ks-mc__loading">
+    <div v-if="busy" class="ks-mc__loading">
       <KsSkeleton height="400px" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="errorMessage" class="ks-mc__error">
-      <KsErrorAlert :message="errorMessage || 'Failed to load paper content'" />
+    <div v-else-if="displayError" class="ks-mc__error">
+      <KsErrorAlert :message="displayError || 'Failed to load paper content'" />
     </div>
 
     <!-- Content -->
-    <div v-else class="ks-mc__content" :style="{ fontSize: `${fontSize}px` }">
+    <div
+      v-else
+      ref="contentRef"
+      class="ks-mc__content"
+      :style="{ fontSize: `${fontSize}px` }"
+    >
       <article class="ks-mc__article">
-        <h1 :id="`${uid}-title`" class="ks-mc__title">{{ title }}</h1>
-
-        <template v-for="section in renderedSections" :key="section.id">
-          <section :id="section.id" class="ks-mc__section" :data-level="section.level">
-            <component
-              :is="`h${Math.min(section.level + 1, 6)}`"
-              class="ks-mc__section-heading"
-              :class="`ks-mc__section-heading--l${section.level}`"
-            >
-              {{ section.title }}
-            </component>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="ks-mc__section-body" v-html="section.html" />
-          </section>
-        </template>
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div
+          ref="renderedRef"
+          class="ks-mc__rendered ks-prose"
+          v-html="renderedHtml"
+        />
       </article>
     </div>
   </div>
@@ -164,6 +237,8 @@ function scrollToSection(sectionId: string) {
 .ks-mc {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   overflow: hidden;
@@ -174,9 +249,13 @@ function scrollToSection(sectionId: string) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--color-border);
   background: rgba(250, 250, 247, 0.6);
+  backdrop-filter: blur(8px);
 }
 
 .ks-mc__meta {
@@ -217,140 +296,171 @@ function scrollToSection(sectionId: string) {
 
 .ks-mc__loading,
 .ks-mc__error {
-  padding: 32px;
-  min-height: 400px;
+  padding: 24px;
+  min-height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .ks-mc__content {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(100vh - 200px);
-  padding: 32px 48px 64px;
+  padding: 14px 26px 32px;
   line-height: 1.75;
 }
 
 .ks-mc__article {
-  max-width: 720px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
-.ks-mc__title {
-  font: 700 1.75rem / 1.25 var(--font-serif);
-  color: var(--color-text);
-  margin-bottom: 32px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--color-primary);
+.ks-mc__rendered.ks-prose {
+  width: 100%;
+  max-width: none;
 }
 
-.ks-mc__section {
-  margin-bottom: 24px;
-}
-
-.ks-mc__section-heading {
-  font-family: var(--font-serif);
-  color: var(--color-text);
-  margin: 24px 0 12px;
+.ks-mc__rendered :deep(h1),
+.ks-mc__rendered :deep(h2),
+.ks-mc__rendered :deep(h3),
+.ks-mc__rendered :deep(h4),
+.ks-mc__rendered :deep(h5),
+.ks-mc__rendered :deep(h6) {
   scroll-margin-top: 80px;
 }
 
-.ks-mc__section-heading--l1 {
-  font-size: 1.4em;
-  font-weight: 700;
+.ks-mc__rendered :deep(h1) {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.ks-mc__rendered :deep(h2) {
   border-bottom: 1px solid var(--color-border);
-  padding-bottom: 6px;
-}
-.ks-mc__section-heading--l2 {
-  font-size: 1.15em;
-  font-weight: 600;
-}
-.ks-mc__section-heading--l3 {
-  font-size: 1em;
-  font-weight: 600;
-  color: var(--color-secondary);
+  padding-bottom: 0.35rem;
 }
 
-.ks-mc__section-body :deep(.ks-mc__para) {
-  margin: 0 0 14px;
-  font-family: var(--font-body);
-  color: var(--color-text);
+.ks-mc__rendered :deep(pre) {
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  overflow-x: auto;
 }
 
-.ks-mc__section-body :deep(.ks-mc__subhead) {
-  font: 600 1em / 1.3 var(--font-serif);
-  margin: 18px 0 8px;
-  color: var(--color-text);
+.ks-mc__rendered :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
-.ks-mc__section-body :deep(.ks-mc__inline-code) {
+.ks-mc__rendered :deep(code) {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  background: var(--color-surface);
-  padding: 2px 5px;
-  border-radius: 3px;
 }
 
-.ks-mc__section-body :deep(.ks-mc__blockquote) {
+.ks-mc__rendered :deep(blockquote) {
   border-left: 3px solid var(--color-primary);
   padding-left: 16px;
-  margin: 12px 0;
+  margin: 1.25rem 0;
   color: var(--color-secondary);
   font-style: italic;
 }
 
-.ks-mc__section-body :deep(.ks-mc__figure) {
-  text-align: center;
-  margin: 20px 0;
-}
-.ks-mc__section-body :deep(.ks-mc__figure img) {
-  max-width: 100%;
+.ks-mc__rendered :deep(img) {
+  display: block;
+  width: auto;
+  max-width: min(100%, 56rem);
+  max-height: min(70vh, 40rem);
+  height: auto;
+  object-fit: contain;
+  margin: 1.5rem auto;
   border-radius: var(--radius-card);
-}
-.ks-mc__section-body :deep(.ks-mc__figure figcaption) {
-  font: 400 0.85em / 1.3 var(--font-body);
-  color: var(--color-secondary);
-  margin-top: 6px;
 }
 
-.ks-mc__section-body :deep(.ks-mc__math) {
+.ks-mc__rendered :deep(figure) {
+  margin: 1.5rem 0;
+}
+
+.ks-mc__rendered :deep(figcaption) {
+  font: 400 0.85em / 1.4 var(--font-serif);
+  color: var(--color-secondary);
+  margin-top: 6px;
   text-align: center;
-  font-family: var(--font-mono);
-  padding: 12px;
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
-  margin: 12px 0;
+}
+
+.ks-mc__rendered :deep(table) {
+  width: 100%;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  display: block;
   overflow-x: auto;
 }
 
-.ks-mc__section-body :deep(.ks-mc__math-inline) {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-}
-
-.ks-mc__section-body :deep(.ks-mc__li) {
-  display: list-item;
-  margin-left: 24px;
-  list-style: disc;
-  margin-bottom: 4px;
-}
-
-.ks-mc__section-body :deep(a) {
-  color: var(--color-primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.ks-mc__section-body :deep(a:hover) {
-  opacity: 0.8;
-}
-
-.ks-mc__section-body :deep(strong) {
+.ks-mc__rendered :deep(thead th) {
+  background: var(--color-surface);
   font-weight: 600;
+}
+
+.ks-mc__rendered :deep(th),
+.ks-mc__rendered :deep(td) {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ks-mc__rendered :deep(ul),
+.ks-mc__rendered :deep(ol) {
+  margin: 1rem 0 1.25rem 1.5rem;
+  padding: 0;
+}
+
+.ks-mc__rendered :deep(li + li) {
+  margin-top: 0.35rem;
+}
+
+.ks-mc__rendered :deep(hr) {
+  margin: 2rem 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.ks-mc__rendered :deep(mjx-container[jax='SVG']:not([display='true'])) {
+  display: inline-block;
+  margin: 0;
+  white-space: nowrap;
+  overflow-x: visible;
+}
+
+.ks-mc__rendered :deep(mjx-container[jax='SVG'][display='true']) {
+  display: block;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  padding: 1rem 0.75rem;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-surface) 82%, white 18%);
+}
+
+.ks-mc__rendered :deep(header p) {
+  width: 100%;
+  max-width: none;
+}
+
+.ks-mc__rendered :deep(.footnotes) {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 768px) {
   .ks-mc__content {
-    padding: 16px;
+    padding: 10px 14px 20px;
   }
 }
 </style>

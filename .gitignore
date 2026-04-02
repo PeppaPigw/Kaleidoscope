@@ -58,3 +58,4 @@ skills/
 AGENTS.md
 
 docs/
+.playwright-cli/.playwright-cli

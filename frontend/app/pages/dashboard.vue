@@ -128,14 +128,26 @@ onMounted(async () => {
   // Wire reading shelf picks to newest papers
   try {
     const papersResp = await listPapers({ limit: 6, offset: 0 })
-    readingPicks.value = (papersResp.items ?? []).map(p => ({
-      id: p.id,
-      eyebrow: p.reading_status ?? 'New',
-      title: p.title,
-      venue: p.keywords?.slice(0, 2).join(' · ') ?? '',
-      tags: p.has_full_text ? ['Full Text'] : [],
-      abstract: p.abstract ?? '',
-    }))
+    readingPicks.value = (papersResp.items ?? []).map((p) => {
+      const lbl = p.paper_labels
+      const labelTags: string[] = lbl
+        ? [
+            lbl.domain[0],
+            lbl.task[0],
+            lbl.method[0],
+            lbl.data_object[0],
+            lbl.application[0],
+          ].filter((v): v is string => Boolean(v))
+        : (p.has_full_text ? ['Full Text'] : [])
+      return {
+        id: p.id,
+        eyebrow: p.reading_status ?? 'New',
+        title: p.title,
+        venue: p.keywords?.slice(0, 2).join(' · ') ?? '',
+        tags: labelTags,
+        abstract: p.abstract ?? '',
+      }
+    })
   } catch {
     readingPicks.value = []
   }
@@ -174,7 +186,7 @@ const heroLead = computed(() => {
   if (analyticsOverview.value) {
     const wft = analyticsOverview.value.with_fulltext ?? 0
     const total = analyticsOverview.value.total_papers ?? 0
-    return `${wft} papers with full text · ${total} total indexed · powered by MinerU + Qwen3`
+    return `${wft} papers with full text · ${total} total indexed`
   }
   return 'Fetching your research library…'
 })

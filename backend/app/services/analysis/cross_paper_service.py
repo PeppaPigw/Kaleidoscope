@@ -72,14 +72,13 @@ class CrossPaperService:
     async def _get_llm(self):
         if self._llm_client is None:
             from app.clients.llm_client import LLMClient
+
             self._llm_client = LLMClient()
         return self._llm_client
 
     async def _load_papers(self, paper_ids: list[str]) -> list[Paper]:
         result = await self.db.execute(
-            select(Paper).where(
-                Paper.id.in_(paper_ids), Paper.deleted_at.is_(None)
-            )
+            select(Paper).where(Paper.id.in_(paper_ids), Paper.deleted_at.is_(None))
         )
         return list(result.scalars().all())
 
@@ -116,7 +115,9 @@ class CrossPaperService:
         )
 
         try:
-            response = await llm.complete(prompt=prompt, temperature=0.3, max_tokens=4096)
+            response = await llm.complete(
+                prompt=prompt, temperature=0.3, max_tokens=4096
+            )
             result = json.loads(response)
             return {
                 "topic": topic,
@@ -124,7 +125,11 @@ class CrossPaperService:
                 **result,
             }
         except json.JSONDecodeError:
-            return {"topic": topic, "paper_count": len(papers), "raw_synthesis": response}
+            return {
+                "topic": topic,
+                "paper_count": len(papers),
+                "raw_synthesis": response,
+            }
         except Exception as e:
             logger.error("synthesis_failed", error=str(e))
             return {"error": str(e)}
@@ -186,6 +191,7 @@ class CrossPaperService:
         if total_pg_edges < 2:
             try:
                 from app.graph_db import driver as neo4j_driver
+
                 pid_list = list(pid_set)
                 result = await neo4j_driver.run_query(
                     """
@@ -253,13 +259,22 @@ class CrossPaperService:
                     paper_map[pid].citation_count if pid in paper_map else None
                 ),
                 "published_at": (
-                    str(paper_map[pid].published_at) if pid in paper_map and paper_map[pid].published_at else None
+                    str(paper_map[pid].published_at)
+                    if pid in paper_map and paper_map[pid].published_at
+                    else None
                 ),
                 "rationale": (
-                    "foundational" if citation_counts.get(pid, 0) >= 3
-                    else "frequently cited" if citation_counts.get(pid, 0) >= 1
-                    else "high global impact" if has_edges is False and sort_key(pid) > 0
-                    else "included in set"
+                    "foundational"
+                    if citation_counts.get(pid, 0) >= 3
+                    else (
+                        "frequently cited"
+                        if citation_counts.get(pid, 0) >= 1
+                        else (
+                            "high global impact"
+                            if has_edges is False and sort_key(pid) > 0
+                            else "included in set"
+                        )
+                    )
                 ),
                 "signal": "graph" if has_edges else "citation_count",
             }
@@ -313,4 +328,3 @@ class CrossPaperService:
                 await self._llm_client.close()
             except Exception:
                 pass
-

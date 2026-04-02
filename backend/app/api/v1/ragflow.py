@@ -1,4 +1,5 @@
 """RAGFlow workspace Q&A and sync control API."""
+
 # mypy: disable-error-code="misc,untyped-decorator"
 
 from __future__ import annotations
@@ -14,7 +15,10 @@ from app.config import settings
 from app.dependencies import get_current_user_id, get_db
 from app.models.collection import Collection
 from app.models.paper import Paper
-from app.services.ragflow.dataset_registry import DatasetRegistryService, RagflowDocumentMapping
+from app.services.ragflow.dataset_registry import (
+    DatasetRegistryService,
+    RagflowDocumentMapping,
+)
 from app.services.ragflow.ragflow_client import RagflowClient
 from app.services.ragflow.ragflow_query_service import RagflowQueryService
 
@@ -98,12 +102,16 @@ async def ask_paper(
 async def get_sync_status(db: DbSession, _user_id: UserId) -> dict[str, Any]:
     """Return RAGFlow health, mapping counts, and freshness configuration."""
     total = await _count_mappings(db)
-    paper_count = await _count_mappings(db, RagflowDocumentMapping.paper_id.is_not(None))
+    paper_count = await _count_mappings(
+        db, RagflowDocumentMapping.paper_id.is_not(None)
+    )
     collection_count = await _count_mappings(
         db,
         RagflowDocumentMapping.collection_id.is_not(None),
     )
-    stale = await DatasetRegistryService(db).list_stale(settings.ragflow_sync_freshness_minutes)
+    stale = await DatasetRegistryService(db).list_stale(
+        settings.ragflow_sync_freshness_minutes
+    )
 
     health: dict[str, Any] | None = None
     if settings.ragflow_sync_enabled:
@@ -169,7 +177,9 @@ class SynthesisRequest(BaseModel):
 
 
 @sync_router.post("/query/route")
-async def routed_query(body: RoutedQueryRequest, db: DbSession, user_id: UserId) -> dict[str, Any]:
+async def routed_query(
+    body: RoutedQueryRequest, db: DbSession, user_id: UserId
+) -> dict[str, Any]:
     """Classify and route a query to the best retrieval backend."""
     # Validate ownership if scoped to a collection
     cid = body.collection_id
@@ -212,7 +222,9 @@ router.include_router(sync_router)
 
 
 async def _require_collection(
-    db: AsyncSession, collection_id: str, user_id: str | None = None,
+    db: AsyncSession,
+    collection_id: str,
+    user_id: str | None = None,
 ) -> Collection:
     """Raise 404 if the collection does not exist; 403 if not owned."""
     result = await db.execute(

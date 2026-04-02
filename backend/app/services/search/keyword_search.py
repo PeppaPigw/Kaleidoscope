@@ -81,7 +81,9 @@ class KeywordSearchService:
             if filters.get("oa_status"):
                 filter_parts.append(f'oa_status = "{filters["oa_status"]}"')
             if filters.get("has_full_text") is not None:
-                filter_parts.append(f"has_full_text = {str(filters['has_full_text']).lower()}")
+                filter_parts.append(
+                    f"has_full_text = {str(filters['has_full_text']).lower()}"
+                )
 
         search_params: dict = {
             "offset": (page - 1) * per_page,

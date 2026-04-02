@@ -14,12 +14,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 # ── Feature 9: Reprocess stale papers ───────────────────────────────────────
 
+
 @router.post("/reprocess")
 async def reprocess_papers(
     parser_version_lt: str | None = Query(
         None,
         description="Re-queue papers whose parser_version is below this value. "
-                    "Omit to re-queue papers with no parser_version at all.",
+        "Omit to re-queue papers with no parser_version at all.",
     ),
     limit: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -34,6 +35,7 @@ async def reprocess_papers(
 
 # ── Feature 35: LLM cost metering ───────────────────────────────────────────
 
+
 @router.get("/costs")
 async def get_llm_costs(db: AsyncSession = Depends(get_db)):
     """Return accumulated LLM call counts, token usage, and estimated costs."""
@@ -42,6 +44,7 @@ async def get_llm_costs(db: AsyncSession = Depends(get_db)):
 
 
 # ── Feature 26: Weekly digest ───────────────────────────────────────────────
+
 
 @router.get("/digest/weekly")
 async def get_weekly_digest(
@@ -55,6 +58,7 @@ async def get_weekly_digest(
 
 # ── Feature 7: Retraction check ─────────────────────────────────────────────
 
+
 @router.post("/papers/{paper_id}/retraction-check")
 async def retraction_check(
     paper_id: UUID,
@@ -66,6 +70,7 @@ async def retraction_check(
 
 
 # ── Feature 8: Field provenance ─────────────────────────────────────────────
+
 
 @router.get("/papers/{paper_id}/provenance")
 async def get_provenance(
@@ -79,6 +84,7 @@ async def get_provenance(
 
 
 # ── Feature 25: Library retraction stats ────────────────────────────────────
+
 
 @router.get("/retraction-stats")
 async def retraction_stats(
@@ -119,12 +125,14 @@ async def retraction_stats(
             retracted_count += 1
         elif status in ("error", "crossref_error"):
             error_count += 1
-        results.append({
-            "paper_id": str(paper.id),
-            "doi": paper.doi,
-            "is_retracted": check.get("is_retracted"),
-            "status": status,
-        })
+        results.append(
+            {
+                "paper_id": str(paper.id),
+                "doi": paper.doi,
+                "is_retracted": check.get("is_retracted"),
+                "status": status,
+            }
+        )
 
     return {
         "sample_size": len(results),

@@ -47,7 +47,9 @@ class ExtractionService:
         )
 
         result = await self.llm.complete_json(
-            prompt=prompt, system=EXTRACT_SYSTEM, max_tokens=2000,
+            prompt=prompt,
+            system=EXTRACT_SYSTEM,
+            max_tokens=2000,
         )
 
         # Store extracted data on paper
@@ -55,8 +57,11 @@ class ExtractionService:
         paper.contributions = result.get("contributions")
         paper.limitations = result.get("limitations")
 
-        logger.info("highlights_extracted", paper_id=str(paper.id),
-                     highlights=len(result.get("highlights", [])))
+        logger.info(
+            "highlights_extracted",
+            paper_id=str(paper.id),
+            highlights=len(result.get("highlights", [])),
+        )
         return result
 
     async def extract_methods(self, paper: Paper) -> dict:
@@ -81,12 +86,17 @@ class ExtractionService:
         )
 
         result = await self.llm.complete_json(
-            prompt=prompt, system=EXTRACT_SYSTEM, max_tokens=3000,
+            prompt=prompt,
+            system=EXTRACT_SYSTEM,
+            max_tokens=3000,
         )
 
-        logger.info("methods_extracted", paper_id=str(paper.id),
-                     methods=len(result.get("methods", [])),
-                     datasets=len(result.get("datasets", [])))
+        logger.info(
+            "methods_extracted",
+            paper_id=str(paper.id),
+            methods=len(result.get("methods", [])),
+            datasets=len(result.get("datasets", [])),
+        )
         return result
 
     async def close(self) -> None:

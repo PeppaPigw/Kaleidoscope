@@ -28,6 +28,7 @@ def _raise_analysis_error(result: dict) -> None:
 
 class CompareRequest(BaseModel):
     """Two papers to compare."""
+
     paper_id_a: str
     paper_id_b: str
 

@@ -20,16 +20,12 @@ class ExportService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def export_papers(
-        self, paper_ids: list[str], format: str = "bibtex"
-    ) -> str:
+    async def export_papers(self, paper_ids: list[str], format: str = "bibtex") -> str:
         """Export citations for the given papers in the requested format."""
         result = await self.db.execute(
             select(Paper)
             .where(Paper.id.in_(paper_ids))
-            .options(
-                selectinload(Paper.authors).selectinload(PaperAuthor.author)
-            )
+            .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
         )
         papers = list(result.scalars().all())
 
@@ -191,11 +187,13 @@ class ExportService:
 
             if paper.published_at:
                 item["issued"] = {
-                    "date-parts": [[
-                        paper.published_at.year,
-                        paper.published_at.month,
-                        paper.published_at.day,
-                    ]]
+                    "date-parts": [
+                        [
+                            paper.published_at.year,
+                            paper.published_at.month,
+                            paper.published_at.day,
+                        ]
+                    ]
                 }
 
             if paper.abstract:

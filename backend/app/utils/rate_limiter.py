@@ -52,8 +52,12 @@ class RateLimiter:
 
 # Pre-configured rate limiters for known APIs
 CROSSREF_LIMITER = RateLimiter(max_calls=50, period_seconds=1.0)
-OPENALEX_LIMITER = RateLimiter(max_calls=10, period_seconds=1.0)  # ~100k/day → ~1.2/s safe
+OPENALEX_LIMITER = RateLimiter(
+    max_calls=10, period_seconds=1.0
+)  # ~100k/day → ~1.2/s safe
 SEMANTIC_SCHOLAR_LIMITER = RateLimiter(max_calls=100, period_seconds=300.0)
+# Background-only limiter: uses at most 40% of S2 quota so foreground requests always get through
+SEMANTIC_SCHOLAR_BG_LIMITER = RateLimiter(max_calls=40, period_seconds=300.0)
 ARXIV_LIMITER = RateLimiter(max_calls=1, period_seconds=3.0)
 UNPAYWALL_LIMITER = RateLimiter(max_calls=10, period_seconds=1.0)
 PUBLISHER_LIMITER = RateLimiter(max_calls=1, period_seconds=5.0)

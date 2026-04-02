@@ -21,8 +21,11 @@ class QAResult:
     """Result of a QA query."""
 
     def __init__(
-        self, answer: str, sources: list[dict],
-        model: str = "", paper_id: str = "",
+        self,
+        answer: str,
+        sources: list[dict],
+        model: str = "",
+        paper_id: str = "",
     ):
         self.answer = answer
         self.sources = sources  # [{chunk_index, section, text_snippet}]
@@ -55,20 +58,22 @@ class PaperQAEngine:
         self.chunker = TextChunker(max_chunk_size=400, overlap=50)
 
     async def ask(
-        self, paper_id: str, question: str, top_k: int = 5,
+        self,
+        paper_id: str,
+        question: str,
+        top_k: int = 5,
     ) -> QAResult:
         """Answer a question about a single paper."""
         log = logger.bind(paper_id=paper_id, question=question[:100])
 
         # Load paper
-        result = await self.db.execute(
-            select(Paper).where(Paper.id == paper_id)
-        )
+        result = await self.db.execute(select(Paper).where(Paper.id == paper_id))
         paper = result.scalar_one_or_none()
         if not paper:
             return QAResult(
                 answer="Paper not found.",
-                sources=[], paper_id=paper_id,
+                sources=[],
+                paper_id=paper_id,
             )
 
         # Get full text
@@ -80,7 +85,8 @@ class PaperQAEngine:
             else:
                 return QAResult(
                     answer="No text content available for this paper.",
-                    sources=[], paper_id=paper_id,
+                    sources=[],
+                    paper_id=paper_id,
                 )
 
         # Chunk the text
@@ -88,7 +94,8 @@ class PaperQAEngine:
         if not chunks:
             return QAResult(
                 answer="Could not extract text passages from this paper.",
-                sources=[], paper_id=paper_id,
+                sources=[],
+                paper_id=paper_id,
             )
 
         # Retrieve relevant chunks
@@ -105,27 +112,36 @@ class PaperQAEngine:
         prompt = QA_PROMPT.format(question=question, context=context)
 
         answer = await self.llm.complete(
-            prompt=prompt, system=QA_SYSTEM,
-            model="gpt-4o-mini", max_tokens=1000,
+            prompt=prompt,
+            system=QA_SYSTEM,
+            model="gpt-4o-mini",
+            max_tokens=1000,
         )
 
         sources = [
             {
                 "chunk_index": c["chunk_index"],
                 "section": c["section"],
-                "text_snippet": c["text"][:200] + "..." if len(c["text"]) > 200 else c["text"],
+                "text_snippet": (
+                    c["text"][:200] + "..." if len(c["text"]) > 200 else c["text"]
+                ),
             }
             for c in relevant
         ]
 
         log.info("qa_answered", chunks_used=len(relevant))
         return QAResult(
-            answer=answer, sources=sources,
-            model="gpt-4o-mini", paper_id=paper_id,
+            answer=answer,
+            sources=sources,
+            model="gpt-4o-mini",
+            paper_id=paper_id,
         )
 
     async def ask_collection(
-        self, paper_ids: list[str], question: str, top_k_per_paper: int = 3,
+        self,
+        paper_ids: list[str],
+        question: str,
+        top_k_per_paper: int = 3,
     ) -> QAResult:
         """Answer a question across multiple papers."""
         log = logger.bind(papers=len(paper_ids), question=question[:100])
@@ -134,9 +150,7 @@ class PaperQAEngine:
         all_sources = []
 
         for pid in paper_ids[:10]:  # Cap at 10 papers for context limit
-            result = await self.db.execute(
-                select(Paper).where(Paper.id == pid)
-            )
+            result = await self.db.execute(select(Paper).where(Paper.id == pid))
             paper = result.scalar_one_or_none()
             if not paper:
                 continue
@@ -149,26 +163,30 @@ class PaperQAEngine:
             relevant = self._keyword_retrieve(question, chunks, top_k=top_k_per_paper)
 
             if relevant:
-                paper_section = f"\n--- Paper: {paper.title} (DOI: {paper.doi or 'N/A'}) ---\n"
+                paper_section = (
+                    f"\n--- Paper: {paper.title} (DOI: {paper.doi or 'N/A'}) ---\n"
+                )
                 paper_section += "\n".join(
-                    f"[{c['chunk_index']+1}] {c['text'][:500]}"
-                    for c in relevant
+                    f"[{c['chunk_index']+1}] {c['text'][:500]}" for c in relevant
                 )
                 papers_context.append(paper_section)
 
                 for c in relevant:
-                    all_sources.append({
-                        "paper_id": pid,
-                        "paper_title": paper.title,
-                        "chunk_index": c["chunk_index"],
-                        "section": c["section"],
-                        "text_snippet": c["text"][:200],
-                    })
+                    all_sources.append(
+                        {
+                            "paper_id": pid,
+                            "paper_title": paper.title,
+                            "chunk_index": c["chunk_index"],
+                            "section": c["section"],
+                            "text_snippet": c["text"][:200],
+                        }
+                    )
 
         if not papers_context:
             return QAResult(
                 answer="No relevant content found across the specified papers.",
-                sources=[], paper_id="",
+                sources=[],
+                paper_id="",
             )
 
         prompt = QA_MULTI_DOC_PROMPT.format(
@@ -177,15 +195,22 @@ class PaperQAEngine:
         )
 
         answer = await self.llm.complete(
-            prompt=prompt, system=QA_MULTI_DOC_SYSTEM,
-            model="gpt-4o-mini", max_tokens=1500,
+            prompt=prompt,
+            system=QA_MULTI_DOC_SYSTEM,
+            model="gpt-4o-mini",
+            max_tokens=1500,
         )
 
-        log.info("multi_doc_qa_answered", papers_used=len(papers_context),
-                 sources=len(all_sources))
+        log.info(
+            "multi_doc_qa_answered",
+            papers_used=len(papers_context),
+            sources=len(all_sources),
+        )
         return QAResult(
-            answer=answer, sources=all_sources,
-            model="gpt-4o-mini", paper_id="",
+            answer=answer,
+            sources=all_sources,
+            model="gpt-4o-mini",
+            paper_id="",
         )
 
     def _keyword_retrieve(
@@ -199,10 +224,40 @@ class PaperQAEngine:
         """
         question_words = set(question.lower().split())
         # Remove stopwords
-        stopwords = {"the", "a", "an", "is", "are", "was", "were", "in", "on",
-                      "at", "to", "for", "of", "with", "by", "from", "this",
-                      "that", "it", "and", "or", "but", "not", "what", "how",
-                      "does", "do", "did", "can", "will", "would", "should"}
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "this",
+            "that",
+            "it",
+            "and",
+            "or",
+            "but",
+            "not",
+            "what",
+            "how",
+            "does",
+            "do",
+            "did",
+            "can",
+            "will",
+            "would",
+            "should",
+        }
         question_words -= stopwords
 
         scored = []

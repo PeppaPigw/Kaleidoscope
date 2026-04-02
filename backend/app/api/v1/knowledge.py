@@ -14,6 +14,7 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 # ─── Pydantic models ─────────────────────────────────────────────
 
+
 class LogEventRequest(BaseModel):
     paper_id: str
     event_type: str
@@ -44,6 +45,7 @@ class ReviewCardRequest(BaseModel):
 
 # ─── Reading Log ─────────────────────────────────────────────────
 
+
 @router.post("/reading-log")
 async def log_reading_event(
     req: LogEventRequest,
@@ -54,7 +56,9 @@ async def log_reading_event(
     from app.services.knowledge.knowledge_service import ReadingLogService
 
     svc = ReadingLogService(db, user_id)
-    result = await svc.log_event(req.paper_id, req.event_type, req.duration_seconds, req.metadata)
+    result = await svc.log_event(
+        req.paper_id, req.event_type, req.duration_seconds, req.metadata
+    )
     return result
 
 
@@ -86,6 +90,7 @@ async def get_reading_stats(
 
 # ─── Annotations ─────────────────────────────────────────────────
 
+
 @router.post("/annotations")
 async def create_annotation(
     req: AnnotationCreateRequest,
@@ -97,7 +102,13 @@ async def create_annotation(
 
     svc = AnnotationService(db, user_id)
     result = await svc.create(
-        req.paper_id, req.annotation_type, req.text, req.note, req.color, req.page, req.position
+        req.paper_id,
+        req.annotation_type,
+        req.text,
+        req.note,
+        req.color,
+        req.page,
+        req.position,
     )
     return result
 
@@ -128,11 +139,13 @@ async def delete_annotation(
     deleted = await svc.delete(annotation_id)
     if not deleted:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Annotation not found")
     return {"deleted": True}
 
 
 # ─── Glossary ────────────────────────────────────────────────────
+
 
 @router.post("/glossary")
 async def add_glossary_term(
@@ -190,6 +203,7 @@ async def search_glossary(
 
 
 # ─── Knowledge Cards ─────────────────────────────────────────────
+
 
 @router.post("/cards/generate/{paper_id}")
 async def generate_cards(

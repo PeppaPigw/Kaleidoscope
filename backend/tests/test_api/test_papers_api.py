@@ -41,6 +41,7 @@ def test_list_papers_empty():
 
     app.dependency_overrides[get_db] = mock_db
     try:
+
         async def run_test():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -76,6 +77,7 @@ def test_get_paper_not_found():
     app.dependency_overrides[get_db] = mock_db
     try:
         paper_id = str(uuid4())
+
         async def run_test():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -130,6 +132,7 @@ def test_get_paper_includes_venue_and_raw_metadata():
 
     app.dependency_overrides[get_db] = mock_db
     try:
+
         async def run_test():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -167,8 +170,12 @@ def test_intelligence_summarize_not_found():
         app.dependency_overrides[get_db] = mock_db
         try:
             paper_id = str(uuid4())
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                response = await client.post(f"/api/v1/intelligence/papers/{paper_id}/summarize")
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                response = await client.post(
+                    f"/api/v1/intelligence/papers/{paper_id}/summarize"
+                )
             assert response.status_code == 404
         finally:
             app.dependency_overrides.clear()

@@ -9,7 +9,15 @@ rewrite. Until an auth system is added, user_id defaults to a sentinel
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +29,7 @@ DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 class ReadingStatus(str, Enum):
     """Paper reading progress."""
+
     UNREAD = "unread"
     TO_READ = "to_read"
     READING = "reading"
@@ -45,7 +54,9 @@ class UserReadingStatus(Base):
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True,
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
         server_default=DEFAULT_USER_ID,
     )
     paper_id: Mapped[str] = mapped_column(
@@ -71,7 +82,9 @@ class Collection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "collections"
 
     user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True,
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
         server_default=DEFAULT_USER_ID,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -92,13 +105,16 @@ class Collection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Relationships
     papers: Mapped[list["CollectionPaper"]] = relationship(
-        "CollectionPaper", back_populates="collection",
+        "CollectionPaper",
+        back_populates="collection",
         cascade="all, delete-orphan",
         order_by="CollectionPaper.position",
     )
 
     def __repr__(self) -> str:
-        return f"<Collection(id={self.id}, name={self.name}, papers={self.paper_count})>"
+        return (
+            f"<Collection(id={self.id}, name={self.name}, papers={self.paper_count})>"
+        )
 
 
 class CollectionPaper(Base):
@@ -126,11 +142,15 @@ class CollectionPaper(Base):
     )
 
     # Relationships
-    collection: Mapped["Collection"] = relationship("Collection", back_populates="papers")
+    collection: Mapped["Collection"] = relationship(
+        "Collection", back_populates="papers"
+    )
     paper: Mapped["Paper"] = relationship("Paper")  # noqa: F821
 
     def __repr__(self) -> str:
-        return f"<CollectionPaper(collection={self.collection_id}, paper={self.paper_id})>"
+        return (
+            f"<CollectionPaper(collection={self.collection_id}, paper={self.paper_id})>"
+        )
 
 
 class Tag(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -141,12 +161,12 @@ class Tag(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "tags"
-    __table_args__ = (
-        UniqueConstraint("user_id", "name", name="uq_user_tag_name"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_tag_name"),)
 
     user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True,
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
         server_default=DEFAULT_USER_ID,
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)

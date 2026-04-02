@@ -57,13 +57,14 @@ async def create_feed(
 ):
     """Add a new RSS feed subscription."""
     # Check for duplicate URL
-    existing = await db.execute(
-        select(RSSFeed).where(RSSFeed.url == request.url)
-    )
+    existing = await db.execute(select(RSSFeed).where(RSSFeed.url == request.url))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=409,
-            detail={"code": "FEED_EXISTS", "message": f"Feed URL already exists: {request.url}"},
+            detail={
+                "code": "FEED_EXISTS",
+                "message": f"Feed URL already exists: {request.url}",
+            },
         )
 
     feed = RSSFeed(

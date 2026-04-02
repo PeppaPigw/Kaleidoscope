@@ -12,6 +12,7 @@ router = APIRouter(prefix="/collaboration", tags=["collaboration"])
 
 # ─── Schemas ─────────────────────────────────────────────────────
 
+
 class CommentCreate(BaseModel):
     paper_id: str
     content: str
@@ -44,9 +45,11 @@ class ScreeningCreate(BaseModel):
 
 # ─── Comment endpoints ───────────────────────────────────────────
 
+
 @router.post("/comments")
 async def add_comment(body: CommentCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     result = await svc.add_comment(
         paper_id=body.paper_id,
@@ -65,15 +68,18 @@ async def list_comments(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     return {"comments": await svc.list_comments(paper_id, limit=limit)}
 
 
 # ─── Task endpoints ──────────────────────────────────────────────
 
+
 @router.post("/tasks")
 async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     if not body.paper_id or not body.paper_id.strip():
         raise HTTPException(
@@ -96,6 +102,7 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     return {"tasks": await svc.list_tasks(status=status, limit=limit)}
 
@@ -107,6 +114,7 @@ async def complete_task(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     payload = body or TaskComplete()
     result = await svc.complete_task(task_id, payload.decision, payload.notes)
@@ -115,11 +123,11 @@ async def complete_task(
 
 # ─── Screening endpoints ─────────────────────────────────────────
 
+
 @router.post("/screening")
-async def record_screening(
-    body: ScreeningCreate, db: AsyncSession = Depends(get_db)
-):
+async def record_screening(body: ScreeningCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
+
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     result = await svc.record_screening(
         paper_id=body.paper_id,

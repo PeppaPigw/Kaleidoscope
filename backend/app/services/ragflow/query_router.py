@@ -97,20 +97,27 @@ class QueryRouter:
         """Classify and execute query against the appropriate backend."""
         started = time.perf_counter()
         route = self.classify(
-            query, collection_id=collection_id, paper_id=paper_id,
+            query,
+            collection_id=collection_id,
+            paper_id=paper_id,
         )
         log = logger.bind(query=query[:80], route=route.value)
 
         try:
             if route == QueryRoute.BOUNDED_QA:
                 result = await self._bounded_qa(
-                    query, collection_id, paper_id, top_k,
+                    query,
+                    collection_id,
+                    paper_id,
+                    top_k,
                 )
             elif route == QueryRoute.GRAPH:
                 result = await self._graph_query(query, top_k)
             elif route == QueryRoute.COMBINED:
                 result = await self._combined_query(
-                    query, top_k, filters,
+                    query,
+                    top_k,
+                    filters,
                 )
             else:
                 result = await self._discovery(query, top_k, filters)
@@ -145,7 +152,9 @@ class QueryRouter:
         """Route bounded Q&A to RAGFlow sidecar."""
         if collection_id:
             return await self.ragflow.ask_workspace(
-                collection_id, query, top_k,
+                collection_id,
+                query,
+                top_k,
             )
         if paper_id:
             return await self.ragflow.ask_paper(paper_id, query, top_k)
@@ -153,7 +162,9 @@ class QueryRouter:
         return await self._discovery(query, top_k, None)
 
     async def _graph_query(
-        self, query: str, top_k: int,
+        self,
+        query: str,
+        top_k: int,
     ) -> dict[str, Any]:
         """Route graph-shaped queries to Neo4j via CitationGraphService."""
         from app.services.graph.citation_graph import CitationGraphService
@@ -176,7 +187,10 @@ class QueryRouter:
     ) -> dict[str, Any]:
         """Route discovery queries to hybrid search."""
         result = hybrid_service.search(
-            query, mode="hybrid", filters=filters, per_page=top_k,
+            query,
+            mode="hybrid",
+            filters=filters,
+            per_page=top_k,
         )
         return {
             "hits": result.get("hits", []),
@@ -195,8 +209,7 @@ class QueryRouter:
         """Combine discovery search with graph expansion."""
         discovery = await self._discovery(query, top_k, filters)
         top_ids = [
-            h.get("paper_id", h.get("id", ""))
-            for h in discovery.get("hits", [])[:5]
+            h.get("paper_id", h.get("id", "")) for h in discovery.get("hits", [])[:5]
         ]
 
         # Expand top hits via graph neighborhood

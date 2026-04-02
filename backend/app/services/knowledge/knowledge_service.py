@@ -30,7 +30,10 @@ class ReadingLogService:
         self.user_id = user_id
 
     async def log_event(
-        self, paper_id: str, event_type: str, duration_seconds: int | None = None,
+        self,
+        paper_id: str,
+        event_type: str,
+        duration_seconds: int | None = None,
         metadata: dict | None = None,
     ) -> dict:
         entry = ReadingLog(
@@ -71,9 +74,7 @@ class ReadingLogService:
     async def get_reading_stats(self) -> dict:
         """Get user's reading statistics."""
         total_events = await self.db.execute(
-            select(func.count(ReadingLog.id)).where(
-                ReadingLog.user_id == self.user_id
-            )
+            select(func.count(ReadingLog.id)).where(ReadingLog.user_id == self.user_id)
         )
         total_time = await self.db.execute(
             select(func.sum(ReadingLog.duration_seconds)).where(
@@ -101,9 +102,14 @@ class AnnotationService:
         self.user_id = user_id
 
     async def create(
-        self, paper_id: str, annotation_type: str, text: str | None = None,
-        note: str | None = None, color: str | None = None,
-        page: int | None = None, position: dict | None = None,
+        self,
+        paper_id: str,
+        annotation_type: str,
+        text: str | None = None,
+        note: str | None = None,
+        color: str | None = None,
+        page: int | None = None,
+        position: dict | None = None,
     ) -> dict:
         ann = Annotation(
             user_id=self.user_id,
@@ -125,10 +131,12 @@ class AnnotationService:
 
     async def list_for_paper(self, paper_id: str) -> list[dict]:
         result = await self.db.execute(
-            select(Annotation).where(
+            select(Annotation)
+            .where(
                 Annotation.user_id == self.user_id,
                 Annotation.paper_id == paper_id,
-            ).order_by(Annotation.page.asc().nullslast(), Annotation.created_at)
+            )
+            .order_by(Annotation.page.asc().nullslast(), Annotation.created_at)
         )
         return [
             {
@@ -165,8 +173,11 @@ class GlossaryService:
         self.user_id = user_id
 
     async def add_term(
-        self, term: str, definition: str | None = None,
-        domain: str | None = None, paper_id: str | None = None,
+        self,
+        term: str,
+        definition: str | None = None,
+        domain: str | None = None,
+        paper_id: str | None = None,
     ) -> dict:
         entry = GlossaryTerm(
             user_id=self.user_id,
@@ -190,9 +201,10 @@ class GlossaryService:
             return {"error": "Paper not found"}
 
         from app.clients.llm_client import LLMClient
+
         llm = LLMClient()
         # Use full text if available for better extraction
-        paper_text = paper.abstract or ''
+        paper_text = paper.abstract or ""
         if paper.full_text_markdown:
             paper_text = paper.full_text_markdown[:8000]
         prompt = (
@@ -253,10 +265,12 @@ class GlossaryService:
 
     async def search_terms(self, query: str) -> list[dict]:
         result = await self.db.execute(
-            select(GlossaryTerm).where(
+            select(GlossaryTerm)
+            .where(
                 GlossaryTerm.user_id == self.user_id,
                 GlossaryTerm.term.ilike(f"%{query}%"),
-            ).limit(20)
+            )
+            .limit(20)
         )
         return [
             {"id": str(g.id), "term": g.term, "definition": g.definition}
@@ -281,9 +295,10 @@ class KnowledgeCardService:
             return {"error": "Paper not found"}
 
         from app.clients.llm_client import LLMClient
+
         llm = LLMClient()
         # Use full text if available for better card generation
-        paper_text = paper.abstract or ''
+        paper_text = paper.abstract or ""
         if paper.full_text_markdown:
             paper_text = paper.full_text_markdown[:8000]
         prompt = (
@@ -324,21 +339,26 @@ class KnowledgeCardService:
             )
             self.db.add(card)
             await self.db.flush()
-            created.append({
-                "id": str(card.id),
-                "question": card.question,
-                "card_type": card.card_type,
-            })
+            created.append(
+                {
+                    "id": str(card.id),
+                    "question": card.question,
+                    "card_type": card.card_type,
+                }
+            )
 
         return {"paper_id": paper_id, "cards_created": len(created), "cards": created}
 
     async def get_due_cards(self, limit: int = 20) -> list[dict]:
         """Get cards due for review (spaced repetition)."""
         result = await self.db.execute(
-            select(KnowledgeCard).where(
+            select(KnowledgeCard)
+            .where(
                 KnowledgeCard.user_id == self.user_id,
                 KnowledgeCard.next_review_at <= func.now(),
-            ).order_by(KnowledgeCard.next_review_at).limit(limit)
+            )
+            .order_by(KnowledgeCard.next_review_at)
+            .limit(limit)
         )
         return [
             {

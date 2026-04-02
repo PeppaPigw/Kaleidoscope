@@ -220,7 +220,7 @@ class RagflowClient:
                 )
                 log.error("ragflow_request_failed", error=str(exc))
                 if status_code in RETRYABLE_STATUS_CODES and attempt < max_retries:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    await asyncio.sleep(0.5 * (2**attempt))
                     continue
                 raise
             except Exception as exc:

@@ -19,9 +19,9 @@ from app.config import settings
 logger = structlog.get_logger(__name__)
 
 # Resolved model defaults (from config, overridable per-call)
-DEFAULT_CHAT_MODEL = settings.llm_model        # "Qwen3-235B-A22B"
-DEFAULT_EMBED_MODEL = settings.embed_model     # "Doubao-Embedding-Large-Text"
-DEFAULT_RERANK_MODEL = settings.rerank_model   # "GLM-Rerank"
+DEFAULT_CHAT_MODEL = settings.llm_model  # "Qwen3-235B-A22B"
+DEFAULT_EMBED_MODEL = settings.embed_model  # "Doubao-Embedding-Large-Text"
+DEFAULT_RERANK_MODEL = settings.rerank_model  # "GLM-Rerank"
 
 
 def _resolve_base_url(url: str) -> str:
@@ -134,7 +134,11 @@ class LLMClient:
             )
             return content
         except httpx.HTTPStatusError as e:
-            logger.error("llm_api_error", status=e.response.status_code, body=e.response.text[:500])
+            logger.error(
+                "llm_api_error",
+                status=e.response.status_code,
+                body=e.response.text[:500],
+            )
             raise
         except Exception as e:
             logger.error("llm_error", error=str(e))
@@ -151,8 +155,11 @@ class LLMClient:
         import json
 
         content = await self.complete(
-            prompt=prompt, system=system, model=model,
-            max_tokens=max_tokens, temperature=0.1,
+            prompt=prompt,
+            system=system,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=0.1,
             response_format={"type": "json_object"},
         )
         return json.loads(content)
@@ -170,10 +177,13 @@ class LLMClient:
         client = await self._get_client()
 
         try:
-            resp = await client.post("/embeddings", json={
-                "model": model,
-                "input": texts,
-            })
+            resp = await client.post(
+                "/embeddings",
+                json={
+                    "model": model,
+                    "input": texts,
+                },
+            )
             resp.raise_for_status()
             data = resp.json()
             # Standard OpenAI embedding response: data[].embedding
@@ -220,7 +230,9 @@ class LLMClient:
             data = resp.json()
             # Handle both Cohere-style {"results": [...]} and OpenAI-style {"data": [...]}
             results = data.get("results") or data.get("data") or []
-            ranked = sorted(results, key=lambda r: r.get("relevance_score", 0), reverse=True)
+            ranked = sorted(
+                results, key=lambda r: r.get("relevance_score", 0), reverse=True
+            )
             logger.info(
                 "llm_rerank",
                 model=model,

@@ -149,7 +149,9 @@ async def test_analysis_missing_paper_becomes_404(monkeypatch):
     async def mock_close(self):
         return None
 
-    monkeypatch.setattr(analysis_api.DeepAnalysisService, "analyze_innovation", mock_analyze)
+    monkeypatch.setattr(
+        analysis_api.DeepAnalysisService, "analyze_innovation", mock_analyze
+    )
     monkeypatch.setattr(analysis_api.DeepAnalysisService, "close", mock_close)
 
     async def mock_db():
@@ -161,7 +163,9 @@ async def test_analysis_missing_paper_becomes_404(monkeypatch):
             transport=ASGITransport(app=app),
             base_url="http://test",
         ) as client:
-            response = await client.post(f"/api/v1/analysis/papers/{uuid4()}/innovation")
+            response = await client.post(
+                f"/api/v1/analysis/papers/{uuid4()}/innovation"
+            )
 
         assert response.status_code == 404
         assert "Paper not found" in response.json()["message"]
@@ -181,7 +185,9 @@ async def test_writing_service_failures_become_502(monkeypatch):
     async def mock_close(self):
         return None
 
-    monkeypatch.setattr(writing_api.WritingService, "generate_related_work", mock_generate)
+    monkeypatch.setattr(
+        writing_api.WritingService, "generate_related_work", mock_generate
+    )
     monkeypatch.setattr(writing_api.WritingService, "close", mock_close)
 
     async def mock_db():
@@ -195,7 +201,11 @@ async def test_writing_service_failures_become_502(monkeypatch):
         ) as client:
             response = await client.post(
                 "/api/v1/writing/related-work",
-                json={"paper_ids": ["paper-1"], "style": "narrative", "format": "markdown"},
+                json={
+                    "paper_ids": ["paper-1"],
+                    "style": "narrative",
+                    "format": "markdown",
+                },
             )
 
         assert response.status_code == 502
@@ -216,7 +226,9 @@ async def test_cross_paper_embedded_errors_become_http_404(monkeypatch):
     async def mock_close(self):
         return None
 
-    monkeypatch.setattr(cross_paper_service.CrossPaperService, "synthesize", mock_synthesize)
+    monkeypatch.setattr(
+        cross_paper_service.CrossPaperService, "synthesize", mock_synthesize
+    )
     monkeypatch.setattr(cross_paper_service.CrossPaperService, "close", mock_close)
 
     async def mock_db():

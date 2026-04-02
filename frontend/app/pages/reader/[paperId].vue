@@ -8,13 +8,18 @@
  * Fetches paper content as markdown from the backend API and renders
  * it in a styled, scrollable reading view.
  */
-import type { PaperContent, PaperHighlights } from '~/composables/useApi'
+import type { PaperContent, PaperHighlights, PaperLabels } from '~/composables/useApi'
 import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
 import type { Annotation } from '~/components/reader/Marginalia.vue'
 import type { SemanticHighlight } from '~/components/reader/SemanticHighlights.vue'
 import type { ParagraphQuestion } from '~/components/reader/ParagraphQA.vue'
+import type { RenderedMarkdownHeading } from '../../utils/markdown'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  hideTopbar: true,
+  flushContent: true,
+})
 
 const route = useRoute()
 const { apiFetch, getPaperHighlights, askAboutPaper } = useApi()
@@ -23,18 +28,18 @@ const paperId = computed(() => {
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
 })
 const uid = useId()
-const { t } = useTranslation()
 
 useHead({
   title: 'Smart Reader — Kaleidoscope',
   meta: [{ name: 'description', content: 'Read and annotate papers with AI-powered analysis.' }],
 })
 
-const activeTab = ref<'outline' | 'annotations' | 'highlights' | 'qa' | 'ragflow'>('outline')
+const activeTab = ref<'outline' | 'annotations' | 'highlights' | 'qa' | 'ragflow' | 'labels'>('outline')
 
 const paperContent = ref<PaperContent | null>(null)
 const contentPending = ref(true)
 const contentError = ref<string | null>(null)
+const markdownOutline = ref<RenderedMarkdownHeading[]>([])
 
 // Dynamic paper title
 const paperTitle = computed(() =>
@@ -57,12 +62,23 @@ const originalLinks = computed(() => {
 
 // Build outline from sections
 const outlineSections = computed<OutlineSection[]>(() => {
-  if (!paperContent.value?.sections) return []
-  return paperContent.value.sections.map((s, i) => ({
-    id: `section-${i}`,
-    title: s.title,
-    level: s.level,
-    page: i + 1, // section index as "page"
+  if (markdownOutline.value.length > 0) {
+    return markdownOutline.value.map((heading, index) => ({
+      id: heading.id,
+      title: heading.title,
+      level: heading.level,
+      page: index + 1,
+    }))
+  }
+
+  if (!paperContent.value?.sections)
+    return []
+
+  return paperContent.value.sections.map((section, index) => ({
+    id: `section-${index}`,
+    title: section.title,
+    level: section.level,
+    page: index + 1,
   }))
 })
 
@@ -77,11 +93,47 @@ const qaLoading = ref(false)
 
 const sidebarTabs = [
   { key: 'outline' as const, label: 'Outline' },
+  { key: 'labels' as const, label: 'Labels' },
   { key: 'annotations' as const, label: 'Notes' },
   { key: 'highlights' as const, label: 'AI' },
   { key: 'qa' as const, label: 'Q&A' },
   { key: 'ragflow' as const, label: 'Ask AI' },
 ]
+
+// ── Labels ────────────────────────────────────────────────────
+const paperLabels = ref<PaperLabels | null>(null)
+const labelsLoading = ref(false)
+
+const LABEL_DIMS = [
+  { key: 'domain', label: 'Domain', color: '#6366f1' },
+  { key: 'task', label: 'Task', color: '#0ea5e9' },
+  { key: 'method', label: 'Method', color: '#10b981' },
+  { key: 'data_object', label: 'Data / Object', color: '#f59e0b' },
+  { key: 'application', label: 'Application', color: '#ec4899' },
+] as const
+
+const META_DIMS = [
+  { key: 'paper_type', label: 'Paper Type', color: '#8b5cf6' },
+  { key: 'evaluation_quality', label: 'Evaluation', color: '#64748b' },
+  { key: 'resource_constraint', label: 'Resource', color: '#78716c' },
+] as const
+
+async function loadLabels() {
+  if (!paperId.value) return
+  labelsLoading.value = true
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const data = await $fetch<{ labels: PaperLabels }>(`${apiBase}/api/v1/papers/${paperId.value}/labels`)
+    paperLabels.value = data.labels
+  }
+  catch {
+    paperLabels.value = null
+  }
+  finally {
+    labelsLoading.value = false
+  }
+}
 
 function handleSectionClick(section: OutlineSection) {
   activeSectionId.value = section.id
@@ -91,11 +143,30 @@ function handleSectionClick(section: OutlineSection) {
   }
 }
 
-function handleAnnotationClick(annotation: Annotation) {
+function handleOutlineChange(headings: RenderedMarkdownHeading[]) {
+  markdownOutline.value = headings
+
+  if (headings.length === 0) {
+    activeSectionId.value = 'section-0'
+    return
+  }
+
+  const hasActiveHeading = headings.some(heading => heading.id === activeSectionId.value)
+  if (!hasActiveHeading && headings[0]?.id) {
+    activeSectionId.value = headings[0].id
+  }
+}
+
+function handleActiveHeadingChange(headingId: string | null) {
+  if (headingId)
+    activeSectionId.value = headingId
+}
+
+function handleAnnotationClick(_annotation: Annotation) {
   // TODO: scroll to annotation location
 }
 
-function handleHighlightClick(highlight: SemanticHighlight) {
+function handleHighlightClick(_highlight: SemanticHighlight) {
   // TODO: scroll to highlight location
 }
 
@@ -154,8 +225,10 @@ async function loadPaperContent() {
 
   try {
     paperContent.value = await apiFetch<PaperContent>(`/papers/${paperId.value}/content`)
+    markdownOutline.value = []
   } catch (error) {
     paperContent.value = null
+    markdownOutline.value = []
     contentError.value = error instanceof Error ? error.message : 'Failed to load paper content'
   } finally {
     contentPending.value = false
@@ -163,7 +236,7 @@ async function loadPaperContent() {
 }
 
 // Content quality state
-const contentFormat = computed(() => (paperContent.value as any)?.format || 'unknown')
+const contentFormat = computed(() => paperContent.value?.format ?? 'unknown')
 const isAbstractOnly = computed(() => contentFormat.value === 'abstract_only' || contentFormat.value === 'metadata_only')
 const reprocessing = ref(false)
 const reprocessError = ref<string | null>(null)
@@ -182,8 +255,15 @@ async function triggerReprocess() {
     // Reload content after ~5s to give server time to process
     await new Promise(r => setTimeout(r, 5000))
     await loadPaperContent()
-  } catch (e: any) {
-    reprocessError.value = e?.data?.detail || 'Reprocessing failed — please try again later.'
+  } catch (error: unknown) {
+    const detail = typeof error === 'object'
+      && error !== null
+      && 'data' in error
+      && typeof (error as { data?: { detail?: unknown } }).data?.detail === 'string'
+      ? (error as { data?: { detail?: string } }).data?.detail
+      : null
+
+    reprocessError.value = detail || 'Reprocessing failed — please try again later.'
   } finally {
     reprocessing.value = false
   }
@@ -191,6 +271,7 @@ async function triggerReprocess() {
 
 onMounted(() => {
   void loadPaperContent()
+  void loadLabels()
 })
 
 watch(paperId, (currentPaperId, previousPaperId) => {
@@ -233,8 +314,6 @@ async function handleAskQuestion() {
 
 <template>
   <div class="ks-reader">
-    <KsPageHeader :title="paperTitle" :subtitle="t('readerSubtitle')" />
-
     <!-- Original paper link bar -->
     <div v-if="originalLinks.length" class="ks-reader__links">
       <span class="ks-reader__links-label">View Original:</span>
@@ -260,7 +339,7 @@ async function handleAskQuestion() {
       <div class="ks-reader__quality-banner-body">
         <strong>Full text not yet available.</strong>
         This paper's PDF is still being processed by MinerU. Currently showing the abstract only.
-        <span v-if="reprocessError" class="ks-reader__quality-banner-error"> {{ reprocessError }}</span>
+        <span v-if="reprocessError" class="ks-reader__quality-banner-error"> {{ reprocessError }}</span>
       </div>
       <button
         class="ks-reader__quality-reprocess-btn"
@@ -278,6 +357,8 @@ async function handleAskQuestion() {
           :content="paperContent"
           :pending="contentPending"
           :error="contentError"
+          @outline-change="handleOutlineChange"
+          @active-heading-change="handleActiveHeadingChange"
         />
       </div>
 
@@ -285,8 +366,8 @@ async function handleAskQuestion() {
         <div class="ks-reader__tabs" role="tablist">
           <button
             v-for="tab in sidebarTabs"
-            :key="tab.key"
             :id="`${uid}-tab-${tab.key}`"
+            :key="tab.key"
             type="button"
             role="tab"
             :aria-selected="activeTab === tab.key"
@@ -333,7 +414,7 @@ async function handleAskQuestion() {
                 placeholder="Ask a question about this paper..."
                 :disabled="qaLoading"
                 aria-label="Ask a question about this paper"
-              />
+              >
               <button
                 type="submit"
                 class="ks-reader__qa-btn"
@@ -350,6 +431,51 @@ async function handleAskQuestion() {
             :paper-id="paperId"
             placeholder="Ask this paper with RAGFlow..."
           />
+
+          <!-- Labels panel -->
+          <div v-if="activeTab === 'labels'" class="ks-reader__labels">
+            <div v-if="labelsLoading" class="ks-reader__labels-loading">
+              Loading labels…
+            </div>
+            <div v-else-if="!paperLabels" class="ks-reader__labels-empty">
+              Labels not yet generated for this paper.
+            </div>
+            <template v-else>
+              <div
+                v-for="dim in LABEL_DIMS"
+                :key="dim.key"
+                class="ks-reader__label-group"
+              >
+                <span class="ks-reader__label-dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+                <div class="ks-reader__label-chips">
+                  <span
+                    v-for="tag in (paperLabels[dim.key] as string[])"
+                    :key="tag"
+                    class="ks-reader__label-chip"
+                    :style="{ borderColor: dim.color, color: dim.color }"
+                  >{{ tag }}</span>
+                  <span v-if="!(paperLabels[dim.key] as string[]).length" class="ks-reader__label-none">—</span>
+                </div>
+              </div>
+              <div class="ks-reader__label-divider" />
+              <div
+                v-for="dim in META_DIMS"
+                :key="dim.key"
+                class="ks-reader__label-group"
+              >
+                <span class="ks-reader__label-dim" :style="{ color: dim.color }">{{ dim.label }}</span>
+                <div class="ks-reader__label-chips">
+                  <span
+                    v-for="tag in (paperLabels.meta[dim.key] as string[])"
+                    :key="tag"
+                    class="ks-reader__label-chip"
+                    :style="{ borderColor: dim.color, color: dim.color }"
+                  >{{ tag }}</span>
+                  <span v-if="!(paperLabels.meta[dim.key] as string[]).length" class="ks-reader__label-none">—</span>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
       </aside>
     </div>
@@ -358,33 +484,47 @@ async function handleAskQuestion() {
 
 <style scoped>
 .ks-reader {
-  min-height: 100vh;
-  padding-bottom: 40px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .ks-reader__layout {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 24px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ks-reader__main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
 }
 
 .ks-reader__sidebar {
   position: sticky;
-  top: 96px;
-  height: calc(100vh - 120px);
+  top: 10px;
+  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  padding: 8px 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-bg);
 }
 
 .ks-reader__tabs {
   display: flex;
   gap: 2px;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .ks-reader__tab {
@@ -427,21 +567,22 @@ async function handleAskQuestion() {
   }
   .ks-reader__sidebar {
     position: static;
-    height: auto;
+    height: min(38dvh, 420px);
+    margin-top: 8px;
   }
 }
 
 /* ── Original paper link bar ──────────────────── */
 .ks-reader__links {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 1400px;
-  margin: 0 auto 16px;
-  padding: 12px 24px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
   background: var(--color-surface, rgba(30, 41, 59, 0.6));
   border: 1px solid var(--color-border, #334155);
-  border-radius: 10px;
+  border-radius: 8px;
   backdrop-filter: blur(8px);
   flex-wrap: wrap;
 }
@@ -457,7 +598,7 @@ async function handleAskQuestion() {
 .ks-reader__link-btn {
   display: inline-flex;
   align-items: center;
-  padding: 6px 14px;
+  padding: 5px 10px;
   border: 1px solid var(--color-primary, #8b5cf6);
   border-radius: 6px;
   color: var(--color-primary, #8b5cf6);
@@ -527,15 +668,15 @@ async function handleAskQuestion() {
 
 /* ── Content quality warning banner ───────────── */
 .ks-reader__quality-banner {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: 1400px;
-  margin: 0 auto 16px;
-  padding: 14px 20px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: 10px;
+  border-radius: 8px;
   backdrop-filter: blur(6px);
 }
 
@@ -576,5 +717,59 @@ async function handleAskQuestion() {
 .ks-reader__quality-reprocess-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ── Labels panel ─────────────────────────────── */
+.ks-reader__labels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.ks-reader__labels-loading,
+.ks-reader__labels-empty {
+  font: 400 0.8125rem / 1.5 var(--font-sans);
+  color: var(--color-secondary);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.ks-reader__label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ks-reader__label-dim {
+  font: 600 0.6875rem / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.ks-reader__label-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ks-reader__label-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 3px;
+  font: 400 0.75rem / 1.5 var(--font-sans);
+  background: transparent;
+}
+
+.ks-reader__label-none {
+  font: 400 0.75rem / 1.5 var(--font-sans);
+  color: var(--color-secondary);
+}
+
+.ks-reader__label-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 2px 0;
 }
 </style>

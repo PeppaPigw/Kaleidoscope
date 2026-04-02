@@ -127,6 +127,11 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # {status, analysis (markdown text), model, authors, year, generated_at}
     deep_analysis_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # --- Structured Taxonomy Labels (labeling_service.py) ---
+    paper_labels: Mapped[dict | None] = mapped_column(JSONB)
+    # {domain, task, method, data_object, application, meta: {paper_type, evaluation_quality, resource_constraint}}
+    paper_labels_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # --- Relationships ---
     authors: Mapped[list[PaperAuthor]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"

@@ -18,7 +18,9 @@ class DedupResult:
         self,
         is_duplicate: bool,
         existing_paper_id: str | None = None,
-        match_type: str | None = None,  # "doi", "arxiv_id", "title", "soft_deleted", None
+        match_type: (
+            str | None
+        ) = None,  # "doi", "arxiv_id", "title", "soft_deleted", None
         similarity_score: float | None = None,
     ):
         self.is_duplicate = is_duplicate
@@ -71,7 +73,9 @@ class DeduplicatorService:
                 )
                 existing = result.scalar_one_or_none()
                 if existing:
-                    logger.info("dedup_doi_match", doi=normalized_doi, existing_id=str(existing))
+                    logger.info(
+                        "dedup_doi_match", doi=normalized_doi, existing_id=str(existing)
+                    )
                     return DedupResult(
                         is_duplicate=True,
                         existing_paper_id=str(existing),
@@ -90,8 +94,11 @@ class DeduplicatorService:
                 )
                 soft_deleted = result.scalar_one_or_none()
                 if soft_deleted:
-                    logger.info("dedup_doi_soft_deleted", doi=normalized_doi,
-                                existing_id=str(soft_deleted))
+                    logger.info(
+                        "dedup_doi_soft_deleted",
+                        doi=normalized_doi,
+                        existing_id=str(soft_deleted),
+                    )
                     return DedupResult(
                         is_duplicate=True,
                         existing_paper_id=str(soft_deleted),
@@ -110,7 +117,9 @@ class DeduplicatorService:
             )
             existing = result.scalar_one_or_none()
             if existing:
-                logger.info("dedup_arxiv_match", arxiv_id=arxiv_id, existing_id=str(existing))
+                logger.info(
+                    "dedup_arxiv_match", arxiv_id=arxiv_id, existing_id=str(existing)
+                )
                 return DedupResult(
                     is_duplicate=True,
                     existing_paper_id=str(existing),
@@ -127,8 +136,11 @@ class DeduplicatorService:
             )
             soft_deleted = result.scalar_one_or_none()
             if soft_deleted:
-                logger.info("dedup_arxiv_soft_deleted", arxiv_id=arxiv_id,
-                            existing_id=str(soft_deleted))
+                logger.info(
+                    "dedup_arxiv_soft_deleted",
+                    arxiv_id=arxiv_id,
+                    existing_id=str(soft_deleted),
+                )
                 return DedupResult(
                     is_duplicate=True,
                     existing_paper_id=str(soft_deleted),
@@ -143,9 +155,11 @@ class DeduplicatorService:
                 # Fetch candidate titles for comparison
                 # Optimization: only compare with recent papers or use pg_trgm for DB-side matching
                 result = await self.db.execute(
-                    select(Paper.id, Paper.title).where(
+                    select(Paper.id, Paper.title)
+                    .where(
                         Paper.deleted_at.is_(None),
-                    ).limit(5000)  # Safety limit
+                    )
+                    .limit(5000)  # Safety limit
                 )
                 candidates = result.all()
 

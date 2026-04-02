@@ -49,10 +49,7 @@ class GovernanceService:
             .where(SavedSearch.user_id == DEFAULT_USER_ID)
             .order_by(SavedSearch.created_at.desc())
         )
-        return [
-            self._serialize_saved_search(s)
-            for s in result.scalars().all()
-        ]
+        return [self._serialize_saved_search(s) for s in result.scalars().all()]
 
     async def delete_saved_search(self, search_id: str) -> bool:
         """Delete a saved search."""
@@ -85,7 +82,9 @@ class GovernanceService:
         )
         self.db.add(entry)
         await self.db.flush()
-        logger.info("audit_logged", action=action, entity_type=entity_type, entity_id=entity_id)
+        logger.info(
+            "audit_logged", action=action, entity_type=entity_type, entity_id=entity_id
+        )
 
     async def list_audit_log(
         self,
@@ -107,7 +106,9 @@ class GovernanceService:
 
     async def create_webhook(self, url: str, events: list[str]) -> dict:
         """Create an active webhook endpoint."""
-        webhook = Webhook(user_id=DEFAULT_USER_ID, url=url, events=events, is_active=True)
+        webhook = Webhook(
+            user_id=DEFAULT_USER_ID, url=url, events=events, is_active=True
+        )
         self.db.add(webhook)
         await self.db.flush()
         await self.log_audit("create", "webhook", str(webhook.id))
@@ -125,7 +126,9 @@ class GovernanceService:
     async def delete_webhook(self, webhook_id: str) -> bool:
         """Delete a webhook."""
         result = await self.db.execute(
-            delete(Webhook).where(Webhook.id == webhook_id, Webhook.user_id == DEFAULT_USER_ID)
+            delete(Webhook).where(
+                Webhook.id == webhook_id, Webhook.user_id == DEFAULT_USER_ID
+            )
         )
         return result.rowcount > 0
 
@@ -188,8 +191,12 @@ class GovernanceService:
         )
         self.db.add(correction)
         await self.db.flush()
-        await self.log_audit("create", "user_correction", str(correction.id),
-                             diff={"field": field_name, "paper_id": paper_id})
+        await self.log_audit(
+            "create",
+            "user_correction",
+            str(correction.id),
+            diff={"field": field_name, "paper_id": paper_id},
+        )
         return {
             "id": str(correction.id),
             "paper_id": str(correction.paper_id),
@@ -236,8 +243,12 @@ class GovernanceService:
         )
         self.db.add(attempt)
         await self.db.flush()
-        await self.log_audit("create", "reproduction", str(attempt.id),
-                             diff={"paper_id": paper_id, "status": status})
+        await self.log_audit(
+            "create",
+            "reproduction",
+            str(attempt.id),
+            diff={"paper_id": paper_id, "status": status},
+        )
         return self._serialize_reproduction(attempt)
 
     async def get_reproductions(self, paper_id: str) -> list[dict]:

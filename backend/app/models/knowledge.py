@@ -56,7 +56,9 @@ class GlossaryTerm(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("papers.id"), nullable=True
     )
     is_auto_generated: Mapped[bool] = mapped_column(Boolean, default=True)
-    aliases: Mapped[dict | None] = mapped_column(JSONB)  # ["attention mechanism", "self-attention"]
+    aliases: Mapped[dict | None] = mapped_column(
+        JSONB
+    )  # ["attention mechanism", "self-attention"]
 
 
 class KnowledgeCard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -76,9 +78,10 @@ class KnowledgeCard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     difficulty: Mapped[str | None] = mapped_column(String(10))  # easy, medium, hard
     # Spaced repetition fields (SM-2)
     review_count: Mapped[int] = mapped_column(Integer, default=0)  # total reviews
-    repetition: Mapped[int] = mapped_column(Integer, default=0)    # successful streak (resets on failure)
+    repetition: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # successful streak (resets on failure)
     ease_factor: Mapped[float] = mapped_column(default=2.5)  # SM-2 ease factor
     interval_days: Mapped[int] = mapped_column(Integer, default=1)
     next_review_at: Mapped[str | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[dict | None] = mapped_column(JSONB)  # ["transformer", "attention"]
-

@@ -5,13 +5,7 @@
  * Lists linked code repos, datasets, slides, appendices,
  * and external resources for the paper.
  */
-
-export interface SupplementItem {
-  id: string
-  label: string
-  type: 'code' | 'dataset' | 'slides' | 'appendix' | 'video' | 'demo'
-  url: string
-}
+import type { SupplementItem } from './supplements'
 
 export interface SupplementRailProps {
   items: SupplementItem[]
@@ -24,6 +18,7 @@ function typeIcon(t: SupplementItem['type']): string {
   const map: Record<SupplementItem['type'], string> = {
     code: '⌨',
     dataset: '📊',
+    weights: '🧠',
     slides: '📑',
     appendix: '📎',
     video: '🎬',

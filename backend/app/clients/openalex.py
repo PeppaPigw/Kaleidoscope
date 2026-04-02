@@ -48,7 +48,9 @@ class OpenAlexClient:
                 resp.raise_for_status()
                 return resp.json()
             except httpx.HTTPStatusError as e:
-                logger.error("openalex_api_error", doi=doi, status=e.response.status_code)
+                logger.error(
+                    "openalex_api_error", doi=doi, status=e.response.status_code
+                )
                 raise ExternalAPIError("openalex", e.response.status_code, str(e))
 
     async def get_work(self, openalex_id: str) -> dict:
@@ -62,7 +64,9 @@ class OpenAlexClient:
                 resp.raise_for_status()
                 return resp.json()
             except httpx.HTTPStatusError as e:
-                logger.error("openalex_api_error", id=openalex_id, status=e.response.status_code)
+                logger.error(
+                    "openalex_api_error", id=openalex_id, status=e.response.status_code
+                )
                 raise ExternalAPIError("openalex", e.response.status_code, str(e))
 
     async def search_works(self, title: str, rows: int = 5) -> list[dict]:
@@ -81,7 +85,9 @@ class OpenAlexClient:
                 data = resp.json()
                 return data.get("results", [])
             except httpx.HTTPStatusError as e:
-                logger.error("openalex_search_error", title=title, status=e.response.status_code)
+                logger.error(
+                    "openalex_search_error", title=title, status=e.response.status_code
+                )
                 raise ExternalAPIError("openalex", e.response.status_code, str(e))
 
     async def get_author(self, openalex_id: str) -> dict:
@@ -95,7 +101,11 @@ class OpenAlexClient:
                 resp.raise_for_status()
                 return resp.json()
             except httpx.HTTPStatusError as e:
-                logger.error("openalex_author_error", id=openalex_id, status=e.response.status_code)
+                logger.error(
+                    "openalex_author_error",
+                    id=openalex_id,
+                    status=e.response.status_code,
+                )
                 raise ExternalAPIError("openalex", e.response.status_code, str(e))
 
     async def get_citations(self, openalex_id: str, per_page: int = 50) -> list[dict]:

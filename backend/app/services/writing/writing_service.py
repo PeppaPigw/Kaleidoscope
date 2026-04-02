@@ -112,6 +112,7 @@ class WritingService:
         """Lazy-load LLM client."""
         if self._llm_client is None:
             from app.clients.llm_client import LLMClient
+
             self._llm_client = LLMClient()
         return self._llm_client
 
@@ -123,9 +124,7 @@ class WritingService:
     async def _load_papers(self, paper_ids: list[str]) -> list[Paper]:
         """Load papers by IDs."""
         result = await self.db.execute(
-            select(Paper).where(
-                Paper.id.in_(paper_ids), Paper.deleted_at.is_(None)
-            )
+            select(Paper).where(Paper.id.in_(paper_ids), Paper.deleted_at.is_(None))
         )
         return list(result.scalars().all())
 
@@ -176,8 +175,7 @@ class WritingService:
                 "style": style,
                 "format": format,
                 "citations": [
-                    {"id": str(p.id), "title": p.title, "doi": p.doi}
-                    for p in papers
+                    {"id": str(p.id), "title": p.title, "doi": p.doi} for p in papers
                 ],
             }
         except Exception as e:
@@ -262,9 +260,7 @@ class WritingService:
         Draft a point-by-point rebuttal response to reviewer comments.
         """
         result = await self.db.execute(
-            select(Paper).where(
-                Paper.id == paper_id, Paper.deleted_at.is_(None)
-            )
+            select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
         )
         paper = result.scalar_one_or_none()
         if not paper:

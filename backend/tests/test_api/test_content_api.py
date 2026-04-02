@@ -53,6 +53,7 @@ def test_get_import_status_returns_current_paper_state():
 
     app.dependency_overrides[get_db] = mock_db
     try:
+
         async def run_test():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -68,5 +69,58 @@ def test_get_import_status_returns_current_paper_state():
         assert data["ingestion_status"] == "parsed"
         assert data["has_full_text"] is True
         assert data["error_message"] == "MinerU timeout"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_paper_content_tolerates_legacy_figures_dict():
+    """Content endpoint should not 500 when historical rows store a dict in parsed_figures."""
+    from app.dependencies import get_db
+    from app.main import app
+
+    paper_id = uuid4()
+    paper = MagicMock()
+    paper.id = paper_id
+    paper.title = "Legacy MinerU Paper"
+    paper.abstract = "Short abstract."
+    paper.deleted_at = None
+    paper.full_text_markdown = "# Legacy MinerU Paper\n\nThis paper has full text."
+    paper.remote_urls = [{"url": "https://example.com/paper.pdf", "type": "pdf"}]
+    paper.markdown_provenance = {"source": "mineru"}
+    paper.parsed_sections = [
+        {"title": "Intro", "level": 1, "paragraphs": ["First paragraph."]},
+    ]
+    paper.parsed_figures = {
+        "_backend": "hybrid",
+        "enable_vlm": True,
+    }
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = paper
+
+    async def mock_db():
+        db = MagicMock()
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = mock_db
+    try:
+
+        async def run_test():
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                return await client.get(f"/api/v1/papers/{paper_id}/content")
+
+        response = asyncio.run(run_test())
+        assert response.status_code == 200
+        data = response.json()
+        assert data["paper_id"] == str(paper_id)
+        assert data["format"] == "markdown"
+        assert data["figures"] == []
+        assert data["sections"] == [
+            {"title": "Intro", "level": 1, "paragraphs": ["First paragraph."]},
+        ]
     finally:
         app.dependency_overrides.clear()

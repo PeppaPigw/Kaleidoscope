@@ -25,6 +25,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 # ─── Topics ──────────────────────────────────────────────────────
 
+
 @router.get("/topics", response_model=TopicsResponse)
 async def list_topics(
     db: DbSession,
@@ -65,6 +66,7 @@ async def refresh_topics(
 
 
 # ─── Keywords & Trends ───────────────────────────────────────────
+
 
 @router.get("/hot-keywords", response_model=HotKeywordsResponse)
 async def hot_keywords(
@@ -110,7 +112,9 @@ async def keyword_timeseries(
 @router.get("/keywords/cooccurrence", response_model=KeywordCooccurrenceResponse)
 async def keyword_cooccurrence(
     db: DbSession,
-    top_keywords: int = Query(30, ge=5, le=100, description="Top N keywords to include"),
+    top_keywords: int = Query(
+        30, ge=5, le=100, description="Top N keywords to include"
+    ),
     years_back: int = Query(3, ge=1, le=10),
     min_cooccurrence: int = Query(2, ge=1, le=50),
 ):
@@ -131,6 +135,7 @@ async def keyword_cooccurrence(
 
 # ─── Emerging Entities (Deprecated — use /researchers/emerging) ──
 
+
 @router.get(
     "/emerging-authors",
     deprecated=True,
@@ -148,11 +153,15 @@ async def emerging_authors(
     This endpoint delegates to the same ResearcherService implementation.
     """
     from app.services.analysis.researcher_service import ResearcherService
+
     svc = ResearcherService(db)
-    return {"authors": await svc.emerging_authors(top_k=top_k, recent_years=recent_years)}
+    return {
+        "authors": await svc.emerging_authors(top_k=top_k, recent_years=recent_years)
+    }
 
 
 # ─── Sleeping Papers ─────────────────────────────────────────────
+
 
 @router.get("/sleeping-papers", response_model=SleepingPapersResponse)
 async def sleeping_papers(

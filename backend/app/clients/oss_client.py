@@ -54,6 +54,7 @@ class OssClient:
         """Lazy-init oss2.Bucket (sync, called from thread pool)."""
         if self._bucket is None:
             import oss2
+
             auth = oss2.Auth(self._ak, self._sk)
             self._bucket = oss2.Bucket(auth, self._endpoint, self._bucket_name)
         return self._bucket
@@ -82,9 +83,7 @@ class OssClient:
         headers = {"Content-Type": content_type or "application/octet-stream"}
         bucket.put_object(object_key, data, headers=headers)
 
-    async def upload_many(
-        self, items: list[tuple[bytes, str]]
-    ) -> dict[str, str]:
+    async def upload_many(self, items: list[tuple[bytes, str]]) -> dict[str, str]:
         """
         Upload multiple (data, object_key) pairs concurrently.
 

@@ -35,18 +35,24 @@ class VectorSearchService:
 
     def __init__(self) -> None:
         self.client = QdrantClient(url=settings.qdrant_url)
-        self._encoder = None          # lazy local model (fallback only)
-        self._llm: "LLMClient | None" = None     # API embedder
-        self._use_local = False       # set USE_LOCAL_EMBEDDER=true to prefer local
+        self._encoder = None  # lazy local model (fallback only)
+        self._llm: "LLMClient | None" = None  # API embedder
+        self._use_local = False  # set USE_LOCAL_EMBEDDER=true to prefer local
         self._collections_initialized = False
         # Check env flag
         import os
-        self._use_local = os.getenv("USE_LOCAL_EMBEDDER", "").lower() in ("1", "true", "yes")
+
+        self._use_local = os.getenv("USE_LOCAL_EMBEDDER", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
     def _get_llm(self):
         """Lazy-init the LLMClient used for API embeddings."""
         if self._llm is None:
             from app.clients.llm_client import LLMClient
+
             self._llm = LLMClient()
         return self._llm
 
@@ -55,6 +61,7 @@ class VectorSearchService:
         if self._encoder is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 self._encoder = SentenceTransformer("allenai/specter2_base")
                 logger.info("embedding_model_loaded", model="specter2_base")
             except ImportError:
@@ -90,6 +97,7 @@ class VectorSearchService:
             if loop.is_running():
                 # Inside an async context (e.g. Celery with asyncio loop)
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(asyncio.run, self.encode_text_async(text))
                     return future.result()
@@ -101,7 +109,6 @@ class VectorSearchService:
             encoder = self._get_encoder()
             embedding = encoder.encode(text, normalize_embeddings=True)
             return embedding.tolist()
-
 
     def _ensure_collections(self, dim: int | None = None) -> None:
         """Create Qdrant collections if they don't exist."""

@@ -77,6 +77,7 @@ class PaperResponse(BaseModel):
     highlights: list[str] | None = None
     contributions: list[str] | None = None
     limitations: list[str] | None = None
+    paper_labels: dict | None = None
     authors: list[AuthorBrief] = []
     venue: str | None = None
     raw_metadata: dict | None = None
@@ -98,6 +99,7 @@ class PaperBriefResponse(BaseModel):
     citation_count: int | None = None
     has_full_text: bool = False
     ingestion_status: str
+    paper_labels: dict | None = None
     authors: list[AuthorBrief] = []
     venue: VenueBrief | None = None
     created_at: datetime

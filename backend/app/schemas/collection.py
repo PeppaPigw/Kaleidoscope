@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 
 # ─── Tags ────────────────────────────────────────────────────────────
 
+
 class TagCreate(BaseModel):
     """Create a new tag."""
+
     name: str = Field(..., min_length=1, max_length=100)
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     description: str | None = None
@@ -18,6 +20,7 @@ class TagCreate(BaseModel):
 
 class TagUpdate(BaseModel):
     """Update a tag."""
+
     name: str | None = Field(None, min_length=1, max_length=100)
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     description: str | None = None
@@ -25,6 +28,7 @@ class TagUpdate(BaseModel):
 
 class TagResponse(BaseModel):
     """Tag in API responses."""
+
     id: uuid.UUID
     name: str
     color: str | None
@@ -36,8 +40,10 @@ class TagResponse(BaseModel):
 
 # ─── Collections ─────────────────────────────────────────────────────
 
+
 class CollectionCreate(BaseModel):
     """Create a new collection."""
+
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
@@ -48,6 +54,7 @@ class CollectionCreate(BaseModel):
 
 class CollectionUpdate(BaseModel):
     """Update a collection."""
+
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
@@ -57,19 +64,20 @@ class CollectionUpdate(BaseModel):
 
 class CollectionPaperAdd(BaseModel):
     """Add paper(s) to a collection."""
+
     paper_ids: list[uuid.UUID] = Field(..., min_length=1)
     note: str | None = None
 
 
 class CollectionPaperReorder(BaseModel):
     """Reorder papers in a collection."""
-    paper_ids: list[uuid.UUID] = Field(
-        ..., description="Paper IDs in desired order"
-    )
+
+    paper_ids: list[uuid.UUID] = Field(..., description="Paper IDs in desired order")
 
 
 class CollectionPaperResponse(BaseModel):
     """Paper within a collection."""
+
     paper_id: uuid.UUID
     position: int
     note: str | None
@@ -86,6 +94,7 @@ class CollectionPaperResponse(BaseModel):
 
 class CollectionResponse(BaseModel):
     """Collection in API responses (list view)."""
+
     id: uuid.UUID
     name: str
     description: str | None
@@ -101,21 +110,26 @@ class CollectionResponse(BaseModel):
 
 class CollectionDetailResponse(CollectionResponse):
     """Collection with papers (detail view)."""
+
     smart_filter: dict | None = None
     papers: list[CollectionPaperResponse] = []
 
 
 # ─── Reading Status ──────────────────────────────────────────────────
 
+
 class ReadingStatusUpdate(BaseModel):
     """Update paper reading status."""
+
     status: Literal["unread", "to_read", "reading", "read", "archived"]
 
 
 # ─── Citation Export ─────────────────────────────────────────────────
 
+
 class ExportRequest(BaseModel):
     """Request citation export for paper(s)."""
+
     paper_ids: list[uuid.UUID] | None = Field(
         None, description="Specific papers. Omit to export all in collection."
     )

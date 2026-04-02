@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ["*"]
 
     # --- PostgreSQL ---
-    database_url: str = "postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope"
+    database_url: str = (
+        "postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope"
+    )
 
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
@@ -79,7 +81,7 @@ class Settings(BaseSettings):
 
     # --- MinerU ---
     mineru_api_token: str = ""
-    mineru_concurrency: int = 50   # max parallel MinerU tasks
+    mineru_concurrency: int = 50  # max parallel MinerU tasks
 
     # --- Aliyun OSS (image host for paper figures) ---
     img_host_access_key: str = ""

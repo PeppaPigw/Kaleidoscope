@@ -240,12 +240,232 @@ async def _background_analyse_papers() -> None:
         logger.warning("analysis_startup_failed", error=str(e))
 
 
+async def _background_overview_images() -> None:
+    """
+    Generate 一图速览 posters for papers that have deep_analysis but no overview_image.
+    Runs as a fire-and-forget background task on startup.
+    Concurrency=1: each job runs a long LLM call + image API call + OSS upload (~3-5 min).
+    Starts after analysis is well underway (20 minutes delay).
+    """
+    from sqlalchemy import select
+    from app.models.paper import Paper
+    from app.dependencies import async_session_factory
+    from app.services.analysis.overview_image_service import OverviewImageService
+    from datetime import datetime, timezone
+
+    try:
+        await asyncio.sleep(1200)  # 20 minutes — let analysis sweep run first
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Paper.id, Paper.title, Paper.deep_analysis, Paper.overview_image)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.deep_analysis.is_not(None),
+                )
+                .order_by(Paper.created_at.desc())
+            )
+            rows = result.all()
+
+        # Only process papers where deep_analysis succeeded and overview_image is missing/failed
+        candidates = [
+            r for r in rows
+            if (r.deep_analysis or {}).get("status") == "ok"
+            and (r.overview_image or {}).get("status") not in ("ok", "generating")
+        ]
+
+        if not candidates:
+            logger.info(
+                "overview_image_startup_skip",
+                reason="all eligible papers already have overview images",
+            )
+            return
+
+        logger.info("overview_image_startup_begin", count=len(candidates))
+        done = errors = 0
+        sem = asyncio.Semaphore(1)  # image generation is expensive: LLM + image API + OSS
+
+        async def _one(paper_id, paper_title: str, deep_analysis: dict) -> None:
+            nonlocal done, errors
+            async with sem:
+                try:
+                    analysis_text = deep_analysis.get("analysis", "")
+                    if not analysis_text:
+                        return
+
+                    # Mark as generating
+                    async with async_session_factory() as db:
+                        r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                        paper = r.scalar_one_or_none()
+                        if paper is None:
+                            return
+                        # Re-check: another path may have generated it already
+                        if (paper.overview_image or {}).get("status") in ("ok", "generating"):
+                            return
+                        paper.overview_image = {"status": "generating"}
+                        paper.overview_image_at = datetime.now(timezone.utc)
+                        await db.commit()
+
+                    # Generate image
+                    svc = OverviewImageService()
+                    try:
+                        url = await svc.generate(paper_title, analysis_text)
+                        image_data = {
+                            "status": "ok",
+                            "url": url,
+                            "generated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                        done += 1
+                        logger.info(
+                            "overview_image_bg_done",
+                            paper_id=str(paper_id),
+                            title=paper_title[:60],
+                        )
+                    except Exception as e:
+                        image_data = {"status": "error", "error": str(e)[:300]}
+                        errors += 1
+                        logger.warning(
+                            "overview_image_bg_error",
+                            paper_id=str(paper_id),
+                            error=str(e)[:120],
+                        )
+                    finally:
+                        await svc.close()
+
+                    # Persist result
+                    async with async_session_factory() as db:
+                        r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                        paper = r.scalar_one_or_none()
+                        if paper is not None:
+                            paper.overview_image = image_data
+                            paper.overview_image_at = datetime.now(timezone.utc)
+                            await db.commit()
+
+                except Exception as e:
+                    errors += 1
+                    logger.warning(
+                        "overview_image_bg_outer_error",
+                        paper_id=str(paper_id),
+                        error=str(e)[:120],
+                    )
+
+        await asyncio.gather(
+            *[_one(r.id, r.title, r.deep_analysis) for r in candidates],
+            return_exceptions=True,
+        )
+        logger.info("overview_image_startup_done", done=done, errors=errors)
+
+    except Exception as e:
+        logger.warning("overview_image_startup_failed", error=str(e))
+
+
+async def _background_translate_analyses() -> None:
+    """
+    Translate deep_analysis text to Chinese for papers that have deep_analysis but
+    no deep_analysis_zh.  RPM=20 → one request every 3 seconds, sequential.
+    Starts 25 minutes after startup (after analysis + image sweeps).
+    """
+    from sqlalchemy import select
+    from app.models.paper import Paper
+    from app.dependencies import async_session_factory
+    from app.clients.translate_client import TranslateClient
+    from datetime import datetime, timezone
+
+    _SYS = (
+        "你是一个翻译助手。使用专业简洁的术语，把英文翻译为中文。"
+        "无任何其他输出。严格保持输出格式与输入的内容格式一致"
+    )
+
+    try:
+        await asyncio.sleep(1500)  # 25 minutes
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Paper.id, Paper.deep_analysis, Paper.deep_analysis_zh)
+                .where(
+                    Paper.deleted_at.is_(None),
+                    Paper.deep_analysis.is_not(None),
+                )
+                .order_by(Paper.created_at.desc())
+            )
+            rows = result.all()
+
+        candidates = [
+            r for r in rows
+            if (r.deep_analysis or {}).get("status") == "ok"
+            and (r.deep_analysis_zh or {}).get("status") not in ("ok", "translating")
+        ]
+
+        if not candidates:
+            logger.info(
+                "translate_zh_startup_skip",
+                reason="all eligible papers already have Chinese translation",
+            )
+            return
+
+        logger.info("translate_zh_startup_begin", count=len(candidates))
+        done = errors = 0
+
+        for r in candidates:
+            paper_id = r.id
+            analysis_text = (r.deep_analysis or {}).get("analysis", "")
+            if not analysis_text:
+                continue
+
+            # Mark as translating
+            async with async_session_factory() as db:
+                p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                if p is None:
+                    continue
+                if (p.deep_analysis_zh or {}).get("status") in ("ok", "translating"):
+                    continue
+                p.deep_analysis_zh = {"status": "translating"}
+                p.deep_analysis_zh_at = datetime.now(timezone.utc)
+                await db.commit()
+
+            try:
+                async with TranslateClient(system_prompt=_SYS) as client:
+                    translated = await client.translate(analysis_text, system_prompt=_SYS)
+
+                if translated:
+                    zh_data = {
+                        "status": "ok",
+                        "analysis": translated,
+                        "translated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    done += 1
+                else:
+                    zh_data = {"status": "error", "error": "empty result"}
+                    errors += 1
+            except Exception as e:
+                zh_data = {"status": "error", "error": str(e)[:300]}
+                errors += 1
+                logger.warning("translate_zh_bg_error", paper_id=str(paper_id), error=str(e)[:120])
+
+            async with async_session_factory() as db:
+                p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                if p is not None:
+                    p.deep_analysis_zh = zh_data
+                    p.deep_analysis_zh_at = datetime.now(timezone.utc)
+                    await db.commit()
+
+            # RPM=20 → 3 seconds between requests
+            await asyncio.sleep(3)
+
+        logger.info("translate_zh_startup_done", done=done, errors=errors)
+
+    except Exception as e:
+        logger.warning("translate_zh_startup_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────
     asyncio.create_task(_background_enrich_authors())
     asyncio.create_task(_background_label_papers())
     asyncio.create_task(_background_analyse_papers())
+    asyncio.create_task(_background_overview_images())
+    asyncio.create_task(_background_translate_analyses())
     yield
     # ── Shutdown ─────────────────────────────────────────────────
 

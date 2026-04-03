@@ -20,13 +20,19 @@ router = APIRouter(prefix="/papers", tags=["content"])
 
 
 def _fire_analysis_bg(paper_id: str) -> None:
-    """Fire-and-forget: deep-analyse a single paper in the background after import/reparse."""
+    """Fire-and-forget: deep-analyse a single paper, then auto-generate overview image."""
     async def _run():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.models.author import PaperAuthor
         from app.services.analysis.paper_analyst import PaperAnalystService
+        from app.services.analysis.overview_image_service import OverviewImageService
         from sqlalchemy.orm import selectinload
+        from datetime import datetime, timezone
+
+        # ── Step 1: Deep analysis ──────────────────────────────────────────
+        paper_title = ""
+        analysis_text = ""
         try:
             async with async_session_factory() as db:
                 r = await db.execute(
@@ -36,11 +42,57 @@ def _fire_analysis_bg(paper_id: str) -> None:
                 paper = r.scalar_one_or_none()
                 if paper and not paper.deep_analysis:
                     svc = PaperAnalystService(db)
-                    await svc.analyse_and_persist(paper, db)
+                    result = await svc.analyse_and_persist(paper, db)
                     await db.commit()
                     await svc.close()
+                    if result.get("status") == "ok":
+                        paper_title = paper.title
+                        analysis_text = result.get("analysis", "")
+                elif paper and paper.deep_analysis and paper.deep_analysis.get("status") == "ok":
+                    # Analysis already done; still proceed to image if missing
+                    paper_title = paper.title
+                    analysis_text = paper.deep_analysis.get("analysis", "")
         except Exception:
-            pass  # analysis is best-effort; don't crash import flow
+            pass  # analysis is best-effort
+
+        # ── Step 2: Overview image (only if analysis produced text) ────────
+        if not paper_title or not analysis_text.strip():
+            return
+
+        img_svc = OverviewImageService()
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if not paper:
+                    return
+                # Skip if image already exists
+                if paper.overview_image and paper.overview_image.get("status") == "ok":
+                    return
+                paper.overview_image = {"status": "generating"}
+                await db.commit()
+
+            url = await img_svc.generate(paper_title, analysis_text)
+
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if paper:
+                    paper.overview_image = {"status": "ok", "url": url}
+                    paper.overview_image_at = datetime.now(timezone.utc)
+                    await db.commit()
+        except Exception as exc:
+            try:
+                async with async_session_factory() as db:
+                    r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                    paper = r.scalar_one_or_none()
+                    if paper:
+                        paper.overview_image = {"status": "error", "error": str(exc)[:300]}
+                        await db.commit()
+            except Exception:
+                pass
+        finally:
+            await img_svc.close()
 
     asyncio.create_task(_run())
 
@@ -450,6 +502,143 @@ async def get_deep_analysis(
         "generated_at": paper.deep_analysis.get("generated_at"),
         "model": paper.deep_analysis.get("model"),
         "fulltext_chars": paper.deep_analysis.get("fulltext_chars"),
+    }
+
+
+@router.get("/{paper_id}/overview-image")
+async def get_overview_image(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the 一图速览 overview image record for a paper."""
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if not paper.overview_image:
+        raise HTTPException(status_code=404, detail="Overview image not generated yet")
+    return {
+        "paper_id": str(paper.id),
+        **paper.overview_image,
+        "generated_at": paper.overview_image_at.isoformat() if paper.overview_image_at else None,
+    }
+
+
+def _fire_overview_image_only_bg(paper_id: str, paper_title: str, analysis_text: str) -> None:
+    """Fire-and-forget: generate overview image only (analysis already done)."""
+    async def _run():
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.analysis.overview_image_service import OverviewImageService
+        from datetime import datetime, timezone
+        svc = OverviewImageService()
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if not paper:
+                    return
+                paper.overview_image = {"status": "generating"}
+                await db.commit()
+
+            url = await svc.generate(paper_title, analysis_text)
+
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if paper:
+                    paper.overview_image = {"status": "ok", "url": url}
+                    paper.overview_image_at = datetime.now(timezone.utc)
+                    await db.commit()
+        except Exception as exc:
+            try:
+                async with async_session_factory() as db:
+                    r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                    paper = r.scalar_one_or_none()
+                    if paper:
+                        paper.overview_image = {"status": "error", "error": str(exc)[:300]}
+                        await db.commit()
+            except Exception:
+                pass
+        finally:
+            await svc.close()
+
+    asyncio.create_task(_run())
+
+
+@router.post("/{paper_id}/overview-image", status_code=202)
+async def generate_overview_image(
+    paper_id: uuid.UUID,
+    force: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Manually trigger 一图速览 poster generation (or regeneration with ?force=true).
+
+    Under normal flow this runs automatically after deep analysis.
+    Uses paper.deep_analysis["analysis"] as content.
+    Fires generation in the background; poll GET /overview-image for status.
+    """
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    if not paper.deep_analysis or paper.deep_analysis.get("status") != "ok":
+        raise HTTPException(
+            status_code=422,
+            detail="Deep analysis not available. Generate deep analysis first.",
+        )
+
+    existing = paper.overview_image or {}
+    if not force and existing.get("status") in ("ok", "generating"):
+        return {
+            "paper_id": str(paper_id),
+            "status": existing["status"],
+            "url": existing.get("url"),
+            "message": "Already generated or in progress. Use ?force=true to regenerate.",
+        }
+
+    analysis_text = paper.deep_analysis.get("analysis", "")
+    if not analysis_text.strip():
+        raise HTTPException(status_code=422, detail="Deep analysis text is empty")
+
+    _fire_overview_image_only_bg(str(paper_id), paper.title, analysis_text)
+    return {"paper_id": str(paper_id), "status": "generating"}
+
+
+@router.get("/{paper_id}/deep-analysis-zh")
+async def get_deep_analysis_zh(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return Chinese translation of deep analysis for a paper."""
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    zh = paper.deep_analysis_zh or {}
+    if zh.get("status") != "ok":
+        raise HTTPException(
+            status_code=404,
+            detail=zh.get("status", "not_available"),
+        )
+    return {
+        "paper_id": str(paper.id),
+        "analysis": zh.get("analysis", ""),
+        "translated_at": zh.get("translated_at"),
     }
 
 

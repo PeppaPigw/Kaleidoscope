@@ -127,6 +127,16 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # {status, analysis (markdown text), model, authors, year, generated_at}
     deep_analysis_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # --- 一图速览 Overview Image (overview_image_service.py) ---
+    overview_image: Mapped[dict | None] = mapped_column(JSONB)
+    # {status: "ok"|"generating"|"error", url, generated_at, error}
+    overview_image_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # --- Chinese Translation of Deep Analysis ---
+    deep_analysis_zh: Mapped[dict | None] = mapped_column(JSONB)
+    # {status: "ok"|"translating"|"error", analysis, translated_at, error}
+    deep_analysis_zh_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # --- Structured Taxonomy Labels (labeling_service.py) ---
     paper_labels: Mapped[dict | None] = mapped_column(JSONB)
     # {domain, task, method, data_object, application, meta: {paper_type, evaluation_quality, resource_constraint}}

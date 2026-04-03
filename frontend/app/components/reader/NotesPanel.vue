@@ -7,7 +7,7 @@
  *   manual      — free-form note added via the + button
  *   annotation  — underlined text + user note
  *
- * Notes are listed in creation order (newest first).
+ * Notes are listed in creation order (oldest first).
  * Clicking a highlight or annotation note jumps to that text in the reading area.
  * A search bar filters across selected text and note content.
  */
@@ -52,7 +52,7 @@ watch(
 
 const filteredNotes = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  const sorted = [...props.notes].sort((a, b) => b.createdAt - a.createdAt)
+  const sorted = [...props.notes].sort((a, b) => a.createdAt - b.createdAt)
   if (!q) return sorted
   return sorted.filter(n =>
     n.selectedText?.toLowerCase().includes(q)

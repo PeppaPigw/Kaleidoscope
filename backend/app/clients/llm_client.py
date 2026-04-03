@@ -38,11 +38,6 @@ class LLMClient:
     """
     Unified client for BLSC / OpenAI-compatible APIs.
 
-    Supports:
-      • chat completions  (Qwen3-235B-A22B, enable_thinking=False by default)
-      • embeddings        (Doubao-Embedding-Large-Text)
-      • reranking         (GLM-Rerank)
-
     Override base_url + api_key for non-BLSC providers.
     """
 

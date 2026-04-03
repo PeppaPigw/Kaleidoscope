@@ -19,7 +19,7 @@ import { extractPaperSupplements } from '~/utils/paperSupplements'
 
 definePageMeta({ layout: 'default' })
 
-const { t } = useTranslation()
+const { t, isZh } = useTranslation()
 
 const route = useRoute()
 const { apiFetch, getClaimsForPaper, getPaperContent, getPaperHighlights, getSimilarPapers } = useApi()
@@ -238,7 +238,11 @@ onMounted(() => {
   void loadPaperData()
   if (paperId.value) {
     void loadLabels(paperId.value)
-    void loadDeepAnalysis(paperId.value)
+    void loadDeepAnalysis(paperId.value).then(() => {
+      if (isZh.value && paperId.value)
+        void loadDeepAnalysisZh(paperId.value)
+    })
+    void loadOverviewImage(paperId.value)
   }
   window.addEventListener('scroll', onPageScroll, { passive: true })
 })
@@ -246,16 +250,25 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('scroll', onPageScroll)
   if (rafId !== null) cancelAnimationFrame(rafId)
+  stopPollingOverviewImage()
 })
 
 watch(paperId, (currentPaperId, previousPaperId) => {
   if (previousPaperId && currentPaperId !== previousPaperId) {
     void loadPaperData()
     deepAnalysisText.value = null
+    deepAnalysisZhText.value = null
+    deepAnalysisZhStatus.value = 'idle'
     analysisItems.value = []
     activeOutlineIdx.value = 0
+    overviewImage.value = null
+    stopPollingOverviewImage()
     void loadLabels(currentPaperId)
-    void loadDeepAnalysis(currentPaperId)
+    void loadDeepAnalysis(currentPaperId).then(() => {
+      if (isZh.value)
+        void loadDeepAnalysisZh(currentPaperId)
+    })
+    void loadOverviewImage(currentPaperId)
   }
 })
 
@@ -288,8 +301,73 @@ async function loadLabels(id: string) {
   }
 }
 
+// ─── 一图速览 Overview Image ───────────────────────────────────────────────
+type OverviewImageRecord = {
+  status: 'ok' | 'generating' | 'error'
+  url?: string
+  error?: string
+  generated_at?: string
+}
+
+const overviewImage = ref<OverviewImageRecord | null>(null)
+const overviewImageLoading = ref(false)
+let overviewImagePollTimer: ReturnType<typeof setInterval> | null = null
+
+async function loadOverviewImage(id: string) {
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const data = await $fetch<OverviewImageRecord>(`${apiBase}/api/v1/papers/${id}/overview-image`)
+    overviewImage.value = data
+  }
+  catch {
+    overviewImage.value = null
+  }
+}
+
+function startPollingOverviewImage(id: string) {
+  if (overviewImagePollTimer) return
+  overviewImagePollTimer = setInterval(async () => {
+    await loadOverviewImage(id)
+    if (overviewImage.value?.status !== 'generating') {
+      stopPollingOverviewImage()
+    }
+  }, 3000)
+}
+
+function stopPollingOverviewImage() {
+  if (overviewImagePollTimer) {
+    clearInterval(overviewImagePollTimer)
+    overviewImagePollTimer = null
+  }
+}
+
+async function triggerOverviewImage() {
+  if (!paperId.value || overviewImageLoading.value) return
+  overviewImageLoading.value = true
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const result = await $fetch<{ status: string }>(`${apiBase}/api/v1/papers/${paperId.value}/overview-image`, {
+      method: 'POST',
+    })
+    overviewImage.value = { status: result.status as 'generating' }
+    if (result.status === 'generating') {
+      startPollingOverviewImage(paperId.value)
+    }
+  }
+  catch {
+    // ignore — button stays visible
+  }
+  finally {
+    overviewImageLoading.value = false
+  }
+}
+
 // ─── Deep Analysis + Full-page outline ──────────────────────────────────────
 const deepAnalysisText = ref<string | null>(null)
+const deepAnalysisZhText = ref<string | null>(null)
+const deepAnalysisZhStatus = ref<'idle' | 'loading' | 'translating' | 'ok' | 'error'>('idle')
 const analysisItems = ref<AnalysisItem[]>([])
 
 // Page sections — must match the ids on the wrapper divs in the template
@@ -368,6 +446,33 @@ async function loadDeepAnalysis(id: string) {
   }
 }
 
+async function loadDeepAnalysisZh(id: string) {
+  if (deepAnalysisZhStatus.value === 'loading') return
+  deepAnalysisZhStatus.value = 'loading'
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    const data = await $fetch<{ analysis: string }>(`${apiBase}/api/v1/papers/${id}/deep-analysis-zh`)
+    deepAnalysisZhText.value = data.analysis ?? null
+    deepAnalysisZhStatus.value = 'ok'
+  }
+  catch (e: any) {
+    const detail = e?.data?.detail ?? ''
+    deepAnalysisZhStatus.value = detail === 'translating' ? 'translating' : 'error'
+    deepAnalysisZhText.value = null
+  }
+}
+
+const deepAnalysisDisplay = computed(() =>
+  isZh.value && deepAnalysisZhText.value ? deepAnalysisZhText.value : deepAnalysisText.value,
+)
+
+// Load Chinese translation when locale is zh
+watch(isZh, (zh) => {
+  if (zh && paperId.value && deepAnalysisText.value && deepAnalysisZhStatus.value === 'idle')
+    void loadDeepAnalysisZh(paperId.value)
+}, { immediate: false })
+
 // ─── Handlers ────────────────────────────────────────────────
 function handleRead() {
   navigateTo(`/reader/${paperId.value}`)
@@ -442,10 +547,60 @@ function handleRelatedClick(paper: RelatedPaper) {
           />
         </div>
 
+        <!-- 一图速览 Overview Image -->
+        <div class="ks-overview-image">
+          <!-- Image loaded -->
+          <template v-if="overviewImage?.status === 'ok' && overviewImage.url">
+            <div class="ks-overview-image__header">
+              <span class="ks-overview-image__badge">一图速览</span>
+            </div>
+            <img
+              :src="overviewImage.url"
+              alt="Paper overview poster"
+              class="ks-overview-image__img"
+              loading="lazy"
+            />
+          </template>
+
+          <!-- Generating in progress -->
+          <template v-else-if="overviewImage?.status === 'generating'">
+            <div class="ks-overview-image__generating">
+              <span class="ks-overview-image__spinner" />
+              <span>正在生成一图速览，请稍候…</span>
+            </div>
+          </template>
+
+          <!-- Error state -->
+          <template v-else-if="overviewImage?.status === 'error'">
+            <div class="ks-overview-image__error">
+              <span>生成失败</span>
+              <button class="ks-overview-image__btn" @click="triggerOverviewImage">重试</button>
+            </div>
+          </template>
+
+          <!-- Not generated yet — show generate button if deep analysis exists -->
+          <template v-else-if="deepAnalysisText">
+            <div class="ks-overview-image__empty">
+              <button
+                class="ks-overview-image__btn"
+                :disabled="overviewImageLoading"
+                @click="triggerOverviewImage"
+              >
+                {{ overviewImageLoading ? '提交中…' : '✦ 生成一图速览' }}
+              </button>
+              <span class="ks-overview-image__hint">根据 Deep Analysis 自动生成论文海报</span>
+            </div>
+          </template>
+        </div>
+
         <!-- Deep Analysis -->
         <div v-if="deepAnalysisText" id="ks-sec-analysis">
+          <div v-if="isZh && deepAnalysisZhStatus === 'translating'" class="ks-zh-translating">
+            <span class="ks-overview-image__spinner" />
+            <span>正在翻译中文版，请稍候…</span>
+          </div>
           <PaperDeepAnalysis
-            :analysis="deepAnalysisText"
+            :analysis="deepAnalysisDisplay!"
             @analysis-items-ready="analysisItems = $event"
           />
         </div>
@@ -616,6 +771,16 @@ function handleRelatedClick(paper: RelatedPaper) {
   margin: 2px 0;
 }
 
+.ks-zh-translating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 12px;
+  font: 400 0.8rem / 1 var(--font-sans);
+  color: var(--color-secondary);
+  opacity: 0.75;
+}
+
 @media (max-width: 960px) {
   .ks-paper-profile__layout {
     grid-template-columns: 1fr;
@@ -623,5 +788,87 @@ function handleRelatedClick(paper: RelatedPaper) {
   .ks-paper-profile__sidebar {
     position: static;
   }
+}
+
+/* ── 一图速览 Overview Image ─────────────────────────── */
+.ks-overview-image {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--color-surface, rgba(15, 23, 42, 0.6));
+}
+
+.ks-overview-image__header {
+  padding: 12px 18px 0;
+}
+
+.ks-overview-image__badge {
+  font: 600 0.7rem / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+
+.ks-overview-image__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.ks-overview-image__generating,
+.ks-overview-image__error,
+.ks-overview-image__empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  font: 400 0.875rem / 1 var(--font-sans);
+  color: var(--color-secondary);
+}
+
+.ks-overview-image__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: ks-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ks-spin { to { transform: rotate(360deg); } }
+
+.ks-overview-image__btn {
+  padding: 6px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 5px;
+  background: none;
+  color: var(--color-primary);
+  font: 500 0.8125rem / 1 var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ks-overview-image__btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.ks-overview-image__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ks-overview-image__hint {
+  font: 400 0.78rem / 1 var(--font-sans);
+  color: var(--color-secondary);
+  opacity: 0.7;
 }
 </style>

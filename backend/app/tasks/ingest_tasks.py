@@ -765,6 +765,7 @@ def index_paper_task(self, paper_id: str):
                     log.warning("paper_label_on_index_failed", error=str(e))
 
                 # ── Auto deep-analyse newly indexed paper ─────────
+                _analysis_ok = False
                 try:
                     from app.services.analysis.paper_analyst import PaperAnalystService
 
@@ -773,8 +774,51 @@ def index_paper_task(self, paper_id: str):
                     await session.commit()
                     await analyst.close()
                     log.info("paper_analysed_on_index")
+                    _analysis_ok = (paper.deep_analysis or {}).get("status") == "ok"
                 except Exception as e:
                     log.warning("paper_analysis_on_index_failed", error=str(e))
+
+                # ── Auto generate 一图速览 after deep analysis ──────
+                if _analysis_ok:
+                    try:
+                        from app.services.analysis.overview_image_service import (
+                            OverviewImageService,
+                        )
+                        from datetime import datetime, timezone
+
+                        analysis_text = (paper.deep_analysis or {}).get("analysis", "")
+                        if analysis_text:
+                            paper.overview_image = {"status": "generating"}
+                            paper.overview_image_at = datetime.now(timezone.utc)
+                            await session.commit()
+
+                            img_svc = OverviewImageService()
+                            try:
+                                url = await img_svc.generate(paper.title, analysis_text)
+                                paper.overview_image = {
+                                    "status": "ok",
+                                    "url": url,
+                                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                                }
+                            except Exception as img_e:
+                                paper.overview_image = {
+                                    "status": "error",
+                                    "error": str(img_e)[:300],
+                                }
+                                log.warning(
+                                    "overview_image_on_index_failed", error=str(img_e)[:120]
+                                )
+                            finally:
+                                await img_svc.close()
+
+                            paper.overview_image_at = datetime.now(timezone.utc)
+                            await session.commit()
+                            log.info(
+                                "overview_image_on_index_done",
+                                status=paper.overview_image.get("status"),
+                            )
+                    except Exception as e:
+                        log.warning("overview_image_on_index_outer_failed", error=str(e))
 
             log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
             return {

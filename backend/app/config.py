@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     img_host_url: str = "https://oss-cn-shanghai.aliyuncs.com"
     img_host_concurrency: int = 100  # max parallel OSS uploads
 
+    # --- Image Generation API (一图速览) ---
+    image_api_key: str = ""
+    image_api_url: str = "https://api.ai-wave.org/v1/responses"
+    image_model: str = "gemini-3.1-flash-image-preview"
+
     # --- Celery ---
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

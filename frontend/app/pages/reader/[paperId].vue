@@ -10,10 +10,11 @@
  */
 import type { PaperContent, PaperHighlights, PaperLabels } from '~/composables/useApi'
 import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
-import type { Annotation } from '~/components/reader/Marginalia.vue'
 import type { SemanticHighlight } from '~/components/reader/SemanticHighlights.vue'
 import type { ParagraphQuestion } from '~/components/reader/ParagraphQA.vue'
 import type { RenderedMarkdownHeading } from '../../utils/markdown'
+import { loadNotes, saveNotes } from '~/utils/notes'
+import type { Note } from '~/utils/notes'
 
 definePageMeta({
   layout: 'default',
@@ -35,6 +36,56 @@ useHead({
 })
 
 const activeTab = ref<'outline' | 'labels' | 'annotations' | 'highlights' | 'ragflow'>('outline')
+
+// ─── Notes ───────────────────────────────────────────────────
+const notes = ref<Note[]>([])
+const pendingAnnotationText = ref<string | null>(null)
+const markdownCanvasRef = ref<{ scrollToNote: (id: string) => void } | null>(null)
+
+function loadPaperNotes() {
+  if (paperId.value) notes.value = loadNotes(paperId.value)
+}
+
+function persistNotes() {
+  if (paperId.value) saveNotes(paperId.value, notes.value)
+}
+
+function handleAddHighlight(text: string) {
+  notes.value.push({ id: crypto.randomUUID(), type: 'highlight', createdAt: Date.now(), selectedText: text })
+  persistNotes()
+}
+
+function handleTextSelected(text: string) {
+  pendingAnnotationText.value = text
+  activeTab.value = 'annotations'
+}
+
+function handleAddAnnotation(selectedText: string, content: string) {
+  notes.value.push({
+    id: crypto.randomUUID(),
+    type: content.trim() ? 'annotation' : 'highlight',
+    createdAt: Date.now(),
+    selectedText,
+    content: content.trim() || undefined,
+  })
+  persistNotes()
+}
+
+function handleAddManual(content: string) {
+  notes.value.push({ id: crypto.randomUUID(), type: 'manual', createdAt: Date.now(), content })
+  persistNotes()
+}
+
+function handleDeleteNote(id: string) {
+  notes.value = notes.value.filter(n => n.id !== id)
+  persistNotes()
+}
+
+function handleNoteClick(note: Note) {
+  if (note.selectedText) {
+    markdownCanvasRef.value?.scrollToNote(note.id)
+  }
+}
 
 const paperContent = ref<PaperContent | null>(null)
 const contentPending = ref(true)
@@ -85,7 +136,6 @@ const outlineSections = computed<OutlineSection[]>(() => {
 const activeSectionId = ref('section-0')
 
 // Static demo data (will be replaced by API calls later)
-const annotations: Annotation[] = []
 const highlights = ref<SemanticHighlight[]>([])
 const questions = ref<ParagraphQuestion[]>([])
 const qaQuestion = ref('')
@@ -162,9 +212,6 @@ function handleActiveHeadingChange(headingId: string | null) {
     activeSectionId.value = headingId
 }
 
-function handleAnnotationClick(_annotation: Annotation) {
-  // TODO: scroll to annotation location
-}
 
 function handleHighlightClick(_highlight: SemanticHighlight) {
   // TODO: scroll to highlight location
@@ -272,11 +319,14 @@ async function triggerReprocess() {
 onMounted(() => {
   void loadPaperContent()
   void loadLabels()
+  loadPaperNotes()
 })
 
 watch(paperId, (currentPaperId, previousPaperId) => {
   if (previousPaperId && currentPaperId !== previousPaperId) {
     void loadPaperContent()
+    loadPaperNotes()
+    pendingAnnotationText.value = null
   }
 })
 
@@ -353,12 +403,16 @@ async function handleAskQuestion() {
     <div class="ks-reader__layout">
       <div class="ks-reader__main">
         <ReaderMarkdownCanvas
+          ref="markdownCanvasRef"
           :title="paperTitle"
           :content="paperContent"
           :pending="contentPending"
           :error="contentError"
+          :note-highlights="notes"
           @outline-change="handleOutlineChange"
           @active-heading-change="handleActiveHeadingChange"
+          @add-highlight="handleAddHighlight"
+          @text-selected="handleTextSelected"
         />
       </div>
 
@@ -393,10 +447,16 @@ async function handleAskQuestion() {
             @section-click="handleSectionClick"
           />
 
-          <ReaderMarginalia
+          <ReaderNotesPanel
             v-if="activeTab === 'annotations'"
-            :annotations="annotations"
-            @annotation-click="handleAnnotationClick"
+            :notes="notes"
+            :pending-text="pendingAnnotationText"
+            @note-click="handleNoteClick"
+            @add-highlight="handleAddHighlight"
+            @add-annotation="handleAddAnnotation"
+            @add-manual="handleAddManual"
+            @delete-note="handleDeleteNote"
+            @pending-done="pendingAnnotationText = null"
           />
 
           <ReaderSemanticHighlights

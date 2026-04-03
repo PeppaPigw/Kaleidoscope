@@ -8,18 +8,22 @@
 import type { PaperContent } from '~/composables/useApi'
 import type { RenderedMarkdownHeading } from '../../utils/markdown'
 import { renderPaperMarkdown } from '../../utils/markdown'
+import type { Note } from '~/utils/notes'
 
 export interface MarkdownCanvasProps {
   title: string
   content: PaperContent | null
   pending?: boolean
   error?: string | null
+  noteHighlights?: Note[]
 }
 
 const props = defineProps<MarkdownCanvasProps>()
 const emit = defineEmits<{
   outlineChange: [headings: RenderedMarkdownHeading[]]
   activeHeadingChange: [headingId: string | null]
+  addHighlight: [text: string]
+  textSelected: [text: string]
 }>()
 
 const fontSize = ref(16)
@@ -34,6 +38,117 @@ const displayError = computed(() => errorMessage.value || renderError.value)
 const busy = computed(() => pending.value || renderPending.value)
 const contentRef = ref<HTMLElement | null>(null)
 const renderedRef = ref<HTMLElement | null>(null)
+
+// ─── Text-selection floating menu ────────────────────────────
+const selMenu = ref({ visible: false, x: 0, y: 0, text: '' })
+
+function handleContentMouseup() {
+  const sel = window.getSelection()
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    selMenu.value.visible = false
+    return
+  }
+  const text = sel.toString().trim()
+  if (text.length < 2) {
+    selMenu.value.visible = false
+    return
+  }
+  const range = sel.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+  selMenu.value = {
+    visible: true,
+    x: rect.left + rect.width / 2,
+    y: rect.bottom + 8,
+    text,
+  }
+}
+
+function hideSelMenu() {
+  selMenu.value.visible = false
+}
+
+function handleHighlightClick() {
+  emit('addHighlight', selMenu.value.text)
+  window.getSelection()?.removeAllRanges()
+  hideSelMenu()
+}
+
+function handleAnnotateClick() {
+  emit('textSelected', selMenu.value.text)
+  window.getSelection()?.removeAllRanges()
+  hideSelMenu()
+}
+
+function handleDocMousedown(e: MouseEvent) {
+  const menu = document.getElementById('ks-mc-sel-menu')
+  if (menu && menu.contains(e.target as Node)) return
+  hideSelMenu()
+}
+
+// ─── Note highlight injection ─────────────────────────────────
+function applyNoteHighlights() {
+  const container = renderedRef.value
+  if (!container) return
+
+  // Remove existing note marks and normalize
+  for (const el of Array.from(container.querySelectorAll('.ks-note-hl'))) {
+    const parent = el.parentNode
+    if (!parent) continue
+    while (el.firstChild) parent.insertBefore(el.firstChild, el)
+    parent.removeChild(el)
+    parent.normalize()
+  }
+
+  // Inject new marks
+  for (const note of (props.noteHighlights ?? [])) {
+    if (!note.selectedText) continue
+    wrapFirstOccurrence(container, note.selectedText, note.id, note.type)
+  }
+}
+
+function wrapFirstOccurrence(root: HTMLElement, searchText: string, noteId: string, type: string) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      // skip already-marked nodes
+      if ((node.parentElement as HTMLElement | null)?.closest('.ks-note-hl')) {
+        return NodeFilter.FILTER_REJECT
+      }
+      return NodeFilter.FILTER_ACCEPT
+    },
+  })
+
+  let node: Text | null
+  while ((node = walker.nextNode() as Text | null)) {
+    const text = node.textContent ?? ''
+    const idx = text.indexOf(searchText)
+    if (idx >= 0) {
+      const parent = node.parentNode!
+      const mark = document.createElement('mark')
+      mark.className = `ks-note-hl ks-note-hl--${type}`
+      mark.dataset.noteId = noteId
+      mark.textContent = text.slice(idx, idx + searchText.length)
+
+      const before = text.slice(0, idx)
+      const after = text.slice(idx + searchText.length)
+
+      if (before) parent.insertBefore(document.createTextNode(before), node)
+      parent.insertBefore(mark, node)
+      if (after) parent.insertBefore(document.createTextNode(after), node)
+      parent.removeChild(node)
+      return
+    }
+  }
+}
+
+/** Scroll to the DOM mark for a note. Called by the parent page. */
+function scrollToNote(noteId: string) {
+  const el = renderedRef.value?.querySelector<HTMLElement>(`[data-note-id="${CSS.escape(noteId)}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
+defineExpose({ scrollToNote })
 
 let trackedScrollContainer: HTMLElement | null = null
 let syncFrameId: number | null = null
@@ -154,8 +269,16 @@ watch(
     await nextTick()
     attachScrollTracking()
     scheduleActiveHeadingSync()
+    applyNoteHighlights()
   },
   { flush: 'post' },
+)
+
+// Re-apply highlights whenever the notes list changes
+watch(
+  () => props.noteHighlights,
+  () => { applyNoteHighlights() },
+  { deep: true },
 )
 
 watch(fontSize, async () => {
@@ -177,11 +300,13 @@ watch(busy, async (isBusy) => {
 
 onMounted(() => {
   window.addEventListener('resize', scheduleActiveHeadingSync)
+  document.addEventListener('mousedown', handleDocMousedown)
 })
 
 onBeforeUnmount(() => {
   detachScrollTracking()
   window.removeEventListener('resize', scheduleActiveHeadingSync)
+  document.removeEventListener('mousedown', handleDocMousedown)
 
   if (syncFrameId !== null)
     window.cancelAnimationFrame(syncFrameId)
@@ -220,6 +345,7 @@ onBeforeUnmount(() => {
       ref="contentRef"
       class="ks-mc__content"
       :style="{ fontSize: `${fontSize}px` }"
+      @mouseup="handleContentMouseup"
     >
       <article class="ks-mc__article">
         <!-- eslint-disable-next-line vue/no-v-html -->
@@ -231,6 +357,28 @@ onBeforeUnmount(() => {
       </article>
     </div>
   </div>
+
+  <!-- Text-selection floating menu -->
+  <Teleport to="body">
+    <Transition name="ks-mc-sel-fade">
+      <div
+        v-if="selMenu.visible"
+        id="ks-mc-sel-menu"
+        class="ks-mc-sel-menu"
+        :style="{ left: `${selMenu.x}px`, top: `${selMenu.y}px` }"
+      >
+        <button class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--hl" @mousedown.prevent="handleHighlightClick">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13 3a1 1 0 0 0-1.4 0L5 9.6 6.4 11l6.6-6.6A1 1 0 0 0 13 3zm-8 8L2.5 13.5l1.5.5L6.4 11 5 11z"/></svg>
+          Highlight
+        </button>
+        <div class="ks-mc-sel-menu__sep" />
+        <button class="ks-mc-sel-menu__btn" @mousedown.prevent="handleAnnotateClick">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12V14h2l7-7-2-2-7 7z"/><path d="M11.5 3.5l1 1"/></svg>
+          Add Note
+        </button>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -463,4 +611,81 @@ onBeforeUnmount(() => {
     padding: 10px 14px 20px;
   }
 }
+
+/* ── Note highlight marks ──────────────────────────── */
+.ks-mc__rendered :deep(.ks-note-hl) {
+  background: transparent;
+  border-bottom: 2px solid;
+  border-radius: 0;
+  cursor: default;
+  transition: background 0.15s;
+}
+
+.ks-mc__rendered :deep(.ks-note-hl--highlight) {
+  border-bottom-color: rgba(245, 158, 11, 0.65);
+}
+
+.ks-mc__rendered :deep(.ks-note-hl--annotation) {
+  border-bottom-color: rgba(99, 102, 241, 0.65);
+}
+
+.ks-mc__rendered :deep(.ks-note-hl:hover) {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ks-mc__rendered :deep(.ks-note-hl--annotation:hover) {
+  background: rgba(99, 102, 241, 0.08);
+}
+</style>
+
+<!-- Note: selection menu is Teleported so styles must be non-scoped -->
+<style>
+/* ── Text-selection floating menu ──────────────────── */
+.ks-mc-sel-menu {
+  position: fixed;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--color-bg, #0f172a);
+  border: 1px solid var(--color-border, rgba(148, 163, 184, 0.2));
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ks-mc-sel-menu__btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  color: var(--color-text, #f1f5f9);
+  font: 500 0.78rem / 1 var(--font-sans, 'Inter', sans-serif);
+  cursor: pointer;
+  transition: background 0.13s;
+}
+
+.ks-mc-sel-menu__btn:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.ks-mc-sel-menu__btn--hl {
+  color: rgba(245, 158, 11, 0.9);
+}
+
+.ks-mc-sel-menu__sep {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border, rgba(148, 163, 184, 0.2));
+  flex-shrink: 0;
+}
+
+.ks-mc-sel-fade-enter-active,
+.ks-mc-sel-fade-leave-active { transition: opacity 0.1s, transform 0.1s; }
+.ks-mc-sel-fade-enter-from,
+.ks-mc-sel-fade-leave-to    { opacity: 0; transform: translateX(-50%) translateY(-4px); }
 </style>

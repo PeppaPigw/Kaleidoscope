@@ -220,6 +220,7 @@ def ingest_paper(
             # Only acquire_fulltext is queued here.
             # It will chain: acquire → parse → index
             acquire_fulltext.delay(paper_id)
+            fetch_paper_links_task.delay(paper_id)
 
             log.info("ingest_paper_complete", paper_id=paper_id)
             return {"status": "created", "paper_id": paper_id}
@@ -891,3 +892,63 @@ def parse_via_mineru(self, paper_id: str, url: str, is_html: bool = False):
         )
         log.error("parse_via_mineru_failed", error=str(exc))
         self.retry(exc=exc, countdown=2**self.request.retries * 60)
+
+
+@celery_app.task(bind=True, max_retries=2, default_retry_delay=120)
+def fetch_paper_links_task(self, paper_id: str):
+    """Fetch AI-powered supplementary links for a paper (venue, code, datasets, etc.)."""
+    log = logger.bind(paper_id=paper_id, task_id=self.request.id)
+    log.info("fetch_paper_links_start")
+
+    async def _fetch():
+        from sqlalchemy import select
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.analysis.links_service import LinksService
+        from datetime import datetime, timezone
+
+        async with async_session_factory() as session:
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
+            paper = result.scalar_one_or_none()
+            if not paper:
+                return {"status": "error", "message": "Paper not found"}
+            if not paper.title.strip():
+                return {"status": "skip", "message": "No title"}
+            if (paper.paper_links or {}).get("status") in ("ok", "fetching"):
+                return {"status": "skip", "message": "Already done"}
+            paper.paper_links = {"status": "fetching"}
+            paper.paper_links_at = datetime.now(timezone.utc)
+            await session.commit()
+            title = paper.title
+
+        try:
+            async with LinksService() as svc:
+                links = await svc.fetch_links(title)
+            links_data = {
+                "status": "ok",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                **links,
+            }
+            log.info("fetch_paper_links_done", title=title[:60])
+        except Exception as e:
+            links_data = {"status": "error", "error": str(e)[:300]}
+            log.warning("fetch_paper_links_error", error=str(e)[:120])
+
+        async with async_session_factory() as session:
+            result = await session.execute(select(Paper).where(Paper.id == paper_id))
+            paper = result.scalar_one_or_none()
+            if paper:
+                paper.paper_links = links_data
+                paper.paper_links_at = datetime.now(timezone.utc)
+                await session.commit()
+
+        return links_data
+
+    try:
+        return _run_async(_fetch())
+    except Exception as exc:
+        log.error("fetch_paper_links_failed", error=str(exc))
+        try:
+            raise self.retry(exc=exc, countdown=2**self.request.retries * 60)
+        except MaxRetriesExceededError:
+            raise

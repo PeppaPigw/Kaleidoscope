@@ -243,6 +243,7 @@ onMounted(() => {
         void loadDeepAnalysisZh(paperId.value)
     })
     void loadOverviewImage(paperId.value)
+    void loadPaperLinks(paperId.value)
   }
   window.addEventListener('scroll', onPageScroll, { passive: true })
 })
@@ -262,6 +263,7 @@ watch(paperId, (currentPaperId, previousPaperId) => {
     analysisItems.value = []
     activeOutlineIdx.value = 0
     overviewImage.value = null
+    paperLinks.value = null
     stopPollingOverviewImage()
     void loadLabels(currentPaperId)
     void loadDeepAnalysis(currentPaperId).then(() => {
@@ -269,6 +271,7 @@ watch(paperId, (currentPaperId, previousPaperId) => {
         void loadDeepAnalysisZh(currentPaperId)
     })
     void loadOverviewImage(currentPaperId)
+    void loadPaperLinks(currentPaperId)
   }
 })
 
@@ -473,6 +476,52 @@ watch(isZh, (zh) => {
     void loadDeepAnalysisZh(paperId.value)
 }, { immediate: false })
 
+// ─── Paper Links (AI-fetched) ─────────────────────────────────────────────────
+type PaperLinksRelated = {
+  blog_url?: string | null
+  discussion_url?: string | null
+  social_url?: string | null
+}
+
+type PaperLinksData = {
+  paper_id: string
+  venue?: string | null
+  code_url?: string | null
+  dataset_urls?: string[] | null
+  model_weights_url?: string | null
+  project_page_url?: string | null
+  related_links?: PaperLinksRelated | null
+  fetched_at?: string | null
+}
+
+const paperLinks = ref<PaperLinksData | null>(null)
+
+async function loadPaperLinks(id: string) {
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiUrl as string
+    paperLinks.value = await $fetch<PaperLinksData>(`${apiBase}/api/v1/papers/${id}/links`)
+  }
+  catch {
+    paperLinks.value = null
+  }
+}
+
+const hasPaperLinks = computed(() => {
+  const pl = paperLinks.value
+  if (!pl) return false
+  const rel = pl.related_links
+  return !!(
+    pl.code_url
+    || pl.project_page_url
+    || pl.model_weights_url
+    || (pl.dataset_urls?.length)
+    || rel?.blog_url
+    || rel?.discussion_url
+    || rel?.social_url
+  )
+})
+
 // ─── Handlers ────────────────────────────────────────────────
 function handleRead() {
   navigateTo(`/reader/${paperId.value}`)
@@ -642,6 +691,66 @@ function handleRelatedClick(paper: RelatedPaper) {
 
       <!-- Sidebar -->
       <aside class="ks-paper-profile__sidebar">
+        <!-- AI-fetched Paper Links -->
+        <div v-if="hasPaperLinks" class="ks-paper-links-panel">
+          <h3 class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 12px;">
+            {{ isZh ? '相关链接' : 'Links' }}
+          </h3>
+          <ul class="ks-paper-links-panel__list">
+            <li v-if="paperLinks.code_url">
+              <a :href="paperLinks.code_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">⌨</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '代码' : 'Code' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">code</KsTag>
+              </a>
+            </li>
+            <li v-if="paperLinks.project_page_url">
+              <a :href="paperLinks.project_page_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">🌐</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '项目主页' : 'Project Page' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">demo</KsTag>
+              </a>
+            </li>
+            <li v-if="paperLinks.model_weights_url">
+              <a :href="paperLinks.model_weights_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">🧠</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '模型权重' : 'Weights' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">weights</KsTag>
+              </a>
+            </li>
+            <template v-if="paperLinks.dataset_urls?.length">
+              <li v-for="(url, i) in paperLinks.dataset_urls" :key="`ds-${i}`">
+                <a :href="url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                  <span class="ks-paper-links-panel__icon">📊</span>
+                  <span class="ks-paper-links-panel__label">{{ isZh ? `数据集 ${paperLinks.dataset_urls!.length > 1 ? i + 1 : ''}` : `Dataset${paperLinks.dataset_urls!.length > 1 ? ` ${i + 1}` : ''}` }}</span>
+                  <KsTag variant="neutral" style="font-size: 0.625rem;">dataset</KsTag>
+                </a>
+              </li>
+            </template>
+            <li v-if="paperLinks.related_links?.blog_url">
+              <a :href="paperLinks.related_links.blog_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">📝</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '博客' : 'Blog' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">blog</KsTag>
+              </a>
+            </li>
+            <li v-if="paperLinks.related_links?.discussion_url">
+              <a :href="paperLinks.related_links.discussion_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">💬</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '讨论' : 'Discussion' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">discussion</KsTag>
+              </a>
+            </li>
+            <li v-if="paperLinks.related_links?.social_url">
+              <a :href="paperLinks.related_links.social_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
+                <span class="ks-paper-links-panel__icon">🔗</span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '社交媒体' : 'Social' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">social</KsTag>
+              </a>
+            </li>
+          </ul>
+        </div>
+
         <PaperSupplementRail :items="supplements" />
 
         <!-- Taxonomy Labels -->
@@ -769,6 +878,52 @@ function handleRelatedClick(paper: RelatedPaper) {
   height: 1px;
   background: var(--color-border);
   margin: 2px 0;
+}
+
+.ks-paper-links-panel {
+  padding: 20px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.ks-paper-links-panel__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ks-paper-links-panel__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: background-color var(--duration-fast) var(--ease-smooth);
+}
+
+.ks-paper-links-panel__link:hover {
+  background: rgba(13, 115, 119, 0.04);
+}
+
+.ks-paper-links-panel__link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.ks-paper-links-panel__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.ks-paper-links-panel__label {
+  flex: 1;
+  font: 500 0.875rem / 1.3 var(--font-sans);
+  color: var(--color-text);
 }
 
 .ks-zh-translating {

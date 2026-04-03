@@ -95,6 +95,11 @@ class Settings(BaseSettings):
     image_api_url: str = "https://api.ai-wave.org/v1/responses"
     image_model: str = "gemini-3.1-flash-image-preview"
 
+    # --- Paper Links AI API (Grok) ---
+    links_api_key: str = ""
+    links_api_url: str = "https://ai.huan666.de/v1/messages"
+    links_model: str = "grok-4.1-fast"
+
     # --- Celery ---
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

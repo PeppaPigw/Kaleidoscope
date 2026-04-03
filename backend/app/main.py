@@ -458,6 +458,92 @@ async def _background_translate_analyses() -> None:
         logger.warning("translate_zh_startup_failed", error=str(e))
 
 
+async def _background_fetch_links() -> None:
+    """
+    Fetch AI-powered paper links for papers that don't have them yet.
+    Concurrency=2.  Starts 10 minutes after startup.
+    """
+    from sqlalchemy import select
+    from app.models.paper import Paper
+    from app.dependencies import async_session_factory
+    from app.services.analysis.links_service import LinksService
+    from datetime import datetime, timezone
+
+    try:
+        await asyncio.sleep(600)  # 10 minutes
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Paper.id, Paper.title, Paper.paper_links)
+                .where(Paper.deleted_at.is_(None), Paper.title != "")
+                .order_by(Paper.created_at.desc())
+            )
+            rows = result.all()
+
+        candidates = [
+            r for r in rows
+            if (r.paper_links or {}).get("status") not in ("ok", "fetching")
+            and r.title.strip()
+        ]
+
+        if not candidates:
+            logger.info("fetch_links_startup_skip", reason="all papers already have links")
+            return
+
+        logger.info("fetch_links_startup_begin", count=len(candidates))
+        done = errors = 0
+        sem = asyncio.Semaphore(2)
+
+        async def _one(paper_id, title: str) -> None:
+            nonlocal done, errors
+            async with sem:
+                try:
+                    # Mark as fetching (re-check first)
+                    async with async_session_factory() as db:
+                        p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                        if p is None:
+                            return
+                        if (p.paper_links or {}).get("status") in ("ok", "fetching"):
+                            return
+                        p.paper_links = {"status": "fetching"}
+                        p.paper_links_at = datetime.now(timezone.utc)
+                        await db.commit()
+
+                    async with LinksService() as svc:
+                        links = await svc.fetch_links(title)
+
+                    links_data = {
+                        "status": "ok",
+                        "fetched_at": datetime.now(timezone.utc).isoformat(),
+                        **links,
+                    }
+                    done += 1
+                    logger.info("fetch_links_bg_done", paper_id=str(paper_id), title=title[:60])
+                except Exception as e:
+                    links_data = {"status": "error", "error": str(e)[:300]}
+                    errors += 1
+                    logger.warning("fetch_links_bg_error", paper_id=str(paper_id), error=str(e)[:120])
+
+                try:
+                    async with async_session_factory() as db:
+                        p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                        if p is not None:
+                            p.paper_links = links_data
+                            p.paper_links_at = datetime.now(timezone.utc)
+                            await db.commit()
+                except Exception:
+                    pass
+
+        await asyncio.gather(
+            *[_one(r.id, r.title) for r in candidates],
+            return_exceptions=True,
+        )
+        logger.info("fetch_links_startup_done", done=done, errors=errors)
+
+    except Exception as e:
+        logger.warning("fetch_links_startup_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────
@@ -466,6 +552,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_background_analyse_papers())
     asyncio.create_task(_background_overview_images())
     asyncio.create_task(_background_translate_analyses())
+    asyncio.create_task(_background_fetch_links())
     yield
     # ── Shutdown ─────────────────────────────────────────────────
 

@@ -303,6 +303,7 @@ async def import_from_url(
     # Fire labeling + deep analysis in the background (non-blocking)
     _fire_label_bg(str(paper.id))
     _fire_analysis_bg(str(paper.id))
+    _fire_links_bg(str(paper.id), paper.title)
 
     return ImportUrlResponse(
         paper_id=str(paper.id),
@@ -382,6 +383,7 @@ async def reparse_paper(
     # Fire labeling + deep analysis in the background (non-blocking)
     _fire_label_bg(str(paper_id))
     _fire_analysis_bg(str(paper_id))
+    _fire_links_bg(str(paper_id), paper.title)
 
     return ImportUrlResponse(
         paper_id=str(paper_id),
@@ -639,6 +641,83 @@ async def get_deep_analysis_zh(
         "paper_id": str(paper.id),
         "analysis": zh.get("analysis", ""),
         "translated_at": zh.get("translated_at"),
+    }
+
+
+def _fire_links_bg(paper_id: str, title: str) -> None:
+    """Fire-and-forget: fetch AI paper links for a newly imported paper."""
+    async def _run():
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.analysis.links_service import LinksService
+        from datetime import datetime, timezone
+
+        if not title.strip():
+            return
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if not paper:
+                    return
+                if (paper.paper_links or {}).get("status") in ("ok", "fetching"):
+                    return
+                paper.paper_links = {"status": "fetching"}
+                paper.paper_links_at = datetime.now(timezone.utc)
+                await db.commit()
+
+            async with LinksService() as svc:
+                links = await svc.fetch_links(title)
+
+            links_data = {
+                "status": "ok",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                **links,
+            }
+        except Exception as exc:
+            links_data = {"status": "error", "error": str(exc)[:300]}
+
+        try:
+            async with async_session_factory() as db:
+                r = await db.execute(select(Paper).where(Paper.id == paper_id))
+                paper = r.scalar_one_or_none()
+                if paper:
+                    paper.paper_links = links_data
+                    paper.paper_links_at = datetime.now(timezone.utc)
+                    await db.commit()
+        except Exception:
+            pass
+
+    asyncio.create_task(_run())
+
+
+@router.get("/{paper_id}/links")
+async def get_paper_links(
+    paper_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return AI-fetched supplementary links for a paper."""
+    from app.models.paper import Paper
+
+    result = await db.execute(
+        select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    paper = result.scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    pl = paper.paper_links or {}
+    status = pl.get("status", "not_started")
+    if status != "ok":
+        raise HTTPException(status_code=404, detail=status)
+    return {
+        "paper_id": str(paper.id),
+        "venue": pl.get("venue"),
+        "code_url": pl.get("code_url"),
+        "dataset_urls": pl.get("dataset_urls"),
+        "model_weights_url": pl.get("model_weights_url"),
+        "project_page_url": pl.get("project_page_url"),
+        "related_links": pl.get("related_links") or {},
+        "fetched_at": pl.get("fetched_at"),
     }
 
 

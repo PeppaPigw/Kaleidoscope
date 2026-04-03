@@ -132,6 +132,12 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # {status: "ok"|"generating"|"error", url, generated_at, error}
     overview_image_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # --- AI-fetched Paper Links (links_service.py) ---
+    paper_links: Mapped[dict | None] = mapped_column(JSONB)
+    # {status: "ok"|"fetching"|"error", venue, code_url, dataset_urls, model_weights_url,
+    #  project_page_url, related_links: {blog_url, discussion_url, social_url}, fetched_at, error}
+    paper_links_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # --- Chinese Translation of Deep Analysis ---
     deep_analysis_zh: Mapped[dict | None] = mapped_column(JSONB)
     # {status: "ok"|"translating"|"error", analysis, translated_at, error}

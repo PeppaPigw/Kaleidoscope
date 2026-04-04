@@ -98,7 +98,6 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # --- AI-Derived Fields + Provenance ---
     summary: Mapped[str | None] = mapped_column(Text)
     summary_provenance: Mapped[dict | None] = mapped_column(JSONB)
-    # {source: "gpt-4o", timestamp: "...", confidence: 0.92}
 
     highlights: Mapped[list | None] = mapped_column(JSONB)  # [str]
     highlights_provenance: Mapped[dict | None] = mapped_column(JSONB)

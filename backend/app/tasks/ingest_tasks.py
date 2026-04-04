@@ -920,10 +920,12 @@ def fetch_paper_links_task(self, paper_id: str):
             paper.paper_links_at = datetime.now(timezone.utc)
             await session.commit()
             title = paper.title
+            arxiv_id = paper.arxiv_id
+            doi = paper.doi
 
         try:
             async with LinksService() as svc:
-                links = await svc.fetch_links(title)
+                links = await svc.fetch_links(title, arxiv_id=arxiv_id, doi=doi)
             links_data = {
                 "status": "ok",
                 "fetched_at": datetime.now(timezone.utc).isoformat(),

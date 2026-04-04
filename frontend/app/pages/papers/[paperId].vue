@@ -699,21 +699,30 @@ function handleRelatedClick(paper: RelatedPaper) {
           <ul class="ks-paper-links-panel__list">
             <li v-if="paperLinks.code_url">
               <a :href="paperLinks.code_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">⌨</span>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- GitHub -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                </span>
                 <span class="ks-paper-links-panel__label">{{ isZh ? '代码' : 'Code' }}</span>
                 <KsTag variant="neutral" style="font-size: 0.625rem;">code</KsTag>
               </a>
             </li>
             <li v-if="paperLinks.project_page_url">
               <a :href="paperLinks.project_page_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">🌐</span>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- arXiv -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M10.427 5.376c-.668-.31-1.379-.26-1.851.164L3.302 9.652a1.79 1.79 0 0 0-.087 2.565l5.894 6.269 1.403-1.484-5.16-5.48 4.683-3.813.045-.037c.019-.015.034-.023.04-.016.006.007 0 .024-.006.04l-.027.063L7.08 12.21l1.658.8 3.214-6.671c.276-.573.141-1.252-.303-1.764zm8.845 10.907-5.897-6.269-1.4 1.484 5.156 5.48-4.679 3.81-.045.037c-.018.015-.033.023-.04.016-.005-.007.001-.024.007-.04l.026-.063 3.011-4.447-1.658-.801-3.214 6.671c-.275.573-.141 1.252.303 1.764.667.31 1.378.26 1.85-.164l5.274-4.112a1.79 1.79 0 0 0 .087-2.566z"/></svg>
+                </span>
                 <span class="ks-paper-links-panel__label">{{ isZh ? '项目主页' : 'Project Page' }}</span>
-                <KsTag variant="neutral" style="font-size: 0.625rem;">demo</KsTag>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">paper</KsTag>
               </a>
             </li>
             <li v-if="paperLinks.model_weights_url">
               <a :href="paperLinks.model_weights_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">🧠</span>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- Hugging Face -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm-3.5 7.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-7.07 5.43a.5.5 0 0 0-.43.75C8.88 17.27 10.35 18 12 18s3.12-.73 4-1.82a.5.5 0 0 0-.43-.75.5.5 0 0 0-.4.2C14.5 16.46 13.33 17 12 17s-2.5-.54-3.17-1.37a.5.5 0 0 0-.4-.2z"/></svg>
+                </span>
                 <span class="ks-paper-links-panel__label">{{ isZh ? '模型权重' : 'Weights' }}</span>
                 <KsTag variant="neutral" style="font-size: 0.625rem;">weights</KsTag>
               </a>
@@ -721,37 +730,48 @@ function handleRelatedClick(paper: RelatedPaper) {
             <template v-if="paperLinks.dataset_urls?.length">
               <li v-for="(url, i) in paperLinks.dataset_urls" :key="`ds-${i}`">
                 <a :href="url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                  <span class="ks-paper-links-panel__icon">📊</span>
-                  <span class="ks-paper-links-panel__label">{{ isZh ? `数据集 ${paperLinks.dataset_urls!.length > 1 ? i + 1 : ''}` : `Dataset${paperLinks.dataset_urls!.length > 1 ? ` ${i + 1}` : ''}` }}</span>
+                  <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                    <!-- Hugging Face -->
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm-3.5 7.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-7.07 5.43a.5.5 0 0 0-.43.75C8.88 17.27 10.35 18 12 18s3.12-.73 4-1.82a.5.5 0 0 0-.43-.75.5.5 0 0 0-.4.2C14.5 16.46 13.33 17 12 17s-2.5-.54-3.17-1.37a.5.5 0 0 0-.4-.2z"/></svg>
+                  </span>
+                  <span class="ks-paper-links-panel__label">{{ isZh ? `数据集${paperLinks.dataset_urls!.length > 1 ? ` ${i + 1}` : ''}` : `Dataset${paperLinks.dataset_urls!.length > 1 ? ` ${i + 1}` : ''}` }}</span>
                   <KsTag variant="neutral" style="font-size: 0.625rem;">dataset</KsTag>
                 </a>
               </li>
             </template>
             <li v-if="paperLinks.related_links?.blog_url">
               <a :href="paperLinks.related_links.blog_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">📝</span>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- Medium -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M13.54 12a6.8 6.8 0 0 1-6.77 6.82A6.8 6.8 0 0 1 0 12a6.8 6.8 0 0 1 6.77-6.82A6.8 6.8 0 0 1 13.54 12zm7.42 0c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z"/></svg>
+                </span>
                 <span class="ks-paper-links-panel__label">{{ isZh ? '博客' : 'Blog' }}</span>
                 <KsTag variant="neutral" style="font-size: 0.625rem;">blog</KsTag>
               </a>
             </li>
             <li v-if="paperLinks.related_links?.discussion_url">
               <a :href="paperLinks.related_links.discussion_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">💬</span>
-                <span class="ks-paper-links-panel__label">{{ isZh ? '讨论' : 'Discussion' }}</span>
-                <KsTag variant="neutral" style="font-size: 0.625rem;">discussion</KsTag>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- Reddit -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                </span>
+                <span class="ks-paper-links-panel__label">{{ isZh ? '社区' : 'Community' }}</span>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">reddit</KsTag>
               </a>
             </li>
             <li v-if="paperLinks.related_links?.social_url">
               <a :href="paperLinks.related_links.social_url" target="_blank" rel="noopener" class="ks-paper-links-panel__link">
-                <span class="ks-paper-links-panel__icon">🔗</span>
+                <span class="ks-paper-links-panel__icon" aria-hidden="true">
+                  <!-- X (Twitter) -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </span>
                 <span class="ks-paper-links-panel__label">{{ isZh ? '社交媒体' : 'Social' }}</span>
-                <KsTag variant="neutral" style="font-size: 0.625rem;">social</KsTag>
+                <KsTag variant="neutral" style="font-size: 0.625rem;">X</KsTag>
               </a>
             </li>
           </ul>
         </div>
 
-        <PaperSupplementRail :items="supplements" />
 
         <!-- Taxonomy Labels -->
         <div v-if="paperLabels" class="ks-paper-labels">
@@ -916,8 +936,14 @@ function handleRelatedClick(paper: RelatedPaper) {
 }
 
 .ks-paper-links-panel__icon {
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
+  color: var(--color-text);
+  opacity: 0.7;
 }
 
 .ks-paper-links-panel__label {

@@ -1,111 +1,103 @@
-"""Application settings via pydantic-settings, loaded from .env."""
+"""Application settings via pydantic-settings, loaded from backend/.env."""
 
-from typing import Any
+from pathlib import Path
+from typing import Annotated, Any
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     """Application configuration. All values can be overridden via environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
-    # --- Application ---
-    app_name: str = "Kaleidoscope"
-    debug: bool = False
-    # Override with KALEIDOSCOPE_ALLOWED_ORIGINS=http://app.example.com,http://localhost:3000
-    allowed_origins: list[str] = ["*"]
+    app_name: str = Field(...)
+    debug: bool = Field(...)
+    allowed_origins: Annotated[list[str], NoDecode] = Field(...)
 
-    # --- PostgreSQL ---
-    database_url: str = (
-        "postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope"
+    database_url: str = Field(...)
+
+    redis_url: str = Field(...)
+
+    neo4j_uri: str = Field(...)
+    neo4j_user: str = Field(...)
+    neo4j_password: str = Field(...)
+
+    qdrant_url: str = Field(...)
+
+    meili_url: str = Field(...)
+    meili_master_key: str = Field(...)
+
+    minio_endpoint: str = Field(...)
+    minio_access_key: str = Field(...)
+    minio_secret_key: str = Field(...)
+    minio_bucket: str = Field(...)
+    minio_secure: bool = Field(...)
+
+    grobid_url: str = Field(...)
+
+    unpaywall_email: str = Field(...)
+    elsevier_tdm_api_key: str = Field(...)
+    wiley_token: str = Field(...)
+    springer_api_key: str = Field(
+        ...,
+        validation_alias=AliasChoices("SPRINGER_API_KEY", "SPRINGER_OPEN_ACCESS_KEY"),
     )
+    openai_api_key: str = Field(...)
+    open_base_url: str = Field(...)
 
-    # --- Redis ---
-    redis_url: str = "redis://localhost:6379/0"
+    llm_api_key: str = Field(...)
+    llm_base_url: str = Field(...)
+    llm_model: str = Field(...)
+    embed_model: str = Field(...)
+    rerank_model: str = Field(...)
 
-    # --- Neo4j ---
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = "kaleidoscope"
+    translate_base_url: str = Field(...)
+    translate_model: str = Field(...)
+    translate_api_key: str = Field(...)
 
-    # --- Qdrant ---
-    qdrant_url: str = "http://localhost:6333"
+    ragflow_api_url: str = Field(...)
+    ragflow_api_key: str = Field(...)
+    ragflow_dataset_papers: str = Field(...)
+    ragflow_sync_enabled: bool = Field(...)
+    ragflow_sync_freshness_minutes: int = Field(...)
 
-    # --- Meilisearch ---
-    meili_url: str = "http://localhost:7700"
-    meili_master_key: str = "kaleidoscope-meili-key"
+    mineru_api_token: str = Field(...)
+    mineru_concurrency: int = Field(...)
 
-    # --- MinIO / S3 ---
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "kaleidoscope"
-    minio_secret_key: str = "kaleidoscope"
-    minio_bucket: str = "kaleidoscope-papers"
-    minio_secure: bool = False
+    img_host_access_key: str = Field(...)
+    img_host_access_key_secret: str = Field(...)
+    img_host_bucket_name: str = Field(...)
+    img_host_url: str = Field(...)
+    img_host_concurrency: int = Field(...)
 
-    # --- GROBID ---
-    grobid_url: str = "http://localhost:8070"
+    image_api_key: str = Field(...)
+    image_api_url: str = Field(...)
+    image_model: str = Field(...)
 
-    # --- External API Keys ---
-    unpaywall_email: str = ""
-    elsevier_tdm_api_key: str = ""
-    wiley_token: str = ""
-    springer_api_key: str = ""
-    openai_api_key: str = ""
-    open_base_url: str = "https://api.openai.com/v1"  # legacy name kept for .env compat
+    links_api_key: str = Field(...)
+    links_api_url: str = Field(...)
+    links_model: str = Field(...)
 
-    # --- BLSC / OpenAI-compatible LLM API ---
-    llm_api_key: str = ""
-    llm_base_url: str = "https://llmapi.blsc.cn"
-    llm_model: str = "Qwen3-235B-A22B"
-    embed_model: str = "Doubao-Embedding-Large-Text"
-    rerank_model: str = "GLM-Rerank"
+    openalex_api_url: str = Field(default="https://api.openalex.org")
+    openalex_email: str = Field(default="")
+    openalex_search_limit: int = Field(default=20)
+    openalex_search_max: int = Field(default=50)
+    openalex_refs_per_paper: int = Field(default=40)
+    openalex_related_per_paper: int = Field(default=10)
 
-    # --- Translation API (NVIDIA) ---
-    translate_base_url: str = "https://integrate.api.nvidia.com"
-    translate_model: str = "openai/gpt-oss-120b"
-    translate_api_key: str = ""
+    celery_broker_url: str = Field(...)
+    celery_result_backend: str = Field(...)
 
-    # --- RAGFlow Sidecar ---
-    ragflow_api_url: str = "http://localhost:9380"
-    ragflow_api_key: str = ""
-    ragflow_dataset_papers: str = ""
-    ragflow_sync_enabled: bool = False
-    ragflow_sync_freshness_minutes: int = 15
-
-    # --- MinerU ---
-    mineru_api_token: str = ""
-    mineru_concurrency: int = 50  # max parallel MinerU tasks
-
-    # --- Aliyun OSS (image host for paper figures) ---
-    img_host_access_key: str = ""
-    img_host_access_key_secret: str = ""
-    img_host_bucket_name: str = "wqy-kaleidoscope"
-    img_host_url: str = "https://oss-cn-shanghai.aliyuncs.com"
-    img_host_concurrency: int = 100  # max parallel OSS uploads
-
-    # --- Image Generation API (一图速览) ---
-    image_api_key: str = ""
-    image_api_url: str = "https://api.ai-wave.org/v1/responses"
-    image_model: str = "gemini-3.1-flash-image-preview"
-
-    # --- Paper Links AI API (Grok) ---
-    links_api_key: str = ""
-    links_api_url: str = "https://ai.huan666.de/v1/messages"
-    links_model: str = "grok-4.1-fast"
-
-    # --- Celery ---
-    celery_broker_url: str = "redis://localhost:6379/1"
-    celery_result_backend: str = "redis://localhost:6379/2"
-
-    # --- RSS ---
-    rss_poll_interval_minutes: int = 30
+    rss_poll_interval_minutes: int = Field(...)
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

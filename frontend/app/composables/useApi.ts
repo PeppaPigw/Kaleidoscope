@@ -669,6 +669,25 @@ export function useApi() {
     return apiFetch('/analytics/citation-network')
   }
 
+  // ── OpenAlex ────────────────────────────────────────────────
+
+  async function searchOpenAlex(
+    q: string,
+    params?: { limit?: number; focal_id?: string },
+  ): Promise<OpenAlexSearchResponse> {
+    const sp = new URLSearchParams({ q })
+    if (params?.limit) sp.set('limit', String(params.limit))
+    if (params?.focal_id) sp.set('focal_id', params.focal_id)
+    return apiFetch(`/openalex/search?${sp.toString()}`)
+  }
+
+  async function buildOpenAlexGraph(paperIds: string[]): Promise<OpenAlexGraphResponse> {
+    return apiFetch('/openalex/graph', {
+      method: 'POST',
+      body: { paper_ids: paperIds },
+    })
+  }
+
   return {
     apiFetch,
     rawFetch,
@@ -731,6 +750,9 @@ export function useApi() {
     getAnalyticsTopAuthors,
     getAnalyticsKeywordCloud,
     getAnalyticsCitationNetwork,
+    // OpenAlex
+    searchOpenAlex,
+    buildOpenAlexGraph,
   }
 }
 
@@ -773,6 +795,61 @@ export interface AnalyticsTopAuthors {
 export interface AnalyticsKeywordCloud {
   keywords: Array<{ keyword: string; count: number }>
   total_papers_with_keywords: number
+}
+
+// ─── OpenAlex Types ─────────────────────────────────────────────
+
+export interface OpenAlexAuthorship {
+  name: string
+  openalex_id: string
+  orcid?: string | null
+  position?: string
+  institutions?: string[]
+}
+
+export interface OpenAlexPaper {
+  openalex_id: string
+  openalex_url?: string
+  title: string
+  year?: number | null
+  authors: string[]
+  authorships?: OpenAlexAuthorship[]
+  abstract?: string
+  cited_by_count?: number
+  primary_topic?: string | null
+  topics?: Array<{ id: string; display_name: string; score?: number }>
+  keywords?: Array<{ id?: string; display_name: string }>
+  concepts?: Array<{ id: string; display_name: string; score?: number }>
+  venue?: string | null
+  oa_url?: string | null
+  doi?: string | null
+  fwci?: number | null
+  language?: string | null
+  similarity_score?: number
+}
+
+export interface OpenAlexEdge {
+  source: string
+  target: string
+}
+
+export interface OpenAlexSearchResponse {
+  query: string
+  focal_id: string | null
+  total: number
+  papers: OpenAlexPaper[]
+  edges: OpenAlexEdge[]
+}
+
+export interface OpenAlexGraphNode extends OpenAlexPaper {
+  is_origin: boolean
+}
+
+export interface OpenAlexGraphResponse {
+  nodes: OpenAlexGraphNode[]
+  edges: OpenAlexEdge[]
+  origin_count: number
+  ref_count: number
 }
 
 export interface AnalyticsCitationNetwork {

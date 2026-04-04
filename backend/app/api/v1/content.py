@@ -303,7 +303,7 @@ async def import_from_url(
     # Fire labeling + deep analysis in the background (non-blocking)
     _fire_label_bg(str(paper.id))
     _fire_analysis_bg(str(paper.id))
-    _fire_links_bg(str(paper.id), paper.title)
+    _fire_links_bg(str(paper.id), paper.title, arxiv_id=paper.arxiv_id, doi=paper.doi)
 
     return ImportUrlResponse(
         paper_id=str(paper.id),
@@ -383,7 +383,7 @@ async def reparse_paper(
     # Fire labeling + deep analysis in the background (non-blocking)
     _fire_label_bg(str(paper_id))
     _fire_analysis_bg(str(paper_id))
-    _fire_links_bg(str(paper_id), paper.title)
+    _fire_links_bg(str(paper_id), paper.title, arxiv_id=paper.arxiv_id, doi=paper.doi)
 
     return ImportUrlResponse(
         paper_id=str(paper_id),
@@ -644,7 +644,7 @@ async def get_deep_analysis_zh(
     }
 
 
-def _fire_links_bg(paper_id: str, title: str) -> None:
+def _fire_links_bg(paper_id: str, title: str, arxiv_id: str | None = None, doi: str | None = None) -> None:
     """Fire-and-forget: fetch AI paper links for a newly imported paper."""
     async def _run():
         from app.dependencies import async_session_factory
@@ -667,7 +667,7 @@ def _fire_links_bg(paper_id: str, title: str) -> None:
                 await db.commit()
 
             async with LinksService() as svc:
-                links = await svc.fetch_links(title)
+                links = await svc.fetch_links(title, arxiv_id=arxiv_id, doi=doi)
 
             links_data = {
                 "status": "ok",

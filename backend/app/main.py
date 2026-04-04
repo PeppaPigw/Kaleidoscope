@@ -474,7 +474,7 @@ async def _background_fetch_links() -> None:
 
         async with async_session_factory() as session:
             result = await session.execute(
-                select(Paper.id, Paper.title, Paper.paper_links)
+                select(Paper.id, Paper.title, Paper.arxiv_id, Paper.doi, Paper.paper_links)
                 .where(Paper.deleted_at.is_(None), Paper.title != "")
                 .order_by(Paper.created_at.desc())
             )
@@ -494,7 +494,7 @@ async def _background_fetch_links() -> None:
         done = errors = 0
         sem = asyncio.Semaphore(2)
 
-        async def _one(paper_id, title: str) -> None:
+        async def _one(paper_id, title: str, arxiv_id: str | None, doi: str | None) -> None:
             nonlocal done, errors
             async with sem:
                 try:
@@ -510,7 +510,7 @@ async def _background_fetch_links() -> None:
                         await db.commit()
 
                     async with LinksService() as svc:
-                        links = await svc.fetch_links(title)
+                        links = await svc.fetch_links(title, arxiv_id=arxiv_id, doi=doi)
 
                     links_data = {
                         "status": "ok",
@@ -535,7 +535,7 @@ async def _background_fetch_links() -> None:
                     pass
 
         await asyncio.gather(
-            *[_one(r.id, r.title) for r in candidates],
+            *[_one(r.id, r.title, r.arxiv_id, r.doi) for r in candidates],
             return_exceptions=True,
         )
         logger.info("fetch_links_startup_done", done=done, errors=errors)
@@ -773,6 +773,11 @@ def create_app() -> FastAPI:
     from app.api.v1.translate import router as translate_router
 
     app.include_router(translate_router, prefix="/api/v1")
+
+    # OpenAlex search & relation graph
+    from app.api.v1.openalex import router as openalex_router
+
+    app.include_router(openalex_router, prefix="/api/v1")
 
     # --- Health Check ---
 

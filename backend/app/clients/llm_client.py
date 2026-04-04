@@ -1,14 +1,3 @@
-"""OpenAI-compatible LLM client — BLSC API (Qwen3 / Doubao / GLM-Rerank).
-
-Default endpoints use the BLSC gateway at https://llmapi.blsc.cn.
-All credentials come from config.py (which reads from .env).
-
-Models:
-  chat      → Qwen3-235B-A22B  (settings.llm_model)
-  embed     → Doubao-Embedding-Large-Text  (settings.embed_model)
-  rerank    → GLM-Rerank  (settings.rerank_model)
-"""
-
 from __future__ import annotations
 
 import structlog
@@ -19,9 +8,9 @@ from app.config import settings
 logger = structlog.get_logger(__name__)
 
 # Resolved model defaults (from config, overridable per-call)
-DEFAULT_CHAT_MODEL = settings.llm_model  # "Qwen3-235B-A22B"
-DEFAULT_EMBED_MODEL = settings.embed_model  # "Doubao-Embedding-Large-Text"
-DEFAULT_RERANK_MODEL = settings.rerank_model  # "GLM-Rerank"
+DEFAULT_CHAT_MODEL = settings.llm_model
+DEFAULT_EMBED_MODEL = settings.embed_model
+DEFAULT_RERANK_MODEL = settings.rerank_model
 
 
 def _resolve_base_url(url: str) -> str:
@@ -78,22 +67,7 @@ class LLMClient:
         response_format: dict | None = None,
         enable_thinking: bool = False,
     ) -> str:
-        """
-        Chat completion request.
 
-        Args:
-            prompt: User message.
-            system: System prompt (optional).
-            model: Model ID — defaults to Qwen3-235B-A22B.
-            max_tokens: Max tokens to generate.
-            temperature: 0 = deterministic, 1 = creative.
-            response_format: e.g. {"type": "json_object"} for JSON mode.
-            enable_thinking: Qwen3 chain-of-thought flag (default False for
-                             structured extraction; set True for reasoning tasks).
-
-        Returns:
-            Generated text (thinking block stripped if present).
-        """
         client = await self._get_client()
 
         messages: list[dict] = []
@@ -118,7 +92,7 @@ class LLMClient:
             resp.raise_for_status()
             data = resp.json()
             choice = data["choices"][0]["message"]
-            # Qwen3 wraps CoT in a separate "reasoning_content" field;
+
             # we return the final answer only.
             content: str = choice.get("content") or ""
             logger.info(
@@ -164,11 +138,7 @@ class LLMClient:
         texts: list[str],
         model: str = DEFAULT_EMBED_MODEL,
     ) -> list[list[float]]:
-        """
-        Generate embeddings via Doubao-Embedding-Large-Text.
 
-        Returns one float vector per input text (in the same order).
-        """
         client = await self._get_client()
 
         try:
@@ -201,14 +171,7 @@ class LLMClient:
         model: str = DEFAULT_RERANK_MODEL,
         top_n: int | None = None,
     ) -> list[dict]:
-        """
-        Rerank documents against a query using GLM-Rerank.
 
-        Calls POST /rerank (Cohere-compatible endpoint).
-
-        Returns a list of dicts sorted by relevance_score descending:
-            [{"index": int, "document": str, "relevance_score": float}, ...]
-        """
         client = await self._get_client()
 
         body: dict = {

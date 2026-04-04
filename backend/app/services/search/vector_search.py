@@ -1,9 +1,3 @@
-"""Vector semantic search via Qdrant.
-
-Embeddings: Doubao-Embedding-Large-Text via BLSC API (default).
-Fallback:   local allenai/specter2_base (set USE_LOCAL_EMBEDDER=true in .env).
-"""
-
 import asyncio
 import time
 import uuid
@@ -17,7 +11,6 @@ logger = structlog.get_logger(__name__)
 
 # Collection configurations following database-guidelines.md
 PAPER_COLLECTION = "paper_embeddings"
-# Doubao-Embedding-Large-Text produces 2048-d vectors.
 # The actual dim is confirmed on first embed call; Qdrant collection is created lazily.
 PAPER_VECTOR_DIM = 2048
 CHUNK_COLLECTION = "chunk_embeddings"
@@ -73,7 +66,7 @@ class VectorSearchService:
         return self._encoder
 
     async def encode_text_async(self, text: str) -> list[float]:
-        """Encode one text string via the Doubao embedding API (async)."""
+
         llm = self._get_llm()
         results = await llm.embed([text], model=settings.embed_model)
         return results[0]

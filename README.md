@@ -115,28 +115,61 @@ cd Kaleidoscope
 
 ```bash
 docker compose up -d
-# Starts: PostgreSQL, Redis, Meilisearch, Qdrant, Neo4j, MinIO, GROBID
+# Starts: PostgreSQL · Redis · Meilisearch · Qdrant · Neo4j · MinIO · GROBID
 ```
 
-### 3. Backend
+### 3. Configure Backend
 
 ```bash
 cd backend
-cp .env.example .env        # Edit with your API keys
-pip install -e ".[dev]"     # Install with dev dependencies
-alembic upgrade head        # Run migrations
+cp .env.example .env
+```
+
+Fill in the minimum required values in `.env` (Docker defaults shown):
+
+```env
+DATABASE_URL=postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope
+REDIS_URL=redis://localhost:6379/0
+MEILI_URL=http://localhost:7700
+MEILI_MASTER_KEY=kaleidoscope-meili-key
+QDRANT_URL=http://localhost:6333
+
+# Required for AI features
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+```
+
+### 4. Start Backend
+
+```bash
+# Install dependencies (first time only)
+pip install -e ".[dev]"
+
+# Apply database migrations
+alembic upgrade head
+
+# Start dev server  →  http://localhost:8000
 uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
-### 4. Frontend
+### 5. Start Frontend
 
 ```bash
-cd frontend
-pnpm install
-pnpm dev                    # http://localhost:3000
+cd ../frontend
+pnpm install        # first time only
+pnpm dev            # http://localhost:3000
 ```
 
-### 5. Seed Initial Data (Optional)
+### 6. (Shortcut) Start Both in Parallel
+
+After completing steps 1–3 once:
+
+```bash
+make dev            # runs backend + frontend concurrently
+```
+
+### 7. Seed Initial Data (Optional)
 
 ```bash
 cd backend
@@ -164,16 +197,17 @@ python -m app.scripts.seed_feeds     # Load 65 RSS feed sources
 
 All endpoints are under `/api/v1/`. Key groups:
 
-| Group        | Prefix                 | Description                     |
-| ------------ | ---------------------- | ------------------------------- |
-| Papers       | `/papers`              | CRUD, search, content retrieval |
-| Content      | `/papers/{id}/content` | Markdown reader data            |
-| Analytics    | `/analytics`           | Library statistics & insights   |
-| Collections  | `/collections`         | Paper organization              |
-| Search       | `/search`              | Multi-modal search              |
-| Knowledge    | `/knowledge`           | Note graph                      |
-| Feeds        | `/feeds`               | RSS management                  |
-| Intelligence | `/intelligence`        | AI-powered insights             |
+| Group        | Prefix                 | Description                              |
+| ------------ | ---------------------- | ---------------------------------------- |
+| Papers       | `/papers`              | CRUD, search, content retrieval          |
+| Content      | `/papers/{id}/content` | Markdown reader data                     |
+| Analytics    | `/analytics`           | Library statistics & insights            |
+| Collections  | `/collections`         | Paper organization                       |
+| Search       | `/search`              | Multi-modal search                       |
+| OpenAlex     | `/openalex`            | External search + citation graph builder |
+| Knowledge    | `/knowledge`           | Note graph                               |
+| Feeds        | `/feeds`               | RSS management                           |
+| Intelligence | `/intelligence`        | AI-powered insights                      |
 
 Interactive docs available at `http://localhost:8000/docs` when backend is running.
 

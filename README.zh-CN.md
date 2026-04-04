@@ -117,28 +117,61 @@ cd Kaleidoscope
 
 ```bash
 docker compose up -d
-# 启动: PostgreSQL, Redis, Meilisearch, Qdrant, Neo4j, MinIO, GROBID
+# 启动: PostgreSQL · Redis · Meilisearch · Qdrant · Neo4j · MinIO · GROBID
 ```
 
-### 3. 后端
+### 3. 配置后端环境变量
 
 ```bash
 cd backend
-cp .env.example .env        # 编辑填入你的 API Key
-pip install -e ".[dev]"     # 安装依赖 (含开发工具)
-alembic upgrade head        # 执行数据库迁移
+cp .env.example .env
+```
+
+在 `.env` 中填写以下最低配置（与 Docker 默认值对应）：
+
+```env
+DATABASE_URL=postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope
+REDIS_URL=redis://localhost:6379/0
+MEILI_URL=http://localhost:7700
+MEILI_MASTER_KEY=kaleidoscope-meili-key
+QDRANT_URL=http://localhost:6333
+
+# AI 功能所需
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+```
+
+### 4. 启动后端
+
+```bash
+# 安装依赖（首次运行）
+pip install -e ".[dev]"
+
+# 执行数据库迁移
+alembic upgrade head
+
+# 启动开发服务器  →  http://localhost:8000
 uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
-### 4. 前端
+### 5. 启动前端
 
 ```bash
-cd frontend
-pnpm install
-pnpm dev                    # http://localhost:3000
+cd ../frontend
+pnpm install        # 首次运行
+pnpm dev            # http://localhost:3000
 ```
 
-### 5. 初始数据填充 (可选)
+### 6.（快捷方式）并行启动前后端
+
+完成步骤 1–3 的初始化后，之后每次只需：
+
+```bash
+make dev            # 同时启动后端和前端
+```
+
+### 7. 初始数据填充（可选）
 
 ```bash
 cd backend
@@ -169,16 +202,17 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 所有接口挂载在 `/api/v1/` 下，主要分组：
 
-| 分组     | 前缀                   | 说明                     |
-| -------- | ---------------------- | ------------------------ |
-| 论文     | `/papers`              | 增删改查、搜索、内容获取 |
-| 内容     | `/papers/{id}/content` | Markdown 阅读器数据      |
-| 数据分析 | `/analytics`           | 文库统计与洞察           |
-| 合集     | `/collections`         | 论文组织管理             |
-| 搜索     | `/search`              | 多模态搜索               |
-| 知识     | `/knowledge`           | 笔记图谱                 |
-| 订阅源   | `/feeds`               | RSS 管理                 |
-| 智能分析 | `/intelligence`        | AI 驱动的深度洞察        |
+| 分组       | 前缀                   | 说明                           |
+| ---------- | ---------------------- | ------------------------------ |
+| 论文       | `/papers`              | 增删改查、搜索、内容获取       |
+| 内容       | `/papers/{id}/content` | Markdown 阅读器数据            |
+| 数据分析   | `/analytics`           | 文库统计与洞察                 |
+| 合集       | `/collections`         | 论文组织管理                   |
+| 搜索       | `/search`              | 多模态搜索                     |
+| OpenAlex   | `/openalex`            | 外部论文搜索 + 引用关系图构建  |
+| 知识       | `/knowledge`           | 笔记图谱                       |
+| 订阅源     | `/feeds`               | RSS 管理                       |
+| 智能分析   | `/intelligence`        | AI 驱动的深度洞察              |
 
 后端运行后，访问 `http://localhost:8000/docs` 查看交互式 API 文档。
 

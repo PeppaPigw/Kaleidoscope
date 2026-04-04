@@ -32,7 +32,7 @@ class PaperBatchImportRequest(BaseModel):
 class ProvenanceInfo(BaseModel):
     """Provenance metadata for an AI-derived field."""
 
-    source: str  # e.g., "gpt-4o", "crossref", "openalex"
+    source: str
     timestamp: datetime | None = None
     confidence: float | None = None
 

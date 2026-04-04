@@ -13,6 +13,7 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.services.extraction.prompts import (
     PAPER_ANALYST_PROMPT,
     PAPER_ANALYST_SYSTEM,
@@ -21,7 +22,7 @@ from app.services.extraction.prompts import (
 logger = structlog.get_logger(__name__)
 
 # Chars of full-text to send to the LLM.
-# Qwen3-235B-A22B supports 32K output; keep input under ~60K chars (~15K tokens).
+
 MAX_FULLTEXT_CHARS = 60_000
 
 
@@ -127,9 +128,11 @@ class PaperAnalystService:
 
         try:
             llm = await self._get_llm()
+            model = settings.llm_model
             raw_text = await llm.complete(
                 prompt=prompt,
                 system=PAPER_ANALYST_SYSTEM,
+                model=model,
                 temperature=0.25,  # low temp → dense, consistent output
                 max_tokens=16384,  # expanded for 6-part deep analysis (~15k chars target)
             )
@@ -144,7 +147,7 @@ class PaperAnalystService:
         result = {
             "status": "ok",
             "analysis": raw_text,
-            "model": "Qwen3-235B-A22B",
+            "model": model,
             "authors": authors_str,
             "year": year,
             "fulltext_chars": len(fulltext),

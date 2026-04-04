@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import structlog
 import httpx
 
@@ -14,13 +15,18 @@ DEFAULT_RERANK_MODEL = settings.rerank_model
 
 
 def _resolve_base_url(url: str) -> str:
-    """Strip known path suffixes so we always work with the API root."""
+    """Strip known path suffixes and ensure trailing slash.
+
+    httpx merges base_url + relative-path correctly only when base_url ends
+    with '/'.  With an absolute path like '/embeddings', httpx ignores the
+    base path, which is why we use relative paths throughout this client.
+    """
     raw = url.rstrip("/")
     for suffix in ("/chat/completions", "/completions", "/embeddings", "/rerank"):
         if raw.endswith(suffix):
             raw = raw[: -len(suffix)]
             break
-    return raw
+    return raw + "/"  # trailing slash is required for relative-path resolution
 
 
 class LLMClient:
@@ -88,7 +94,7 @@ class LLMClient:
             body["enable_thinking"] = True
 
         try:
-            resp = await client.post("/chat/completions", json=body)
+            resp = await client.post("chat/completions", json=body)
             resp.raise_for_status()
             data = resp.json()
             choice = data["choices"][0]["message"]
@@ -143,7 +149,7 @@ class LLMClient:
 
         try:
             resp = await client.post(
-                "/embeddings",
+                "embeddings",
                 json={
                     "model": model,
                     "input": texts,
@@ -172,8 +178,6 @@ class LLMClient:
         top_n: int | None = None,
     ) -> list[dict]:
 
-        client = await self._get_client()
-
         body: dict = {
             "model": model,
             "query": query,
@@ -183,7 +187,25 @@ class LLMClient:
             body["top_n"] = top_n
 
         try:
-            resp = await client.post("/rerank", json=body)
+            # Rerank may live at a non-standard path (e.g. /v1/p002/rerank on BLSC).
+            # Use a dedicated client with RERANK_BASE_URL when configured; otherwise
+            # fall back to the shared client's base_url + "/rerank".
+            rerank_base = getattr(settings, "rerank_base_url", "").rstrip("/")
+            if rerank_base:
+                # Trailing slash is required for httpx to treat "rerank" as relative path
+                async with httpx.AsyncClient(
+                    base_url=rerank_base + "/",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=30.0,
+                ) as rc:
+                    resp = await rc.post("rerank", json=body)
+            else:
+                client = await self._get_client()
+                resp = await client.post("rerank", json=body)
+
             resp.raise_for_status()
             data = resp.json()
             # Handle both Cohere-style {"results": [...]} and OpenAI-style {"data": [...]}
@@ -201,6 +223,51 @@ class LLMClient:
             return ranked
         except Exception as e:
             logger.error("llm_rerank_error", error=str(e))
+            raise
+
+    async def stream_complete(
+        self,
+        prompt: str,
+        system: str = "",
+        model: str = DEFAULT_CHAT_MODEL,
+        max_tokens: int = 4096,
+        temperature: float = 0.3,
+    ):
+        """Stream chat completion, yielding text content chunks."""
+        client = await self._get_client()
+
+        messages: list[dict] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        body: dict = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        try:
+            async with client.stream("POST", "chat/completions", json=body) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    raw = line[6:]
+                    if raw.strip() == "[DONE]":
+                        return
+                    try:
+                        chunk = json.loads(raw)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content") or ""
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+        except Exception as e:
+            logger.error("llm_stream_error", error=str(e))
             raise
 
     async def close(self) -> None:

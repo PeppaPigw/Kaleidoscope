@@ -544,9 +544,90 @@ async def _background_fetch_links() -> None:
         logger.warning("fetch_links_startup_failed", error=str(e))
 
 
+async def _background_embed_papers() -> None:
+    """
+    Scan all papers and embed any that are missing a completed PaperEmbeddingJob.
+    Runs immediately on startup with no delay — embedding is fast (seconds per paper)
+    and does not block any foreground requests.
+    Concurrency=5: each paper holds a DB session + one LLM embed call.
+    """
+    from sqlalchemy import select, not_, exists
+    from app.models.paper import Paper
+    from app.models.paper_qa import PaperEmbeddingJob
+    from app.dependencies import async_session_factory
+    from app.tasks.embedding_tasks import embed_paper_async
+
+    try:
+        async with async_session_factory() as session:
+            # Papers with no job at all
+            no_job_ids = (
+                await session.execute(
+                    select(Paper.id).where(
+                        Paper.deleted_at.is_(None),
+                        not_(
+                            exists(
+                                select(PaperEmbeddingJob.id).where(
+                                    PaperEmbeddingJob.paper_id == Paper.id
+                                )
+                            )
+                        ),
+                    )
+                )
+            ).scalars().all()
+
+            # Papers whose last job failed
+            failed_ids = (
+                await session.execute(
+                    select(Paper.id)
+                    .join(PaperEmbeddingJob, PaperEmbeddingJob.paper_id == Paper.id)
+                    .where(
+                        Paper.deleted_at.is_(None),
+                        PaperEmbeddingJob.status == "failed",
+                    )
+                )
+            ).scalars().all()
+
+        all_ids = list(dict.fromkeys([str(i) for i in no_job_ids] + [str(i) for i in failed_ids]))
+
+        if not all_ids:
+            logger.info("embed_startup_skip", reason="all papers already embedded")
+            return
+
+        logger.info("embed_startup_begin", count=len(all_ids))
+        done = errors = skipped = 0
+        sem = asyncio.Semaphore(5)
+
+        async def _one(paper_id: str) -> None:
+            nonlocal done, errors, skipped
+            async with sem:
+                try:
+                    result = await embed_paper_async(paper_id, priority=0)
+                    if result.get("skipped"):
+                        skipped += 1
+                    elif result.get("status") == "completed":
+                        done += 1
+                    else:
+                        errors += 1
+                        logger.warning(
+                            "embed_startup_paper_failed",
+                            paper_id=paper_id,
+                            error=result.get("error"),
+                        )
+                except Exception as e:
+                    errors += 1
+                    logger.warning("embed_startup_error", paper_id=paper_id, error=str(e)[:120])
+
+        await asyncio.gather(*[_one(pid) for pid in all_ids], return_exceptions=True)
+        logger.info("embed_startup_done", done=done, errors=errors, skipped=skipped)
+
+    except Exception as e:
+        logger.warning("embed_startup_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────
+    asyncio.create_task(_background_embed_papers())
     asyncio.create_task(_background_enrich_authors())
     asyncio.create_task(_background_label_papers())
     asyncio.create_task(_background_analyse_papers())
@@ -778,6 +859,11 @@ def create_app() -> FastAPI:
     from app.api.v1.openalex import router as openalex_router
 
     app.include_router(openalex_router, prefix="/api/v1")
+
+    # Paper QA (side panel)
+    from app.api.v1.paper_qa import router as paper_qa_router
+
+    app.include_router(paper_qa_router, prefix="/api/v1")
 
     # --- Health Check ---
 

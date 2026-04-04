@@ -424,207 +424,209 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="ks-writing-studio">
-    <KsPageHeader title="Writing Studio" section="Workspace">
-      <template #meta>
-        {{ headerMeta }}
-      </template>
-      <template #actions>
-        <KsButton
-          size="sm"
-          variant="secondary"
-          :loading="createPending"
-          @click="createAndOpenDocument"
-        >
-          <template #icon-left>
-            <FilePlus2 :size="14" />
-          </template>
-          New document
-        </KsButton>
-        <KsButton
-          size="sm"
-          variant="ghost"
-          :disabled="!selectedDocument || deletePending"
-          :loading="deletePending"
-          @click="selectedDocument && removeDocument(selectedDocument.id)"
-        >
-          <template #icon-left>
-            <Trash2 :size="14" />
-          </template>
-          Delete
-        </KsButton>
-      </template>
-    </KsPageHeader>
-
-    <div class="ks-writing-studio__shell">
-      <aside class="ks-writing-studio__rail">
-        <div class="ks-writing-studio__rail-head">
-          <div>
-            <p class="ks-writing-studio__eyebrow">Draft shelf</p>
-            <h2 class="ks-writing-studio__rail-title">Titles only</h2>
-          </div>
-          <button
-            type="button"
-            class="ks-writing-studio__refresh"
-            aria-label="Reload documents"
-            @click="reloadStudio"
+    <div class="ks-writing-studio__frame">
+      <KsPageHeader class="ks-writing-studio__header" title="Writing Studio" section="Workspace">
+        <template #meta>
+          {{ headerMeta }}
+        </template>
+        <template #actions>
+          <KsButton
+            size="sm"
+            variant="secondary"
+            :loading="createPending"
+            @click="createAndOpenDocument"
           >
-            <RefreshCw :size="16" />
-          </button>
-        </div>
-
-        <div v-if="pagePending && documents.length === 0" class="ks-writing-studio__rail-loading">
-          <KsSkeleton height="88px" />
-          <KsSkeleton height="88px" />
-          <KsSkeleton height="88px" />
-        </div>
-
-        <KsErrorAlert
-          v-else-if="pageError && documents.length === 0"
-          :message="pageError"
-        />
-
-        <div v-else class="ks-writing-studio__document-list">
-          <button
-            v-for="document in sortedDocuments"
-            :key="document.id"
-            :data-testid="`writing-document-item-${document.id}`"
-            type="button"
-            class="ks-writing-studio__document-item"
-            :class="{ 'is-active': document.id === selectedDocumentId }"
-            @click="openDocument(document.id)"
+            <template #icon-left>
+              <FilePlus2 :size="14" />
+            </template>
+            New document
+          </KsButton>
+          <KsButton
+            size="sm"
+            variant="ghost"
+            :disabled="!selectedDocument || deletePending"
+            :loading="deletePending"
+            @click="selectedDocument && removeDocument(selectedDocument.id)"
           >
-            <p class="ks-writing-studio__document-title">{{ document.title }}</p>
-          </button>
-        </div>
-      </aside>
+            <template #icon-left>
+              <Trash2 :size="14" />
+            </template>
+            Delete
+          </KsButton>
+        </template>
+      </KsPageHeader>
 
-      <main class="ks-writing-studio__workspace">
-        <div class="ks-writing-studio__lead">
-          <label class="ks-writing-studio__title-field">
-            <span class="ks-writing-studio__title-label">Document title</span>
-            <input
-              v-model="draftTitle"
-              aria-label="Document title"
-              class="ks-writing-studio__title-input"
-              type="text"
-              placeholder="Untitled"
-            >
-          </label>
-
-          <div class="ks-writing-studio__lead-meta">
-            <span class="ks-writing-studio__lead-chip">
-              <NotebookPen :size="14" />
-              Canonical Markdown
-            </span>
-            <span class="ks-writing-studio__lead-chip">
-              <Files :size="14" />
-              {{ currentWordCount }} words
-            </span>
-            <span class="ks-writing-studio__lead-chip">
-              <RefreshCw :size="14" />
-              {{ saveLabel }}
-            </span>
-          </div>
-        </div>
-
-        <KsErrorAlert
-          v-if="pageError && documents.length > 0"
-          :message="pageError"
-        />
-
-        <WritingMarkdownEditor
-          ref="writingEditorRef"
-          v-model="draftMarkdown"
-          :disabled="editorDisabled"
-          :save-label="saveLabel"
-          :upload-image="handleUploadImage"
-          @word-count-change="editorWordCount = $event"
-          @outline-change="outlineSections = $event"
-          @active-heading-change="activeOutlineSectionId = $event"
-        />
-
-        <p v-if="saveError" class="ks-writing-studio__save-error">
-          {{ saveError }}
-        </p>
-      </main>
-
-      <aside class="ks-writing-studio__preview-stack">
-        <section class="ks-writing-studio__status-card">
-          <div class="ks-writing-studio__status-head">
+      <div class="ks-writing-studio__shell">
+        <aside class="ks-writing-studio__rail">
+          <div class="ks-writing-studio__rail-head">
             <div>
-              <p class="ks-writing-studio__eyebrow">Inspector</p>
-              <h2 class="ks-writing-studio__status-title">{{ draftTitle || 'Untitled' }}</h2>
-              <p class="ks-writing-studio__status-meta">
-                {{ formatTimestamp(lastSavedAt) }}
-              </p>
+              <p class="ks-writing-studio__eyebrow">Draft shelf</p>
+              <h2 class="ks-writing-studio__rail-title">Titles only</h2>
             </div>
-            <span
-              class="ks-writing-studio__status-pill"
-              :class="`is-${saveState}`"
-            >
-              {{ saveLabel }}
-            </span>
-          </div>
-
-          <dl class="ks-writing-studio__status-grid">
-            <div>
-              <dt>Words</dt>
-              <dd>{{ currentWordCount }}</dd>
-            </div>
-            <div>
-              <dt>Last saved</dt>
-              <dd>{{ formatTimestamp(lastSavedAt) }}</dd>
-            </div>
-            <div>
-              <dt>Images</dt>
-              <dd>{{ (draftMarkdown.match(/!\[/g) || []).length }}</dd>
-            </div>
-            <div>
-              <dt>Formulas</dt>
-              <dd>{{ formulaCount }}</dd>
-            </div>
-          </dl>
-
-          <div class="ks-writing-studio__panel-switcher" role="tablist" aria-label="Writing side panel mode">
             <button
               type="button"
-              class="ks-writing-studio__panel-tab"
-              :class="{ 'is-active': rightRailMode === 'outline' }"
-              :aria-selected="rightRailMode === 'outline'"
-              data-testid="writing-sidepanel-outline"
-              @click="rightRailMode = 'outline'"
+              class="ks-writing-studio__refresh"
+              aria-label="Reload documents"
+              @click="reloadStudio"
             >
-              <ListTree :size="15" />
-              Outline
-            </button>
-            <button
-              type="button"
-              class="ks-writing-studio__panel-tab"
-              :class="{ 'is-active': rightRailMode === 'preview' }"
-              :aria-selected="rightRailMode === 'preview'"
-              data-testid="writing-sidepanel-preview"
-              @click="rightRailMode = 'preview'"
-            >
-              <BookText :size="15" />
-              Preview
+              <RefreshCw :size="16" />
             </button>
           </div>
 
-          <div class="ks-writing-studio__panel-body">
-            <WritingOutlinePane
-              v-if="rightRailMode === 'outline'"
-              :sections="outlineSections"
-              :active-section-id="activeOutlineSectionId"
-              @section-click="focusOutlineSection"
-            />
-            <WritingPreviewPane
-              v-else
-              :title="draftTitle || 'Untitled'"
-              :markdown="draftMarkdown"
-            />
+          <div v-if="pagePending && documents.length === 0" class="ks-writing-studio__rail-loading">
+            <KsSkeleton height="88px" />
+            <KsSkeleton height="88px" />
+            <KsSkeleton height="88px" />
           </div>
-        </section>
-      </aside>
+
+          <KsErrorAlert
+            v-else-if="pageError && documents.length === 0"
+            :message="pageError"
+          />
+
+          <div v-else class="ks-writing-studio__document-list">
+            <button
+              v-for="document in sortedDocuments"
+              :key="document.id"
+              :data-testid="`writing-document-item-${document.id}`"
+              type="button"
+              class="ks-writing-studio__document-item"
+              :class="{ 'is-active': document.id === selectedDocumentId }"
+              @click="openDocument(document.id)"
+            >
+              <p class="ks-writing-studio__document-title">{{ document.title }}</p>
+            </button>
+          </div>
+        </aside>
+
+        <main class="ks-writing-studio__workspace">
+          <div class="ks-writing-studio__lead">
+            <label class="ks-writing-studio__title-field">
+              <span class="ks-writing-studio__title-label">Document title</span>
+              <input
+                v-model="draftTitle"
+                aria-label="Document title"
+                class="ks-writing-studio__title-input"
+                type="text"
+                placeholder="Untitled"
+              >
+            </label>
+
+            <div class="ks-writing-studio__lead-meta">
+              <span class="ks-writing-studio__lead-chip">
+                <NotebookPen :size="14" />
+                Canonical Markdown
+              </span>
+              <span class="ks-writing-studio__lead-chip">
+                <Files :size="14" />
+                {{ currentWordCount }} words
+              </span>
+              <span class="ks-writing-studio__lead-chip">
+                <RefreshCw :size="14" />
+                {{ saveLabel }}
+              </span>
+            </div>
+          </div>
+
+          <KsErrorAlert
+            v-if="pageError && documents.length > 0"
+            :message="pageError"
+          />
+
+          <WritingMarkdownEditor
+            ref="writingEditorRef"
+            v-model="draftMarkdown"
+            :disabled="editorDisabled"
+            :save-label="saveLabel"
+            :upload-image="handleUploadImage"
+            @word-count-change="editorWordCount = $event"
+            @outline-change="outlineSections = $event"
+            @active-heading-change="activeOutlineSectionId = $event"
+          />
+
+          <p v-if="saveError" class="ks-writing-studio__save-error">
+            {{ saveError }}
+          </p>
+        </main>
+
+        <aside class="ks-writing-studio__preview-stack">
+          <section class="ks-writing-studio__status-card">
+            <div class="ks-writing-studio__status-head">
+              <div>
+                <p class="ks-writing-studio__eyebrow">Inspector</p>
+                <h2 class="ks-writing-studio__status-title">{{ draftTitle || 'Untitled' }}</h2>
+                <p class="ks-writing-studio__status-meta">
+                  {{ formatTimestamp(lastSavedAt) }}
+                </p>
+              </div>
+              <span
+                class="ks-writing-studio__status-pill"
+                :class="`is-${saveState}`"
+              >
+                {{ saveLabel }}
+              </span>
+            </div>
+
+            <dl class="ks-writing-studio__status-grid">
+              <div>
+                <dt>Words</dt>
+                <dd>{{ currentWordCount }}</dd>
+              </div>
+              <div>
+                <dt>Last saved</dt>
+                <dd>{{ formatTimestamp(lastSavedAt) }}</dd>
+              </div>
+              <div>
+                <dt>Images</dt>
+                <dd>{{ (draftMarkdown.match(/!\[/g) || []).length }}</dd>
+              </div>
+              <div>
+                <dt>Formulas</dt>
+                <dd>{{ formulaCount }}</dd>
+              </div>
+            </dl>
+
+            <div class="ks-writing-studio__panel-switcher" role="tablist" aria-label="Writing side panel mode">
+              <button
+                type="button"
+                class="ks-writing-studio__panel-tab"
+                :class="{ 'is-active': rightRailMode === 'outline' }"
+                :aria-selected="rightRailMode === 'outline'"
+                data-testid="writing-sidepanel-outline"
+                @click="rightRailMode = 'outline'"
+              >
+                <ListTree :size="15" />
+                Outline
+              </button>
+              <button
+                type="button"
+                class="ks-writing-studio__panel-tab"
+                :class="{ 'is-active': rightRailMode === 'preview' }"
+                :aria-selected="rightRailMode === 'preview'"
+                data-testid="writing-sidepanel-preview"
+                @click="rightRailMode = 'preview'"
+              >
+                <BookText :size="15" />
+                Preview
+              </button>
+            </div>
+
+            <div class="ks-writing-studio__panel-body">
+              <WritingOutlinePane
+                v-if="rightRailMode === 'outline'"
+                :sections="outlineSections"
+                :active-section-id="activeOutlineSectionId"
+                @section-click="focusOutlineSection"
+              />
+              <WritingPreviewPane
+                v-else
+                :title="draftTitle || 'Untitled'"
+                :markdown="draftMarkdown"
+              />
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   </div>
 </template>
@@ -639,13 +641,25 @@ onBeforeUnmount(() => {
     linear-gradient(180deg, #f8f7f3 0%, #f2efe7 100%);
 }
 
+.ks-writing-studio__frame {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.ks-writing-studio__header {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .ks-writing-studio__shell {
   display: grid;
   grid-template-columns: minmax(12.5rem, 14rem) minmax(0, 1fr) minmax(19rem, 21rem);
   gap: 1.25rem;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 1.25rem;
   min-height: calc(100dvh - 12.5rem);
   align-items: stretch;
 }
@@ -947,9 +961,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .ks-writing-studio__frame {
+    padding: 0 0.85rem;
+  }
+
   .ks-writing-studio__shell {
     grid-template-columns: 1fr;
-    padding: 0 0.85rem;
   }
 
   .ks-writing-studio__rail {

@@ -3,18 +3,17 @@
  * Smart Reader Page — reader/[paperId]
  *
  * Two-panel layout: main reading canvas (markdown) + sidebar with outline,
- * annotations, AI highlights, and Q&A.
+ * annotations, labels, and paper Q&A.
  *
  * Fetches paper content as markdown from the backend API and renders
  * it in a styled, scrollable reading view.
  */
-import type { PaperContent, PaperHighlights, PaperLabels } from '~/composables/useApi'
+import type { PaperContent, PaperLabels } from '~/composables/useApi'
 import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
-import type { SemanticHighlight } from '~/components/reader/SemanticHighlights.vue'
-import type { ParagraphQuestion } from '~/components/reader/ParagraphQA.vue'
 import type { RenderedMarkdownHeading } from '../../utils/markdown'
 import { loadNotes, saveNotes } from '~/utils/notes'
 import type { Note } from '~/utils/notes'
+import { useResizer } from '~/composables/useResizer'
 
 definePageMeta({
   layout: 'default',
@@ -23,7 +22,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { apiFetch, getPaperHighlights, askAboutPaper } = useApi()
+const { apiFetch } = useApi()
 const paperId = computed(() => {
   const p = route.params.paperId
   return Array.isArray(p) ? p[0] ?? '' : p ?? ''
@@ -35,11 +34,19 @@ useHead({
   meta: [{ name: 'description', content: 'Read and annotate papers with AI-powered analysis.' }],
 })
 
-const activeTab = ref<'outline' | 'labels' | 'annotations' | 'highlights' | 'ragflow'>('outline')
+const activeTab = ref<'outline' | 'labels' | 'annotations' | 'paperqa'>('outline')
+
+const { sidebarWidth, resizerProps } = useResizer({
+  storageKey: 'ks-reader-sidebar-width',
+  defaultWidth: 340,
+  minSidebarWidth: 280,
+  minMainWidth: 400,
+})
 
 // ─── Notes ───────────────────────────────────────────────────
 const notes = ref<Note[]>([])
 const pendingAnnotationText = ref<string | null>(null)
+const pendingAskAiContext = ref<string | null>(null)
 const markdownCanvasRef = ref<{ scrollToNote: (id: string) => void } | null>(null)
 
 function loadPaperNotes() {
@@ -58,6 +65,11 @@ function handleAddHighlight(text: string) {
 function handleTextSelected(text: string) {
   pendingAnnotationText.value = text
   activeTab.value = 'annotations'
+}
+
+function handleAskAI(text: string) {
+  pendingAskAiContext.value = text
+  activeTab.value = 'paperqa'
 }
 
 function handleAddAnnotation(selectedText: string, content: string) {
@@ -135,19 +147,11 @@ const outlineSections = computed<OutlineSection[]>(() => {
 
 const activeSectionId = ref('section-0')
 
-// Static demo data (will be replaced by API calls later)
-const highlights = ref<SemanticHighlight[]>([])
-const questions = ref<ParagraphQuestion[]>([])
-const qaQuestion = ref('')
-const qaLoading = ref(false)
-// Note: QA tab removed from sidebar. State kept for future use.
-
 const sidebarTabs = [
   { key: 'outline' as const, label: 'Outline' },
   { key: 'labels' as const, label: 'Labels' },
   { key: 'annotations' as const, label: 'Notes' },
-  { key: 'highlights' as const, label: 'AI' },
-  { key: 'ragflow' as const, label: 'Ask AI' },
+  { key: 'paperqa' as const, label: 'Ask' },
 ]
 
 // ── Labels ────────────────────────────────────────────────────
@@ -211,53 +215,6 @@ function handleActiveHeadingChange(headingId: string | null) {
   if (headingId)
     activeSectionId.value = headingId
 }
-
-
-function handleHighlightClick(_highlight: SemanticHighlight) {
-  // TODO: scroll to highlight location
-}
-
-function toSemanticHighlightItems(
-  items: string[],
-  category: SemanticHighlight['category'],
-  prefix: string,
-  confidence: number,
-): SemanticHighlight[] {
-  return items.map((text, index) => ({
-    id: `${prefix}-${index}`,
-    text,
-    category,
-    confidence,
-    page: 1,
-  }))
-}
-
-function mapPaperHighlights(payload: PaperHighlights): SemanticHighlight[] {
-  return [
-    ...toSemanticHighlightItems(payload.highlights, 'result', 'highlight', 0.86),
-    ...toSemanticHighlightItems(payload.contributions, 'contribution', 'contribution', 0.92),
-    ...toSemanticHighlightItems(payload.limitations, 'limitation', 'limitation', 0.78),
-  ]
-}
-
-watch(
-  paperId,
-  async currentPaperId => {
-    if (!currentPaperId) {
-      highlights.value = []
-      return
-    }
-
-    try {
-      const payload = await getPaperHighlights(currentPaperId)
-      highlights.value = mapPaperHighlights(payload)
-    }
-    catch {
-      highlights.value = []
-    }
-  },
-  { immediate: true },
-)
 
 async function loadPaperContent() {
   if (!paperId.value) {
@@ -329,37 +286,6 @@ watch(paperId, (currentPaperId, previousPaperId) => {
     pendingAnnotationText.value = null
   }
 })
-
-async function handleAskQuestion() {
-  const q = qaQuestion.value.trim()
-  if (!q || qaLoading.value) return
-
-  qaLoading.value = true
-
-  try {
-    const result = await askAboutPaper(paperId.value, q)
-    questions.value.unshift({
-      id: `qa-${Date.now()}`,
-      question: q,
-      answer: result.answer,
-      paragraph: 0,
-      source: 'AI',
-    })
-    qaQuestion.value = ''
-  }
-  catch {
-    questions.value.unshift({
-      id: `qa-err-${Date.now()}`,
-      question: q,
-      answer: 'Sorry, could not get an answer. Please try again.',
-      paragraph: 0,
-      source: 'Error',
-    })
-  }
-  finally {
-    qaLoading.value = false
-  }
-}
 </script>
 
 <template>
@@ -413,10 +339,13 @@ async function handleAskQuestion() {
           @active-heading-change="handleActiveHeadingChange"
           @add-highlight="handleAddHighlight"
           @text-selected="handleTextSelected"
+          @ask-ai="handleAskAI"
         />
       </div>
 
-      <aside class="ks-reader__sidebar" aria-label="Reader tools">
+      <div v-bind="resizerProps" />
+
+      <aside class="ks-reader__sidebar" :style="{ width: sidebarWidth + 'px' }" aria-label="Reader tools">
         <div class="ks-reader__tabs" role="tablist">
           <button
             v-for="tab in sidebarTabs"
@@ -459,12 +388,6 @@ async function handleAskQuestion() {
             @pending-done="pendingAnnotationText = null"
           />
 
-          <ReaderSemanticHighlights
-            v-if="activeTab === 'highlights'"
-            :highlights="highlights"
-            @highlight-click="handleHighlightClick"
-          />
-
           <!-- Labels panel -->
           <div v-if="activeTab === 'labels'" class="ks-reader__labels">
             <div v-if="labelsLoading" class="ks-reader__labels-loading">Loading labels…</div>
@@ -498,10 +421,11 @@ async function handleAskQuestion() {
             </template>
           </div>
 
-          <RagflowQAPanel
-            v-if="activeTab === 'ragflow'"
+          <ReaderPaperQAPanel
+            v-if="activeTab === 'paperqa'"
             :paper-id="paperId"
-            placeholder="Ask this paper with RAGFlow..."
+            :pending-context="pendingAskAiContext"
+            @context-consumed="pendingAskAiContext = null"
           />
         </div>
       </aside>
@@ -521,19 +445,63 @@ async function handleAskQuestion() {
 .ks-reader__layout {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 12px;
+  display: flex;
   align-items: stretch;
+  gap: 0;
 }
 
 .ks-reader__main {
+  flex: 1;
   display: flex;
   min-width: 0;
   min-height: 0;
+  margin-right: 6px;
+}
+
+/* ── Drag resizer ───────────────────────────────────────── */
+.ks-reader__resizer {
+  flex-shrink: 0;
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+  user-select: none;
+  touch-action: none;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.ks-reader__resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  border-radius: 1px;
+  background: var(--color-border);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.ks-reader__resizer:hover::after,
+.ks-reader__resizer--active::after {
+  opacity: 1;
+  background: var(--color-primary);
+}
+
+.ks-reader__resizer:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.ks-reader__resizer--active {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .ks-reader__sidebar {
+  flex-shrink: 0;
   position: sticky;
   top: 10px;
   min-height: 0;
@@ -545,6 +513,7 @@ async function handleAskQuestion() {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-bg);
+  min-width: 280px;
 }
 
 .ks-reader__tabs {
@@ -590,12 +559,20 @@ async function handleAskQuestion() {
 
 @media (max-width: 960px) {
   .ks-reader__layout {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  .ks-reader__resizer {
+    display: none;
+  }
+  .ks-reader__main {
+    margin-right: 0;
   }
   .ks-reader__sidebar {
     position: static;
+    width: 100% !important;
     height: min(38dvh, 420px);
     margin-top: 8px;
+    min-width: unset;
   }
 }
 

@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     llm_model: str = Field(...)
     embed_model: str = Field(...)
     rerank_model: str = Field(...)
+    rerank_base_url: str = Field(
+        default=""
+    )  # Override base URL for rerank (e.g. non-standard path)
 
     translate_base_url: str = Field(...)
     translate_model: str = Field(...)
@@ -93,6 +96,15 @@ class Settings(BaseSettings):
     openalex_search_max: int = Field(default=50)
     openalex_refs_per_paper: int = Field(default=40)
     openalex_related_per_paper: int = Field(default=10)
+
+    # --- Paper QA ---
+    paper_qa_embed_recall_top_k: int = Field(default=10)
+    paper_qa_rerank_top_n: int = Field(default=5)
+    paper_qa_answer_model: str = Field(default="")
+    paper_qa_sweep_interval_minutes: int = Field(
+        default=60
+    )  # how often to scan for un-embedded papers
+    paper_qa_sweep_batch_size: int = Field(default=50)  # max papers to queue per sweep
 
     celery_broker_url: str = Field(...)
     celery_result_backend: str = Field(...)

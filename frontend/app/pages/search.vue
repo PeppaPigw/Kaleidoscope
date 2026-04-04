@@ -318,7 +318,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
           </div>
 
           <p v-if="searchError" class="kss-spotlight__error">{{ searchError }}</p>
-          <p v-else class="kss-spotlight__hint">Press Enter to search · Results from OpenAlex</p>
+          <p v-else class="kss-spotlight__hint">Press Enter to search</p>
         </div>
       </div>
     </Transition>
@@ -331,10 +331,6 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
 
         <!-- ── Slim nav ── -->
         <nav class="kss-nav">
-          <button class="kss-nav__brand" @click="phase = 'spotlight'">
-            <img src="/brand/kaleidoscope-icon-mark.png" alt="" class="kss-nav__brand-icon" />
-            Kaleidoscope
-          </button>
           <div v-if="phase === 'graph'" class="kss-nav__modes">
             <button
               v-for="m in (['split', 'list', 'map'] as const)"

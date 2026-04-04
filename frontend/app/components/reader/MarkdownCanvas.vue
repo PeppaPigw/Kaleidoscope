@@ -24,6 +24,7 @@ const emit = defineEmits<{
   activeHeadingChange: [headingId: string | null]
   addHighlight: [text: string]
   textSelected: [text: string]
+  askAi: [text: string]
 }>()
 
 const fontSize = ref(16)
@@ -75,6 +76,12 @@ function handleHighlightClick() {
 
 function handleAnnotateClick() {
   emit('textSelected', selMenu.value.text)
+  window.getSelection()?.removeAllRanges()
+  hideSelMenu()
+}
+
+function handleAskAiClick() {
+  emit('askAi', selMenu.value.text)
   window.getSelection()?.removeAllRanges()
   hideSelMenu()
 }
@@ -376,6 +383,11 @@ onBeforeUnmount(() => {
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12V14h2l7-7-2-2-7 7z"/><path d="M11.5 3.5l1 1"/></svg>
           Add Note
         </button>
+        <div class="ks-mc-sel-menu__sep" />
+        <button class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--ai" @mousedown.prevent="handleAskAiClick">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6 6.5C6 5.67 6.67 5 7.5 5h.5c.83 0 1.5.67 1.5 1.5 0 .6-.35 1.12-.86 1.37L8 8.5V9.5"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/></svg>
+          Ask AI
+        </button>
       </div>
     </Transition>
   </Teleport>
@@ -468,6 +480,7 @@ onBeforeUnmount(() => {
 .ks-mc__rendered.ks-prose {
   width: 100%;
   max-width: none;
+  font-size: inherit;
 }
 
 .ks-mc__rendered :deep(h1),
@@ -675,6 +688,10 @@ onBeforeUnmount(() => {
 
 .ks-mc-sel-menu__btn--hl {
   color: rgba(245, 158, 11, 0.9);
+}
+
+.ks-mc-sel-menu__btn--ai {
+  color: rgba(99, 102, 241, 0.95);
 }
 
 .ks-mc-sel-menu__sep {

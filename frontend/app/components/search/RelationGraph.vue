@@ -10,7 +10,7 @@
  *  - When a node is selected: connected neighbours highlight, others fade to 12%.
  *  - Click empty background → deselect.
  *  - During drag: spring forces disabled entirely (no pull-back tension).
- *  - After drop: 180 settle ticks with no-overlap enforcement push neighbours apart.
+ *  - Plain click selects only; only actual drags trigger a short settle pass.
  */
 
 export interface GraphNode {
@@ -65,6 +65,10 @@ let ticksLeft = 0
 
 // Drag state
 const draggingId = ref<string | null>(null)
+let dragCandidateId: string | null = null
+let dragStartClient = { x: 0, y: 0 }
+let dragMoved = false
+let suppressNodeClick = false
 let svgRect = { left: 0, top: 0 }
 let dragOffX = 0
 let dragOffY = 0
@@ -76,6 +80,7 @@ let panHasMoved = false
 let panAnchorClient = { x: 0, y: 0 }
 let panAnchorOffset = { x: 0, y: 0 }
 const PAN_CLICK_THRESHOLD = 4
+const DRAG_START_THRESHOLD = 6
 
 // ── Connected-node set for highlighting ───────────────────────
 
@@ -93,6 +98,7 @@ const connectedIds = computed<Set<string>>(() => {
 
 function initSim() {
   cancelAnimationFrame(animFrame)
+  animFrame = 0
   const n = props.nodes.length
   if (!n) { simNodes.value = []; return }
 
@@ -123,18 +129,19 @@ function initSim() {
     } satisfies SimNode
   })
 
-  ticksLeft = 500
+  ticksLeft = 400
   simulate()
 }
 
 // ── Physics ───────────────────────────────────────────────────
 
-const REPULSION = 14000
-const SPRING_K = 0.012
-const SPRING_LEN = 220
-const DAMPING = 0.78
-const CENTER_PULL = 0.0008
-const MIN_GAP = 28  // minimum gap between circle edges
+const REPULSION = 5200
+const SPRING_K = 0.0035
+const SPRING_LEN = 180
+const DAMPING = 0.72
+const CENTER_PULL = 0.00025
+const MIN_GAP = 18  // minimum gap between circle edges
+const SETTLE_TICKS_AFTER_DRAG = 56
 
 function simulate() {
   const ns = simNodes.value
@@ -165,7 +172,7 @@ function simulate() {
       // Hard separation: push apart if overlapping
       const minDist = n.r + m.r + MIN_GAP
       if (dist < minDist) {
-        const overlap = (minDist - dist) * 0.35
+        const overlap = (minDist - dist) * 0.18
         n.vx += (dx / dist) * overlap
         n.vy += (dy / dist) * overlap
       }
@@ -201,6 +208,8 @@ function simulate() {
   if (ticksLeft > 0) {
     ticksLeft--
     animFrame = requestAnimationFrame(simulate)
+  } else {
+    animFrame = 0
   }
 }
 
@@ -208,14 +217,20 @@ function simulate() {
 
 let ro: ResizeObserver | null = null
 onMounted(() => {
-  ro = new ResizeObserver(([e]) => {
-    width.value = e.contentRect.width || 800
-    height.value = e.contentRect.height || 600
+  ro = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (!entry) return
+    width.value = entry.contentRect.width || 800
+    height.value = entry.contentRect.height || 600
     initSim()
   })
   if (containerRef.value) ro.observe(containerRef.value)
 })
-onUnmounted(() => { ro?.disconnect(); cancelAnimationFrame(animFrame) })
+onUnmounted(() => {
+  ro?.disconnect()
+  cancelAnimationFrame(animFrame)
+  animFrame = 0
+})
 watch(() => [props.nodes, props.edges], () => {
   panOffset.value = { x: 0, y: 0 }
   initSim()
@@ -297,8 +312,17 @@ function onNodePointerDown(e: PointerEvent, n: SimNode) {
   const svgY = e.clientY - svgRect.top - panOffset.value.y
   dragOffX = n.x - svgX
   dragOffY = n.y - svgY
-  draggingId.value = n.id
-  if (!animFrame) { ticksLeft = 9999; simulate() }
+  dragCandidateId = n.id
+  dragStartClient = { x: e.clientX, y: e.clientY }
+  dragMoved = false
+}
+
+function onNodeClick(n: SimNode) {
+  if (suppressNodeClick) {
+    suppressNodeClick = false
+    return
+  }
+  emit('select', n.id)
 }
 
 function onSvgPointerDown(e: PointerEvent) {
@@ -313,6 +337,19 @@ function onSvgPointerDown(e: PointerEvent) {
 }
 
 function onSvgPointerMove(e: PointerEvent) {
+  if (!draggingId.value && dragCandidateId) {
+    const dx = e.clientX - dragStartClient.x
+    const dy = e.clientY - dragStartClient.y
+    if (Math.hypot(dx, dy) >= DRAG_START_THRESHOLD) {
+      draggingId.value = dragCandidateId
+      dragMoved = true
+      if (!animFrame) {
+        ticksLeft = 9999
+        simulate()
+      }
+    }
+  }
+
   if (draggingId.value) {
     // Node drag
     const n = simNodes.value.find(x => x.id === draggingId.value)
@@ -337,8 +374,16 @@ function onSvgPointerMove(e: PointerEvent) {
 function onSvgPointerUp() {
   if (draggingId.value) {
     draggingId.value = null
-    ticksLeft = 180
-    simulate()
+    dragCandidateId = null
+    suppressNodeClick = dragMoved
+    if (dragMoved) {
+      ticksLeft = SETTLE_TICKS_AFTER_DRAG
+      simulate()
+    }
+    dragMoved = false
+  } else if (dragCandidateId) {
+    dragCandidateId = null
+    dragMoved = false
   } else if (isPanning) {
     isPanning = false
     if (!panHasMoved) {
@@ -392,7 +437,7 @@ function onSvgPointerUp() {
         :transform="`translate(${n.x},${n.y})`"
         :style="{ opacity: nodeOpacity(n), cursor: 'grab' }"
         @pointerdown.stop="onNodePointerDown($event, n)"
-        @click.stop="emit('select', n.id)"
+        @click.stop="onNodeClick(n)"
       >
         <!-- Origin outer ring (dashed) -->
         <circle

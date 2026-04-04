@@ -74,12 +74,131 @@ function rebuildMarkdownFromSections(sections: PaperSection[]): string {
     .join("\n\n");
 }
 
+const EMAIL_RE = /@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+const AUTHOR_FIELD_SEPARATOR = '\u00a0\u00a0\u00a0\u00a0'
+
+function splitBlocks(lines: string[]): string[][] {
+  const blocks: string[][] = []
+  let currentBlock: string[] = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock)
+        currentBlock = []
+      }
+      continue
+    }
+
+    currentBlock.push(trimmed)
+  }
+
+  if (currentBlock.length > 0)
+    blocks.push(currentBlock)
+
+  return blocks
+}
+
+function formatAuthorEntry(fields: string[]): string | null {
+  const normalizedFields = fields
+    .map(field => field.trim())
+    .filter(Boolean)
+
+  if (normalizedFields.length < 3)
+    return null
+
+  const name = normalizedFields[0]
+  const email = normalizedFields.find(field => EMAIL_RE.test(field))
+  const affiliation = normalizedFields
+    .slice(1)
+    .find(field => !EMAIL_RE.test(field))
+
+  if (!name || !affiliation || !email)
+    return null
+
+  return [name, affiliation, email].join(AUTHOR_FIELD_SEPARATOR)
+}
+
+function normalizeAuthorHeader(lines: string[]): string[] {
+  const blocks = splitBlocks(lines)
+  const paragraphs: string[] = []
+  let pendingFields: string[] = []
+
+  const flushPendingFields = () => {
+    if (pendingFields.length === 0)
+      return
+
+    const mergedAuthorEntry = formatAuthorEntry(pendingFields)
+    if (mergedAuthorEntry)
+      paragraphs.push(mergedAuthorEntry)
+    else
+      paragraphs.push(...pendingFields)
+
+    pendingFields = []
+  }
+
+  for (const block of blocks) {
+    const blockText = block.join(' ').trim()
+    if (!blockText)
+      continue
+
+    pendingFields.push(blockText)
+    if (EMAIL_RE.test(blockText))
+      flushPendingFields()
+  }
+
+  flushPendingFields()
+  return paragraphs
+}
+
+/**
+ * Collapses author name/institution/email lines in the paper header into
+ * a single line per person, separated by 4 non-breaking spaces.
+ *
+ * Only operates on the region before the first non-title heading or "Abstract".
+ */
+function preprocessAuthorBlock(markdown: string): string {
+  const lines = markdown.split('\n')
+  const limit = Math.min(lines.length, 80)
+  let titleEnd = 0
+
+  // Find header region end: after the title heading, stop at the next heading or "Abstract"
+  let sawFirstHeading = false
+  let headerEnd = limit
+  for (let i = 0; i < limit; i++) {
+    const currentLine = lines[i] ?? ''
+
+    if (/^#{1,6}\s/.test(currentLine)) {
+      if (!sawFirstHeading) {
+        sawFirstHeading = true
+        titleEnd = i + 1
+        continue
+      }
+      headerEnd = i
+      break
+    }
+    if (/^abstract\s*$/i.test(currentLine.trim())) {
+      headerEnd = i
+      break
+    }
+  }
+
+  const prefix = lines.slice(0, titleEnd).join('\n').trimEnd()
+  const normalizedHeader = normalizeAuthorHeader(lines.slice(titleEnd, headerEnd)).join('\n\n')
+  const suffix = lines.slice(headerEnd).join('\n').trimStart()
+
+  return [prefix, normalizedHeader, suffix]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
 function buildSourceMarkdown(
   markdown: string,
   sections: PaperSection[],
 ): string {
   const trimmed = markdown.trim();
-  if (trimmed) return trimmed;
+  if (trimmed) return preprocessAuthorBlock(trimmed);
 
   return rebuildMarkdownFromSections(sections);
 }

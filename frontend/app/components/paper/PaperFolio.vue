@@ -13,13 +13,16 @@ export interface PaperAuthor {
 }
 
 export interface PaperFolioProps {
+  paperId?: string
   title: string
+  titleZh?: string
   authors: PaperAuthor[]
   venue: string
   year: number
   doi?: string
   openAccess: boolean
   abstract: string
+  abstractZh?: string
   citedBy: number
   references: number
 }
@@ -47,7 +50,7 @@ const uid = useId()
       </a>
     </div>
 
-    <KsTranslatableTitle :text="title" tag="h1" title-class="ks-paper-folio__title" />
+    <KsTranslatableTitle :text="title" :paper-id="paperId" :title-zh="titleZh" tag="h1" title-class="ks-paper-folio__title" />
 
     <div class="ks-paper-folio__authors">
       <button
@@ -63,7 +66,7 @@ const uid = useId()
     </div>
 
     <p class="ks-paper-folio__abstract">{{ abstract }}</p>
-    <KsTranslateBtn v-if="abstract" :text="abstract" />
+    <KsTranslateBtn v-if="abstract" :text="abstract" :paper-id="paperId" :abstract-zh="abstractZh" />
 
     <div class="ks-paper-folio__stats">
       <span class="ks-type-data"><strong>{{ citedBy }}</strong> citations</span>

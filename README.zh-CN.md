@@ -120,6 +120,8 @@ docker compose up -d
 # 启动: PostgreSQL · Redis · Meilisearch · Qdrant · Neo4j · MinIO · GROBID
 ```
 
+该 compose 栈现在固定使用 `kaleidoscope` project 和命名卷。如果你本机还留着旧的 `docker-postgres-1` 栈，请先停掉它，确保 `localhost:5432` 指向预期数据库。
+
 ### 3. 配置后端环境变量
 
 ```bash
@@ -165,11 +167,13 @@ pnpm dev            # http://localhost:3000
 
 ### 6.（快捷方式）并行启动前后端
 
-完成步骤 1–3 的初始化后，之后每次只需：
+完成首次依赖安装后，日常开发只需一条命令：
 
 ```bash
-make dev            # 同时启动后端和前端
+make dev            # 自动拉起基础设施、等待 Postgres/Redis、执行迁移，再启动前后端
 ```
+
+如果 `make dev` 因 PostgreSQL 卷不匹配而中止，说明还有旧的 Docker Compose 栈占着 `5432`。先执行 `docker compose -p docker -f backend/docker/docker-compose.yml down`，再重试。
 
 ### 7. 初始数据填充（可选）
 
@@ -185,8 +189,8 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 | 命令           | 说明                                    |
 | -------------- | --------------------------------------- |
-| `make dev`     | 同时启动后端和前端                      |
-| `make infra`   | 启动 Docker 基础设施 (所有服务)         |
+| `make dev`     | 自动准备基础设施和迁移后，再启动前后端  |
+| `make infra`   | 启动全部 Docker 基础设施服务            |
 | `make setup`   | 完整项目初始化 (基础设施 + 依赖 + 迁移) |
 | `make seed`    | 运行 arXiv 种子脚本 (50 篇论文)         |
 | `make migrate` | 执行 Alembic 数据库迁移                 |

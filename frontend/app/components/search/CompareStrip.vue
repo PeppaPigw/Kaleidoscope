@@ -8,28 +8,28 @@
  */
 
 export interface CompareItem {
-  id: string
-  title: string
-  venue: string
-  year: number
+  id: string;
+  title: string;
+  venue: string;
+  year: number;
 }
 
 export interface CompareStripProps {
-  items: CompareItem[]
-  maxItems?: number
+  items: CompareItem[];
+  maxItems?: number;
 }
 
 const props = withDefaults(defineProps<CompareStripProps>(), {
   maxItems: 4,
-})
+});
 
 defineEmits<{
-  'remove': [item: CompareItem]
-  'compare': []
-  'clear': []
-}>()
+  remove: [item: CompareItem];
+  compare: [];
+  clear: [];
+}>();
 
-const canCompare = computed(() => props.items.length >= 2)
+const canCompare = computed(() => props.items.length >= 2);
 </script>
 
 <template>
@@ -62,14 +62,10 @@ const canCompare = computed(() => props.items.length >= 2)
       </div>
 
       <div class="ks-compare-strip__actions">
-        <span class="ks-type-data" style="color: var(--color-secondary);">
+        <span class="ks-type-data" style="color: var(--color-secondary)">
           {{ items.length }}/{{ maxItems }}
         </span>
-        <KsButton
-          variant="secondary"
-          size="sm"
-          @click="$emit('clear')"
-        >
+        <KsButton variant="secondary" size="sm" @click="$emit('clear')">
           Clear
         </KsButton>
         <KsButton
@@ -101,6 +97,11 @@ const canCompare = computed(() => props.items.length >= 2)
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: 0 -4px 24px rgba(26, 26, 26, 0.08);
+  transition:
+    left var(--duration-normal) var(--ease-smooth),
+    right var(--duration-normal) var(--ease-smooth),
+    transform var(--duration-normal) var(--ease-spring),
+    opacity var(--duration-fast) var(--ease-smooth);
   z-index: 50;
 }
 
@@ -154,13 +155,14 @@ const canCompare = computed(() => props.items.length >= 2)
   cursor: pointer;
   font-size: 1.125rem;
   line-height: 1;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-compare-strip__item-remove:hover {
   background: rgba(181, 74, 74, 0.08);
-  color: #B54A4A;
+  color: #b54a4a;
 }
 
 .ks-compare-strip__item-remove:focus-visible {
@@ -176,11 +178,14 @@ const canCompare = computed(() => props.items.length >= 2)
 }
 
 /* Transition */
-.ks-strip-enter-active, .ks-strip-leave-active {
-  transition: transform var(--duration-normal) var(--ease-spring),
-              opacity var(--duration-fast) var(--ease-smooth);
+.ks-strip-enter-active,
+.ks-strip-leave-active {
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    opacity var(--duration-fast) var(--ease-smooth);
 }
-.ks-strip-enter-from, .ks-strip-leave-to {
+.ks-strip-enter-from,
+.ks-strip-leave-to {
   transform: translateY(100%);
   opacity: 0;
 }

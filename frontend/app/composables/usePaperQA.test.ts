@@ -5,6 +5,22 @@ import { usePaperQA } from './usePaperQA'
 
 describe('usePaperQA', () => {
   const apiFetch = vi.fn()
+  const fetchMock = vi.fn()
+
+  function makeStreamResponse(events: Array<Record<string, unknown>>) {
+    const encoder = new TextEncoder()
+    const payload = `${events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')}data: [DONE]\n\n`
+    return {
+      ok: true,
+      status: 200,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(payload))
+          controller.close()
+        },
+      }),
+    }
+  }
 
   beforeEach(() => {
     vi.stubGlobal('ref', ref)
@@ -14,12 +30,18 @@ describe('usePaperQA', () => {
       },
     }))
     vi.stubGlobal('watch', watch)
+    vi.stubGlobal('watchEffect', watchEffect)
     vi.stubGlobal('onUnmounted', () => {})
     vi.stubGlobal('useApi', () => ({ apiFetch }))
+    vi.stubGlobal('useRuntimeConfig', () => ({
+      public: { apiUrl: 'http://127.0.0.1:8000' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     apiFetch.mockReset()
+    fetchMock.mockReset()
     vi.unstubAllGlobals()
   })
 
@@ -30,11 +52,13 @@ describe('usePaperQA', () => {
         chunk_count: 12,
         error_message: null,
       })
-      .mockResolvedValueOnce({
-        answer: 'Agenda-based narrative extraction.',
-        sources: [],
-        latency_ms: 7140,
-      })
+
+    fetchMock.mockResolvedValue(
+      makeStreamResponse([
+        { type: 'chunk', content: 'Agenda-based narrative extraction.' },
+        { type: 'sources', sources: [] },
+      ]),
+    )
 
     const historySnapshots: Array<{ loading: boolean, answer: string | null } | null> = []
     const paperId = ref('paper-1')
@@ -74,16 +98,20 @@ describe('usePaperQA', () => {
         chunk_count: 12,
         error_message: null,
       })
-      .mockResolvedValueOnce({
-        answer: 'First answer.',
-        sources: [],
-        latency_ms: 1200,
-      })
-      .mockResolvedValueOnce({
-        answer: 'Second answer.',
-        sources: [],
-        latency_ms: 1800,
-      })
+
+    fetchMock
+      .mockResolvedValueOnce(
+        makeStreamResponse([
+          { type: 'chunk', content: 'First answer.' },
+          { type: 'sources', sources: [] },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeStreamResponse([
+          { type: 'chunk', content: 'Second answer.' },
+          { type: 'sources', sources: [] },
+        ]),
+      )
 
     const paperId = ref('paper-1')
     const qa = usePaperQA(paperId)
@@ -92,25 +120,33 @@ describe('usePaperQA', () => {
     await qa.ask('Follow up?')
     await nextTick()
 
-    expect(apiFetch).toHaveBeenNthCalledWith(2, '/paper-qa/paper-1/ask', {
-      method: 'POST',
-      body: {
-        question: 'First question?',
-        history: [],
-      },
-    })
-    expect(apiFetch).toHaveBeenNthCalledWith(3, '/paper-qa/paper-1/ask', {
-      method: 'POST',
-      body: {
-        question: 'Follow up?',
-        history: [
-          {
-            question: 'First question?',
-            answer: 'First answer.',
-          },
-        ],
-      },
-    })
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:8000/api/v1/paper-qa/paper-1/ask/stream',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          question: 'First question?',
+          history: [],
+        }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://127.0.0.1:8000/api/v1/paper-qa/paper-1/ask/stream',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          question: 'Follow up?',
+          history: [
+            {
+              question: 'First question?',
+              answer: 'First answer.',
+            },
+          ],
+        }),
+      }),
+    )
     expect(qa.history.value.map(item => item.question)).toEqual([
       'First question?',
       'Follow up?',
@@ -124,11 +160,13 @@ describe('usePaperQA', () => {
         chunk_count: 12,
         error_message: null,
       })
-      .mockResolvedValueOnce({
-        answer: 'First answer.',
-        sources: [],
-        latency_ms: 1200,
-      })
+
+    fetchMock.mockResolvedValue(
+      makeStreamResponse([
+        { type: 'chunk', content: 'First answer.' },
+        { type: 'sources', sources: [] },
+      ]),
+    )
 
     const paperId = ref('paper-1')
     const qa = usePaperQA(paperId)
@@ -156,18 +194,23 @@ describe('usePaperQA', () => {
         chunk_count: 12,
         error_message: null,
       })
-      .mockResolvedValueOnce({
-        answer: 'First answer.',
-        sources: sharedSources,
-        latency_ms: 1200,
-      })
+
+    fetchMock.mockResolvedValue(
+      makeStreamResponse([
+        { type: 'chunk', content: 'First answer.' },
+        { type: 'sources', sources: sharedSources },
+      ]),
+    )
 
     const paperId = ref('paper-1')
     const qa = usePaperQA(paperId)
 
     await qa.ask('First question?')
 
-    sharedSources[0].section_title = 'Mutated source'
+    const firstSharedSource = sharedSources[0]
+    if (firstSharedSource) {
+      firstSharedSource.section_title = 'Mutated source'
+    }
 
     expect(qa.history.value[0]?.sources[0]).toMatchObject({
       section_title: '1. Introduction',

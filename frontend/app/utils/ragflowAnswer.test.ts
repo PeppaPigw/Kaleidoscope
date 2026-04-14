@@ -36,7 +36,8 @@ describe("ragflowAnswer", () => {
     );
 
     expect(rendered).toContain("<ul>");
-    expect(rendered).toContain("<li>First item</li>");
-    expect(rendered).toContain("<li>Second item</li>");
+    expect(rendered).toContain("<li>");
+    expect(rendered).toContain("First item");
+    expect(rendered).toContain("Second item");
   });
 });

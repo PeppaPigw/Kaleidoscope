@@ -1,110 +1,195 @@
 <script setup lang="ts">
-import { Search, Command, Bell, User, Menu, X, Settings, Moon, Sun, LogOut, Languages } from 'lucide-vue-next'
-import { useEventListener } from '@vueuse/core'
+import {
+  Search,
+  Command,
+  Bell,
+  User,
+  Menu,
+  X,
+  Settings,
+  Moon,
+  Sun,
+  LogOut,
+  Languages,
+} from "lucide-vue-next";
+import { useEventListener } from "@vueuse/core";
 
-const { locale, isZh, t, toggleLocale } = useTranslation()
+const { isZh, t, toggleLocale } = useTranslation();
+const { isMobile, mobileOpen, sidebarCollapsed, toggleSidebar } = useAppShell();
 
-const route = useRoute()
+const route = useRoute();
 
-const showSearch = ref(false)
-const searchInput = ref('')
-const searchInputRef = ref<HTMLInputElement | null>(null)
+const showSearch = ref(false);
+const searchInput = ref("");
+const searchInputRef = ref<HTMLInputElement | null>(null);
 
 // ─── Notification state ─────────────────────────────────────
 interface Notification {
-  id: string
-  title: string
-  detail: string
-  time: string
-  read: boolean
-  link: string
+  id: string;
+  title: string;
+  detail: string;
+  time: string;
+  read: boolean;
+  link: string;
 }
 
-const showNotifications = ref(false)
+const showNotifications = ref(false);
 const notifications = ref<Notification[]>([
-  { id: 'n1', title: '3 new papers ingested', detail: 'Nature MI RSS synced — 3 papers matched your filters.', time: '8 min ago', read: false, link: '/discover' },
-  { id: 'n2', title: 'Conflict detected', detail: 'MedQA SOTA claim contradicts external validation results.', time: '24 min ago', read: false, link: '/analysis/evidence' },
-  { id: 'n3', title: 'Workspace update', detail: 'Clinical Reasoning Review: 2 papers annotated by collaborator.', time: '1h ago', read: false, link: '/workspaces/ws-1' },
-  { id: 'n4', title: 'Code release tracked', detail: 'BenchLab-128K GitHub repository linked successfully.', time: '2h ago', read: true, link: '/discover' },
-])
+  {
+    id: "n1",
+    title: "3 new papers ingested",
+    detail: "Nature MI RSS synced — 3 papers matched your filters.",
+    time: "8 min ago",
+    read: false,
+    link: "/discover",
+  },
+  {
+    id: "n2",
+    title: "Conflict detected",
+    detail: "MedQA SOTA claim contradicts external validation results.",
+    time: "24 min ago",
+    read: false,
+    link: "/analysis/evidence",
+  },
+  {
+    id: "n3",
+    title: "Workspace update",
+    detail: "Clinical Reasoning Review: 2 papers annotated by collaborator.",
+    time: "1h ago",
+    read: false,
+    link: "/workspaces/ws-1",
+  },
+  {
+    id: "n4",
+    title: "Code release tracked",
+    detail: "BenchLab-128K GitHub repository linked successfully.",
+    time: "2h ago",
+    read: true,
+    link: "/discover",
+  },
+]);
 
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
+const unreadCount = computed(
+  () => notifications.value.filter((n) => !n.read).length,
+);
 
 function handleNotificationClick(notification: Notification) {
-  notification.read = true
-  showNotifications.value = false
-  navigateTo(notification.link)
+  notification.read = true;
+  showNotifications.value = false;
+  navigateTo(notification.link);
 }
 
 function markAllRead() {
-  notifications.value.forEach(n => { n.read = true })
+  notifications.value.forEach((n) => {
+    n.read = true;
+  });
 }
 
 // ─── Profile state ──────────────────────────────────────────
-const showProfile = ref(false)
-const isDarkMode = ref(false)
+const showProfile = ref(false);
+const isDarkMode = ref(false);
 
 function handleProfileNavigate(path: string) {
-  showProfile.value = false
-  navigateTo(path)
+  showProfile.value = false;
+  navigateTo(path);
 }
 
 function toggleTheme() {
-  isDarkMode.value = !isDarkMode.value
+  isDarkMode.value = !isDarkMode.value;
   // Theme switching stub — will be connected to CSS custom properties later
-  document.documentElement.classList.toggle('ks-dark', isDarkMode.value)
+  document.documentElement.classList.toggle("ks-dark", isDarkMode.value);
+}
+
+function handleSignOut() {
+  showProfile.value = false;
+  if (import.meta.client) {
+    localStorage.removeItem("ks_access_token");
+    localStorage.removeItem("ks_user_id");
+  }
+  navigateTo("/login");
 }
 
 // ─── Close dropdowns on outside click ───────────────────────
-const notifRef = ref<HTMLElement | null>(null)
-const profileRef = ref<HTMLElement | null>(null)
+const notifRef = ref<HTMLElement | null>(null);
+const profileRef = ref<HTMLElement | null>(null);
 
-useEventListener(document, 'click', (e: MouseEvent) => {
-  const target = e.target as HTMLElement
-  if (showNotifications.value && notifRef.value && !notifRef.value.contains(target)) {
-    showNotifications.value = false
+useEventListener(document, "click", (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  if (
+    showNotifications.value &&
+    notifRef.value &&
+    !notifRef.value.contains(target)
+  ) {
+    showNotifications.value = false;
   }
-  if (showProfile.value && profileRef.value && !profileRef.value.contains(target)) {
-    showProfile.value = false
+  if (
+    showProfile.value &&
+    profileRef.value &&
+    !profileRef.value.contains(target)
+  ) {
+    showProfile.value = false;
   }
-})
+});
 
 // ─── Shared logic from original ─────────────────────────────
 const pageTitle = computed(() => {
-  return (route.meta.title as string) || 'Kaleidoscope'
-})
+  return (route.meta.title as string) || "Kaleidoscope";
+});
+
+const sidebarToggleLabel = computed(() => {
+  if (isMobile.value) {
+    return mobileOpen.value ? "Close navigation" : "Open navigation";
+  }
+  return sidebarCollapsed.value ? "Expand navigation" : "Collapse navigation";
+});
 
 function handleSearchKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') showSearch.value = false
+  if (e.key === "Escape") showSearch.value = false;
 }
 
 function handleSearchSubmit() {
-  if (!searchInput.value.trim()) return
-  showSearch.value = false
-  navigateTo(`/search?q=${encodeURIComponent(searchInput.value.trim())}`)
-  searchInput.value = ''
+  if (!searchInput.value.trim()) return;
+  showSearch.value = false;
+  navigateTo(`/search?q=${encodeURIComponent(searchInput.value.trim())}`);
+  searchInput.value = "";
 }
 
-useEventListener(document, 'keydown', (e: KeyboardEvent) => {
-  const target = e.target as HTMLElement
-  if (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault()
-    showSearch.value = !showSearch.value
+useEventListener(document, "keydown", (e: KeyboardEvent) => {
+  const target = e.target as HTMLElement;
+  if (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA"
+  )
+    return;
+  if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    e.preventDefault();
+    showSearch.value = !showSearch.value;
   }
-})
+});
 
 watch(showSearch, (open) => {
   if (open) {
-    nextTick(() => searchInputRef.value?.focus())
+    nextTick(() => searchInputRef.value?.focus());
   }
-})
+});
 </script>
 
 <template>
   <header class="ks-topbar" role="banner">
     <!-- Left: Page identity -->
     <div class="ks-topbar__left">
+      <button
+        class="ks-topbar__shell-btn"
+        :aria-label="sidebarToggleLabel"
+        @click="toggleSidebar()"
+      >
+        <component
+          :is="isMobile && mobileOpen ? X : Menu"
+          :size="17"
+          :stroke-width="2"
+        />
+      </button>
       <h1 class="ks-topbar__title">{{ pageTitle }}</h1>
     </div>
 
@@ -116,10 +201,10 @@ watch(showSearch, (open) => {
         @click="showSearch = true"
       >
         <Search :size="16" :stroke-width="2" />
-        <span class="ks-topbar__search-placeholder">Search papers, claims, authors…</span>
-        <kbd class="ks-topbar__kbd">
-          <Command :size="11" />K
-        </kbd>
+        <span class="ks-topbar__search-placeholder"
+          >Search papers, claims, authors…</span
+        >
+        <kbd class="ks-topbar__kbd"> <Command :size="11" />K </kbd>
       </button>
     </div>
 
@@ -131,7 +216,10 @@ watch(showSearch, (open) => {
           class="ks-topbar__icon-btn"
           aria-label="Notifications"
           :aria-expanded="showNotifications"
-          @click.stop="showNotifications = !showNotifications; showProfile = false"
+          @click.stop="
+            showNotifications = !showNotifications;
+            showProfile = false;
+          "
         >
           <Bell :size="18" :stroke-width="1.8" />
           <span v-if="unreadCount > 0" class="ks-topbar__notification-dot">
@@ -148,7 +236,9 @@ watch(showSearch, (open) => {
             aria-label="Notifications"
           >
             <div class="ks-topbar__dropdown-header">
-              <span class="ks-type-label" style="font-weight: 600;">Notifications</span>
+              <span class="ks-type-label" style="font-weight: 600"
+                >Notifications</span
+              >
               <button
                 v-if="unreadCount > 0"
                 type="button"
@@ -162,7 +252,10 @@ watch(showSearch, (open) => {
               <li
                 v-for="notif in notifications"
                 :key="notif.id"
-                :class="['ks-topbar__notif-item', { 'ks-topbar__notif-item--unread': !notif.read }]"
+                :class="[
+                  'ks-topbar__notif-item',
+                  { 'ks-topbar__notif-item--unread': !notif.read },
+                ]"
               >
                 <button
                   type="button"
@@ -170,7 +263,9 @@ watch(showSearch, (open) => {
                   @click="handleNotificationClick(notif)"
                 >
                   <span class="ks-topbar__notif-title">{{ notif.title }}</span>
-                  <span class="ks-topbar__notif-detail">{{ notif.detail }}</span>
+                  <span class="ks-topbar__notif-detail">{{
+                    notif.detail
+                  }}</span>
                   <span class="ks-type-data">{{ notif.time }}</span>
                 </button>
               </li>
@@ -185,7 +280,10 @@ watch(showSearch, (open) => {
           class="ks-topbar__icon-btn"
           aria-label="Profile"
           :aria-expanded="showProfile"
-          @click.stop="showProfile = !showProfile; showNotifications = false"
+          @click.stop="
+            showProfile = !showProfile;
+            showNotifications = false;
+          "
         >
           <User :size="18" :stroke-width="1.8" />
         </button>
@@ -206,23 +304,45 @@ watch(showSearch, (open) => {
               </div>
             </div>
             <div class="ks-topbar__profile-divider" />
-            <button type="button" class="ks-topbar__profile-item" @click="handleProfileNavigate('/workspaces')">
+            <button
+              type="button"
+              class="ks-topbar__profile-item"
+              @click="handleProfileNavigate('/workspaces')"
+            >
               <Settings :size="16" :stroke-width="1.8" />
-              {{ t('myWorkspaces') }}
+              {{ t("myWorkspaces") }}
             </button>
-            <button type="button" class="ks-topbar__profile-item" @click="toggleTheme">
-              <component :is="isDarkMode ? Sun : Moon" :size="16" :stroke-width="1.8" />
-              {{ isDarkMode ? t('lightMode') : t('darkMode') }}
+            <button
+              type="button"
+              class="ks-topbar__profile-item"
+              @click="toggleTheme"
+            >
+              <component
+                :is="isDarkMode ? Sun : Moon"
+                :size="16"
+                :stroke-width="1.8"
+              />
+              {{ isDarkMode ? t("lightMode") : t("darkMode") }}
             </button>
-            <button type="button" class="ks-topbar__profile-item" @click="toggleLocale">
+            <button
+              type="button"
+              class="ks-topbar__profile-item"
+              @click="toggleLocale"
+            >
               <Languages :size="16" :stroke-width="1.8" />
-              <span>{{ isZh ? 'Switch to English' : '切换为中文' }}</span>
-              <span class="ks-topbar__lang-badge">{{ isZh ? 'ZH' : 'EN' }}</span>
+              <span>{{ isZh ? "Switch to English" : "切换为中文" }}</span>
+              <span class="ks-topbar__lang-badge">{{
+                isZh ? "ZH" : "EN"
+              }}</span>
             </button>
             <div class="ks-topbar__profile-divider" />
-            <button type="button" class="ks-topbar__profile-item ks-topbar__profile-item--danger" @click="showProfile = false">
+            <button
+              type="button"
+              class="ks-topbar__profile-item ks-topbar__profile-item--danger"
+              @click="handleSignOut"
+            >
               <LogOut :size="16" :stroke-width="1.8" />
-              {{ t('signOut') }}
+              {{ t("signOut") }}
             </button>
           </div>
         </Transition>
@@ -244,7 +364,11 @@ watch(showSearch, (open) => {
             aria-label="Quick search"
           >
             <div class="ks-topbar__search-input-wrap">
-              <Search :size="18" :stroke-width="2" class="ks-topbar__search-icon" />
+              <Search
+                :size="18"
+                :stroke-width="2"
+                class="ks-topbar__search-icon"
+              />
               <input
                 ref="searchInputRef"
                 v-model="searchInput"
@@ -253,10 +377,12 @@ watch(showSearch, (open) => {
                 placeholder="Search anything…"
                 @keydown="handleSearchKeydown"
                 @keydown.enter="handleSearchSubmit"
-              />
+              >
             </div>
             <div class="ks-topbar__search-hint">
-              <span class="ks-type-data">Press Enter to search · Esc to close</span>
+              <span class="ks-type-data"
+                >Press Enter to search · Esc to close</span
+              >
             </div>
           </div>
         </div>
@@ -283,7 +409,36 @@ watch(showSearch, (open) => {
 
 /* ─── Left ─────────────────────────────────────────────── */
 .ks-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.ks-topbar__shell-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-surface) 90%, white);
+  color: var(--color-secondary);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
+}
+
+.ks-topbar__shell-btn:hover {
+  color: var(--color-primary);
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 28%,
+    var(--color-border)
+  );
+  background: var(--color-primary-light);
 }
 
 .ks-topbar__title {
@@ -311,8 +466,9 @@ watch(showSearch, (open) => {
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-secondary);
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-topbar__search-trigger:hover {
@@ -363,8 +519,9 @@ watch(showSearch, (open) => {
   border-radius: 6px;
   color: var(--color-secondary);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-topbar__icon-btn:hover {

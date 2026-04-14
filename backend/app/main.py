@@ -860,12 +860,40 @@ def create_app() -> FastAPI:
 
     app.include_router(openalex_router, prefix="/api/v1")
 
+    # DeepXiv paper search & progressive reading
+    from app.api.v1.deepxiv import router as deepxiv_router
+
+    app.include_router(deepxiv_router, prefix="/api/v1")
+
+    # User preferences & profile
+    from app.api.v1.users import router as users_router
+
+    app.include_router(users_router, prefix="/api/v1")
+
     # Paper QA (side panel)
     from app.api.v1.paper_qa import router as paper_qa_router
 
     app.include_router(paper_qa_router, prefix="/api/v1")
 
     # --- Health Check ---
+
+    @app.get("/", include_in_schema=False)
+    async def root():
+        """Simple root entrypoint so the backend doesn't look broken in dev."""
+        payload = {
+            "status": "ok",
+            "app": settings.app_name,
+            "message": "Kaleidoscope backend is running.",
+            "docs_url": "/docs",
+            "health_url": "/health",
+        }
+        if settings.debug:
+            payload["frontend_url"] = "http://localhost:3000/"
+            payload["message"] = (
+                "Kaleidoscope backend is running. Open the frontend at "
+                "http://localhost:3000/."
+            )
+        return payload
 
     @app.get("/health")
     async def health_check():

@@ -6,6 +6,9 @@ from app.models.base import Base
 from app.models.claim import Claim, EvidenceLink
 from app.models.collection import (
     Collection,
+    CollectionChatMessage,
+    CollectionChatThread,
+    CollectionFeedSubscription,
     CollectionPaper,
     PaperTag,
     Tag,
@@ -41,6 +44,9 @@ __all__ = [
     "Venue",
     "RSSFeed",
     "Collection",
+    "CollectionFeedSubscription",
+    "CollectionChatThread",
+    "CollectionChatMessage",
     "CollectionPaper",
     "Tag",
     "PaperTag",

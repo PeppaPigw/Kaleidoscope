@@ -63,6 +63,15 @@ export const UI_LABELS = {
     knowledge: "Knowledge Garden",
     admin: "Admin Console",
     settings: "Settings",
+    collections: "Collections",
+    subscriptions: "Subscriptions",
+    // DeepXiv
+    deepxiv: "DeepXiv",
+    deepxivSearch: "arXiv Search",
+    deepxivTrending: "Trending Papers",
+    deepxivReader: "Paper Reader",
+    deepxivAgent: "Research Agent",
+    deepxivPmc: "PMC Papers",
     // Topbar
     notifications: "Notifications",
     markAllRead: "Mark all read",
@@ -172,6 +181,15 @@ export const UI_LABELS = {
     knowledge: "知识花园",
     admin: "管理控制台",
     settings: "设置",
+    collections: "收藏夹",
+    subscriptions: "订阅管理",
+    // DeepXiv
+    deepxiv: "DeepXiv",
+    deepxivSearch: "arXiv 搜索",
+    deepxivTrending: "热门论文",
+    deepxivReader: "论文阅读器",
+    deepxivAgent: "研究助手",
+    deepxivPmc: "PMC 论文",
     // Topbar
     notifications: "通知",
     markAllRead: "全部已读",
@@ -297,8 +315,14 @@ export function useTranslation() {
    * Translate text using the LLM API.
    * Returns cached result immediately if available.
    * Triggers async API call if not cached.
+   *
+   * @param text - Text to translate
+   * @param options - Optional paper_id and field_type for persistence
    */
-  async function translate(text: string): Promise<string> {
+  async function translate(
+    text: string,
+    options?: { paperId?: string; fieldType?: "title" | "abstract" }
+  ): Promise<string> {
     if (!text || text.length < 2) return text;
 
     // Cache hit
@@ -321,11 +345,20 @@ export function useTranslation() {
         // Call backend translate proxy — API key stays server-side
         const config = useRuntimeConfig();
         const apiBase = config.public.apiUrl as string;
+
+        const body: any = { text, direction: "en2zh" };
+        if (options?.paperId) {
+          body.paper_id = options.paperId;
+        }
+        if (options?.fieldType) {
+          body.field_type = options.fieldType;
+        }
+
         const response = await $fetch<{ translated: string; original: string }>(
           `${apiBase}${TRANSLATE_ENDPOINT}`,
           {
             method: "POST",
-            body: { text, direction: "en2zh" },
+            body,
           },
         );
 
@@ -358,6 +391,14 @@ export function useTranslation() {
   }
 
   /**
+   * Manually set a cached translation (for pre-loading from database).
+   */
+  function setCached(text: string, translation: string): void {
+    const cacheKey = text.slice(0, 200);
+    translationCache.set(cacheKey, translation);
+  }
+
+  /**
    * Check if a translation is in progress.
    */
   function isPending(text: string): boolean {
@@ -381,6 +422,7 @@ export function useTranslation() {
     setLocale,
     translate,
     getCached,
+    setCached,
     isPending,
     hasError,
   };

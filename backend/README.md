@@ -13,6 +13,8 @@ docker compose up -d
 
 This starts: PostgreSQL, Redis, Meilisearch, Qdrant, Neo4j, MinIO, GROBID
 
+The compose file pins the project/volumes to `kaleidoscope`. If `localhost:5432` is still served by an older `docker-postgres-1` container, stop that legacy stack first so the backend uses the expected database volume.
+
 ### 2. Install dependencies
 
 ```bash

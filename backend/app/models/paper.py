@@ -36,7 +36,9 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # --- Core Metadata ---
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    title_zh: Mapped[str | None] = mapped_column(Text)  # Chinese translation
     abstract: Mapped[str | None] = mapped_column(Text)
+    abstract_zh: Mapped[str | None] = mapped_column(Text)  # Chinese translation
     published_at: Mapped[date | None] = mapped_column(Date, index=True)
     paper_type: Mapped[str | None] = mapped_column(
         String(50)
@@ -144,7 +146,8 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # --- Structured Taxonomy Labels (labeling_service.py) ---
     paper_labels: Mapped[dict | None] = mapped_column(JSONB)
-    # {domain, task, method, data_object, application, meta: {paper_type, evaluation_quality, resource_constraint}}
+    # {domain, task, method, data_object, application,
+    #  meta: {paper_type, evaluation_quality, resource_constraint}}
     paper_labels_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # --- Relationships ---

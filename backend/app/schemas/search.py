@@ -36,7 +36,9 @@ class SearchHit(BaseModel):
     doi: str | None = None
     arxiv_id: str | None = None
     title: str
+    title_zh: str | None = None
     abstract: str | None = None
+    abstract_zh: str | None = None
     published_at: date | None = None
     citation_count: int | None = None
     authors: list[str] = []

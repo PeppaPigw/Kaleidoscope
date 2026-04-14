@@ -1,11 +1,12 @@
 # Kaleidoscope Docker Compose — All Infrastructure Services
 # Usage: docker compose up -d
 
+name: kaleidoscope
+
 services:
   # --- PostgreSQL 16 ---
   postgres:
     image: postgres:16-alpine
-    container_name: kaleidoscope-postgres
     environment:
       POSTGRES_DB: kaleidoscope
       POSTGRES_USER: kaleidoscope
@@ -23,7 +24,6 @@ services:
   # --- Redis 7 ---
   redis:
     image: redis:7-alpine
-    container_name: kaleidoscope-redis
     ports:
       - "6379:6379"
     volumes:
@@ -37,7 +37,6 @@ services:
   # --- Meilisearch ---
   meilisearch:
     image: getmeili/meilisearch:v1.6
-    container_name: kaleidoscope-meilisearch
     environment:
       MEILI_MASTER_KEY: kaleidoscope-meili-key
       MEILI_ENV: development
@@ -54,7 +53,6 @@ services:
   # --- Qdrant ---
   qdrant:
     image: qdrant/qdrant:v1.7.4
-    container_name: kaleidoscope-qdrant
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -69,7 +67,6 @@ services:
   # --- Neo4j 5 Community ---
   neo4j:
     image: neo4j:5-community
-    container_name: kaleidoscope-neo4j
     environment:
       NEO4J_AUTH: neo4j/kaleidoscope
       NEO4J_PLUGINS: '["apoc"]'
@@ -87,7 +84,6 @@ services:
   # --- MinIO (S3-compatible Object Storage) ---
   minio:
     image: minio/minio:latest
-    container_name: kaleidoscope-minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: kaleidoscope
@@ -106,7 +102,6 @@ services:
   # --- GROBID (PDF Parser) ---
   grobid:
     image: grobid/grobid:0.8.0
-    container_name: kaleidoscope-grobid
     ports:
       - "8070:8070"
     healthcheck:
@@ -117,8 +112,14 @@ services:
 
 volumes:
   postgres_data:
+    name: kaleidoscope_postgres_data
   redis_data:
+    name: kaleidoscope_redis_data
   meili_data:
+    name: kaleidoscope_meili_data
   qdrant_data:
+    name: kaleidoscope_qdrant_data
   neo4j_data:
+    name: kaleidoscope_neo4j_data
   minio_data:
+    name: kaleidoscope_minio_data

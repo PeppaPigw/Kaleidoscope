@@ -9,9 +9,12 @@
 
 export interface RecommendedPaper {
   id: string
+  /** Optional custom navigation target — defaults to /papers/:id */
+  href?: string
   eyebrow: string
   title: string
   abstract: string
+  tldr?: string
   venue: string
   score: number
   tags: string[]
@@ -41,7 +44,7 @@ const uid = useId()
       <a
         v-for="(paper, i) in papers"
         :key="paper.id"
-        :href="`/papers/${paper.id}`"
+        :href="paper.href ?? `/papers/${paper.id}`"
         :class="[
           'ks-card ks-recommendation-stream__card',
           { 'ks-recommendation-stream__card--strong': paper.strong },
@@ -59,10 +62,13 @@ const uid = useId()
           </span>
         </div>
         <KsTranslatableTitle :text="paper.title" tag="h4" title-class="ks-recommendation-stream__card-title" />
-        <p class="ks-type-body-sm ks-recommendation-stream__card-abstract">
+        <p v-if="paper.tldr" class="ks-recommendation-stream__card-tldr">
+          {{ paper.tldr }}
+        </p>
+        <p v-else class="ks-type-body-sm ks-recommendation-stream__card-abstract">
           {{ paper.abstract }}
         </p>
-        <KsTranslateBtn :text="paper.abstract" />
+        <KsTranslateBtn :text="paper.tldr ?? paper.abstract" />
         <div class="ks-recommendation-stream__card-meta">
           <span class="ks-type-data">{{ paper.venue }}</span>
           <KsTag
@@ -163,6 +169,20 @@ const uid = useId()
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ks-recommendation-stream__card-tldr {
+  font: 400 0.8125rem / 1.55 var(--font-sans);
+  color: var(--color-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 6px 10px;
+  background: var(--color-primary-light);
+  border-left: 2px solid var(--color-primary);
+  border-radius: 0 4px 4px 0;
 }
 
 .ks-recommendation-stream__card-meta {

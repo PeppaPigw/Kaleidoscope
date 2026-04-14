@@ -127,6 +127,7 @@ describe('useApi.collections', () => {
       {
         id: 'collection-1',
         name: 'Workspace A',
+        kind: 'workspace',
         description: 'Mapped from backend collection',
         paper_count: 7,
         updated_at: '2026-03-30T12:00:00Z',
@@ -147,10 +148,28 @@ describe('useApi.collections', () => {
     expect(result).toEqual(response)
   })
 
+  it('sends collection kind and parent filters when listing typed collections', async () => {
+    fetchMock.mockResolvedValue([])
+
+    const api = useApi()
+    await api.listCollections({
+      kind: 'paper_group',
+      parentCollectionId: 'workspace-1',
+    })
+
+    const [url] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBeTypeOf('string')
+    const requestUrl = new URL(url as string)
+    expect(requestUrl.pathname).toBe('/api/v1/collections')
+    expect(requestUrl.searchParams.get('kind')).toBe('paper_group')
+    expect(requestUrl.searchParams.get('parent_collection_id')).toBe('workspace-1')
+  })
+
   it('creates a collection with name and description payload', async () => {
     const response: Collection = {
       id: 'collection-2',
       name: 'New Workspace',
+      kind: 'workspace',
       description: 'Created from modal',
     }
     fetchMock.mockResolvedValue(response)
@@ -174,6 +193,98 @@ describe('useApi.collections', () => {
       headers: { 'Content-Type': 'application/json' },
     }))
     expect(result).toEqual(response)
+  })
+
+  it('creates typed collections and calls the new thread/feed endpoints', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        id: 'collection-9',
+        name: 'Signals',
+        kind: 'subscription_collection',
+      })
+      .mockResolvedValueOnce([
+        {
+          id: 'link-1',
+          collection_id: 'collection-9',
+          feed_id: 'feed-1',
+          feed_name: 'Nature',
+          created_at: '2026-04-05T12:00:00Z',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'thread-1',
+          collection_id: 'collection-9',
+          user_id: 'user-1',
+          title: 'New chat',
+          created_at: '2026-04-05T12:00:00Z',
+          updated_at: null,
+        },
+      ])
+      .mockResolvedValueOnce({
+        thread_id: 'thread-1',
+        user_message: {
+          id: 'msg-user',
+          thread_id: 'thread-1',
+          user_id: 'user-1',
+          role: 'user',
+          content: 'What changed?',
+          created_at: '2026-04-05T12:00:00Z',
+        },
+        assistant_message: {
+          id: 'msg-ai',
+          thread_id: 'thread-1',
+          user_id: 'user-1',
+          role: 'assistant',
+          content: 'A lot changed.',
+          created_at: '2026-04-05T12:00:01Z',
+        },
+      })
+      .mockResolvedValueOnce({ added: 2, total: 2 })
+
+    const api = useApi()
+    await api.createCollection({
+      name: 'Signals',
+      kind: 'subscription_collection',
+      parent_collection_id: 'workspace-1',
+    })
+    await api.attachCollectionFeeds('collection-9', ['feed-1'])
+    await api.listCollectionThreads('collection-9')
+    await api.askCollectionThread('collection-9', 'thread-1', 'What changed?', 6)
+    await api.addPapersToCollection('collection-9', ['paper-1', 'paper-2'], 'seed')
+
+    expect(new URL(fetchMock.mock.calls[0]?.[0] as string).pathname)
+      .toBe('/api/v1/collections')
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      method: 'POST',
+      body: {
+        name: 'Signals',
+        kind: 'subscription_collection',
+        parent_collection_id: 'workspace-1',
+      },
+    }))
+    expect(new URL(fetchMock.mock.calls[1]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-9/feeds')
+    expect(new URL(fetchMock.mock.calls[2]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-9/threads')
+    expect(new URL(fetchMock.mock.calls[3]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-9/threads/thread-1/ask')
+    expect(fetchMock.mock.calls[3]?.[1]).toEqual(expect.objectContaining({
+      method: 'POST',
+      body: {
+        content: 'What changed?',
+        top_k: 6,
+      },
+    }))
+    expect(new URL(fetchMock.mock.calls[4]?.[0] as string).pathname)
+      .toBe('/api/v1/collections/collection-9/papers')
+    expect(fetchMock.mock.calls[4]?.[1]).toEqual(expect.objectContaining({
+      method: 'POST',
+      body: {
+        paper_ids: ['paper-1', 'paper-2'],
+        note: 'seed',
+      },
+    }))
   })
 
   it('fetches collection detail, collection papers, and researcher profile endpoints', async () => {

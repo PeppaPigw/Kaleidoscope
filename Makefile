@@ -8,6 +8,13 @@ SHELL := /bin/bash
 BACKEND_DIR  := backend
 FRONTEND_DIR := frontend
 DOCKER_DIR   := backend/docker
+COMPOSE_FILE := $(DOCKER_DIR)/docker-compose.yml
+COMPOSE_PROJECT_NAME := kaleidoscope
+COMPOSE := docker compose -p $(COMPOSE_PROJECT_NAME) -f $(COMPOSE_FILE)
+DEV_INFRA_SERVICES := postgres redis meilisearch qdrant neo4j minio grobid
+DEV_CORE_SERVICES := postgres redis
+DEV_INFRA_WAIT_TIMEOUT ?= 90
+EXPECTED_POSTGRES_VOLUME := kaleidoscope_postgres_data
 
 # ── Help ──────────────────────────────────────────────
 .PHONY: help
@@ -16,15 +23,33 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # ── Infrastructure ────────────────────────────────────
-.PHONY: infra infra-down infra-logs
+.PHONY: check-docker check-postgres-target infra infra-down infra-logs infra-dev
+check-docker: ## Verify Docker is installed and the daemon is running
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required for Kaleidoscope dev."; exit 1; }
+	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon is not running. Start Docker Desktop and retry."; exit 1; }
+
+check-postgres-target: ## Ensure localhost:5432 maps to the expected Kaleidoscope Postgres volume
+	@EXPECTED_POSTGRES_VOLUME=$(EXPECTED_POSTGRES_VOLUME) EXPECTED_COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) COMPOSE_FILE=$(COMPOSE_FILE) \
+		bash $(DOCKER_DIR)/check-postgres-target.sh
+
 infra: ## Start all infrastructure services (Docker)
-	docker compose -f $(DOCKER_DIR)/docker-compose.yml up -d
+	@$(MAKE) check-docker
+	@$(MAKE) check-postgres-target
+	$(COMPOSE) up -d
+
+infra-dev: ## Start infra needed by make dev and wait for core services
+	@$(MAKE) check-docker
+	@$(MAKE) check-postgres-target
+	@echo "🐳 Ensuring Docker infrastructure is running..."
+	@$(COMPOSE) up -d $(DEV_INFRA_SERVICES)
+	@echo "⏳ Waiting for PostgreSQL and Redis..."
+	@$(COMPOSE) up -d --wait --wait-timeout $(DEV_INFRA_WAIT_TIMEOUT) $(DEV_CORE_SERVICES)
 
 infra-down: ## Stop all infrastructure services
-	docker compose -f $(DOCKER_DIR)/docker-compose.yml down
+	$(COMPOSE) down
 
 infra-logs: ## Tail infrastructure logs
-	docker compose -f $(DOCKER_DIR)/docker-compose.yml logs -f --tail=50
+	$(COMPOSE) logs -f --tail=50
 
 # ── Backend ───────────────────────────────────────────
 .PHONY: backend backend-install migrate seed seed-feeds worker
@@ -61,9 +86,12 @@ frontend-build: ## Build frontend for production
 	cd $(FRONTEND_DIR) && pnpm build
 
 # ── Development ───────────────────────────────────────
-.PHONY: dev setup
+.PHONY: dev setup dev-bootstrap
+dev-bootstrap: infra-dev migrate ## Ensure infra is ready and schema is up to date
+
 dev: ## Start backend + frontend in parallel
 	@echo "🚀 Starting Kaleidoscope..."
+	@$(MAKE) dev-bootstrap
 	@$(MAKE) -j2 backend frontend
 
 setup: infra backend-install frontend-install migrate ## Full project setup

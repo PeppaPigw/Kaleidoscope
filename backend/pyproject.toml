@@ -42,6 +42,8 @@ dependencies = [
     "sentence-transformers>=3.3.0",
     # File uploads
     "python-multipart>=0.0.9",
+    # DeepXiv paper search & reading
+    "deepxiv-sdk>=0.2.4",
 ]
 
 [project.optional-dependencies]

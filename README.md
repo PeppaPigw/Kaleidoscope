@@ -118,6 +118,8 @@ docker compose up -d
 # Starts: PostgreSQL · Redis · Meilisearch · Qdrant · Neo4j · MinIO · GROBID
 ```
 
+The compose stack is pinned to the `kaleidoscope` project and named volumes. If you still have an older `docker-postgres-1` stack running, stop it before development so `localhost:5432` points at the expected database.
+
 ### 3. Configure Backend
 
 ```bash
@@ -163,11 +165,13 @@ pnpm dev            # http://localhost:3000
 
 ### 6. (Shortcut) Start Both in Parallel
 
-After completing steps 1–3 once:
+After completing the one-time dependency install above, you can use a single command for day-to-day development:
 
 ```bash
-make dev            # runs backend + frontend concurrently
+make dev            # boots infra, waits for Postgres/Redis, runs migrations, then starts backend + frontend
 ```
+
+If `make dev` aborts with a PostgreSQL volume mismatch, you still have a legacy Docker Compose stack bound to port `5432`. Stop it with `docker compose -p docker -f backend/docker/docker-compose.yml down`, then retry.
 
 ### 7. Seed Initial Data (Optional)
 
@@ -183,8 +187,8 @@ python -m app.scripts.seed_feeds     # Load 65 RSS feed sources
 
 | Command        | Description                             |
 | -------------- | --------------------------------------- |
-| `make dev`     | Start backend + frontend in parallel    |
-| `make infra`   | Docker compose up (all services)        |
+| `make dev`     | Bootstrap infra + migrations, then start backend + frontend |
+| `make infra`   | Start all Docker infrastructure services |
 | `make seed`    | Run arXiv seeder (50 papers)            |
 | `make migrate` | Run Alembic migrations                  |
 | `make lint`    | Lint backend (ruff) + frontend (eslint) |

@@ -40,14 +40,18 @@ class TagResponse(BaseModel):
 
 # ─── Collections ─────────────────────────────────────────────────────
 
+CollectionKind = Literal["workspace", "subscription_collection", "paper_group"]
+
 
 class CollectionCreate(BaseModel):
     """Create a new collection."""
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
+    kind: CollectionKind = "workspace"
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     icon: str | None = None
+    parent_collection_id: uuid.UUID | None = None
     is_smart: bool = False
     smart_filter: dict | None = None
 
@@ -57,8 +61,10 @@ class CollectionUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    kind: CollectionKind | None = None
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     icon: str | None = None
+    parent_collection_id: uuid.UUID | None = None
     smart_filter: dict | None = None
 
 
@@ -98,8 +104,10 @@ class CollectionResponse(BaseModel):
     id: uuid.UUID
     name: str
     description: str | None
+    kind: CollectionKind = "workspace"
     color: str | None
     icon: str | None
+    parent_collection_id: uuid.UUID | None = None
     is_smart: bool
     paper_count: int
     created_at: datetime
@@ -113,6 +121,67 @@ class CollectionDetailResponse(CollectionResponse):
 
     smart_filter: dict | None = None
     papers: list[CollectionPaperResponse] = []
+
+
+class CollectionFeedSubscriptionCreate(BaseModel):
+    """Attach feeds to a subscription collection."""
+
+    feed_ids: list[uuid.UUID] = Field(..., min_length=1)
+
+
+class CollectionFeedSubscriptionResponse(BaseModel):
+    """Feed attached to a collection."""
+
+    id: uuid.UUID
+    feed_id: uuid.UUID
+    collection_id: uuid.UUID
+    feed_name: str | None = None
+    publisher: str | None = None
+    category: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CollectionChatThreadCreate(BaseModel):
+    """Create a new thread under a collection."""
+
+    title: str | None = Field(None, max_length=255)
+
+
+class CollectionChatThreadResponse(BaseModel):
+    """Collection-scoped chat thread summary."""
+
+    id: uuid.UUID
+    collection_id: uuid.UUID
+    user_id: uuid.UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class CollectionChatMessageAsk(BaseModel):
+    """Persist a user message and request an assistant answer."""
+
+    content: str = Field(..., min_length=1)
+    top_k: int = Field(default=10, ge=1, le=50)
+
+
+class CollectionChatMessageResponse(BaseModel):
+    """Collection chat message payload."""
+
+    id: uuid.UUID
+    thread_id: uuid.UUID
+    user_id: uuid.UUID
+    role: str
+    content: str
+    sources: dict | None = None
+    metadata_json: dict | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 # ─── Reading Status ──────────────────────────────────────────────────

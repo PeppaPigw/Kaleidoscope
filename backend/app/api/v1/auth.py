@@ -1,20 +1,16 @@
-"""Auth API — login, register, and identity helpers."""
+"""Auth API — login and identity helpers."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.auth import JWT_SECRET, create_access_token
+from app.config import settings
 from app.models.collection import DEFAULT_USER_ID
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class RegisterRequest(BaseModel):
     username: str
     password: str
 
@@ -42,15 +38,9 @@ def _token_response() -> TokenResponse:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
-    """Login placeholder until the multi-user auth store is implemented."""
-    _ = req
-    return _token_response()
-
-
-@router.post("/register", response_model=TokenResponse)
-async def register(req: RegisterRequest):
-    """Register placeholder until the multi-user auth store is implemented."""
-    _ = req
+    """Validate admin credentials and return an access token."""
+    if req.username != settings.admin_username or req.password != settings.admin_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     return _token_response()
 
 
@@ -59,6 +49,7 @@ async def me():
     """Return current user identity in the active auth mode."""
     return {
         "user_id": DEFAULT_USER_ID,
+        "username": settings.admin_username,
         "mode": "single_user" if not JWT_SECRET else "jwt",
     }
 

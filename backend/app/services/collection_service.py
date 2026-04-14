@@ -5,12 +5,17 @@ Collection/tag queries filter by user_id to ensure per-user scoping.
 Reading status uses the UserReadingStatus table, not Paper.reading_status.
 """
 
+from datetime import UTC, datetime
+
 import structlog
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.collection import (
+    CollectionChatMessage,
+    CollectionChatThread,
+    CollectionFeedSubscription,
     DEFAULT_USER_ID,
     Collection,
     CollectionPaper,
@@ -18,6 +23,7 @@ from app.models.collection import (
     Tag,
     UserReadingStatus,
 )
+from app.models.feed import RSSFeed
 from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
@@ -36,8 +42,10 @@ class CollectionService:
         self,
         name: str,
         description: str | None = None,
+        kind: str = "workspace",
         color: str | None = None,
         icon: str | None = None,
+        parent_collection_id: str | None = None,
         is_smart: bool = False,
         smart_filter: dict | None = None,
     ) -> Collection:
@@ -46,8 +54,10 @@ class CollectionService:
             user_id=self.user_id,
             name=name,
             description=description,
+            kind=kind,
             color=color,
             icon=icon,
+            parent_collection_id=parent_collection_id,
             is_smart=is_smart,
             smart_filter=smart_filter,
         )
@@ -55,11 +65,21 @@ class CollectionService:
         await self.db.flush()
         return collection
 
-    async def list_collections(self, include_deleted: bool = False) -> list[Collection]:
+    async def list_collections(
+        self,
+        include_deleted: bool = False,
+        *,
+        kind: str | None = None,
+        parent_collection_id: str | None = None,
+    ) -> list[Collection]:
         """List collections for this user."""
         query = select(Collection).where(Collection.user_id == self.user_id)
         if not include_deleted:
             query = query.where(Collection.deleted_at.is_(None))
+        if kind is not None:
+            query = query.where(Collection.kind == kind)
+        if parent_collection_id is not None:
+            query = query.where(Collection.parent_collection_id == parent_collection_id)
         query = query.order_by(Collection.created_at.desc())
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -98,6 +118,73 @@ class CollectionService:
                 Collection.user_id == self.user_id,
             )
             .values(deleted_at=func.now())
+        )
+        return result.rowcount > 0
+
+    async def list_child_collections(
+        self,
+        parent_collection_id: str,
+        *,
+        kind: str | None = None,
+    ) -> list[Collection]:
+        """List child collections under a parent container."""
+        return await self.list_collections(
+            kind=kind,
+            parent_collection_id=parent_collection_id,
+        )
+
+    async def attach_feeds(self, collection_id: str, feed_ids: list[str]) -> int:
+        """Attach RSS feeds to a subscription collection."""
+        collection = await self.get_collection(collection_id)
+        if not collection or collection.kind != "subscription_collection":
+            return 0
+
+        existing = await self.db.execute(
+            select(CollectionFeedSubscription.feed_id).where(
+                CollectionFeedSubscription.collection_id == collection_id,
+                CollectionFeedSubscription.feed_id.in_(feed_ids),
+            )
+        )
+        existing_ids = {str(row[0]) for row in existing.all()}
+        added = 0
+        for feed_id in feed_ids:
+            if str(feed_id) in existing_ids:
+                continue
+            self.db.add(
+                CollectionFeedSubscription(
+                    collection_id=collection_id,
+                    feed_id=feed_id,
+                )
+            )
+            added += 1
+        await self.db.flush()
+        return added
+
+    async def list_feed_subscriptions(self, collection_id: str) -> list[dict]:
+        """Return attached feeds for a subscription collection."""
+        result = await self.db.execute(
+            select(
+                CollectionFeedSubscription.id,
+                CollectionFeedSubscription.feed_id,
+                CollectionFeedSubscription.collection_id,
+                CollectionFeedSubscription.created_at,
+                RSSFeed.name.label("feed_name"),
+                RSSFeed.publisher,
+                RSSFeed.category,
+            )
+            .join(RSSFeed, RSSFeed.id == CollectionFeedSubscription.feed_id)
+            .where(CollectionFeedSubscription.collection_id == collection_id)
+            .order_by(RSSFeed.name)
+        )
+        return [dict(row._mapping) for row in result.all()]
+
+    async def detach_feed(self, collection_id: str, feed_id: str) -> bool:
+        """Detach an RSS feed from a subscription collection."""
+        result = await self.db.execute(
+            delete(CollectionFeedSubscription).where(
+                CollectionFeedSubscription.collection_id == collection_id,
+                CollectionFeedSubscription.feed_id == feed_id,
+            )
         )
         return result.rowcount > 0
 
@@ -419,6 +506,107 @@ class CollectionService:
                 return False
 
         return True
+
+
+class CollectionChatService:
+    """Collection-scoped chat thread and message persistence."""
+
+    def __init__(self, db: AsyncSession, user_id: str = DEFAULT_USER_ID):
+        self.db = db
+        self.user_id = user_id
+
+    async def list_threads(self, collection_id: str) -> list[CollectionChatThread]:
+        result = await self.db.execute(
+            select(CollectionChatThread)
+            .where(
+                CollectionChatThread.collection_id == collection_id,
+                CollectionChatThread.user_id == self.user_id,
+                CollectionChatThread.deleted_at.is_(None),
+            )
+            .order_by(
+                CollectionChatThread.updated_at.desc().nullslast(),
+                CollectionChatThread.created_at.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def create_thread(
+        self,
+        collection_id: str,
+        title: str | None = None,
+    ) -> CollectionChatThread:
+        thread = CollectionChatThread(
+            collection_id=collection_id,
+            user_id=self.user_id,
+            title=title,
+        )
+        self.db.add(thread)
+        await self.db.flush()
+        return thread
+
+    async def get_thread(
+        self,
+        collection_id: str,
+        thread_id: str,
+    ) -> CollectionChatThread | None:
+        result = await self.db.execute(
+            select(CollectionChatThread)
+            .where(
+                CollectionChatThread.id == thread_id,
+                CollectionChatThread.collection_id == collection_id,
+                CollectionChatThread.user_id == self.user_id,
+                CollectionChatThread.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_messages(
+        self,
+        collection_id: str,
+        thread_id: str,
+    ) -> list[CollectionChatMessage]:
+        thread = await self.get_thread(collection_id, thread_id)
+        if thread is None:
+            return []
+        result = await self.db.execute(
+            select(CollectionChatMessage)
+            .where(
+                CollectionChatMessage.thread_id == thread_id,
+                CollectionChatMessage.deleted_at.is_(None),
+            )
+            .order_by(CollectionChatMessage.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def create_message(
+        self,
+        thread_id: str,
+        role: str,
+        content: str,
+        *,
+        sources: dict | None = None,
+        metadata_json: dict | None = None,
+    ) -> CollectionChatMessage:
+        message = CollectionChatMessage(
+            thread_id=thread_id,
+            user_id=self.user_id,
+            role=role,
+            content=content,
+            sources=sources,
+            metadata_json=metadata_json,
+        )
+        self.db.add(message)
+        await self.db.flush()
+
+        result = await self.db.execute(
+            select(CollectionChatThread).where(CollectionChatThread.id == thread_id)
+        )
+        thread = result.scalar_one_or_none()
+        if thread is not None:
+            if not thread.title and role == "user":
+                thread.title = content.strip()[:80]
+            thread.updated_at = datetime.now(UTC)
+        return message
 
 
 class ReadingStatusService:

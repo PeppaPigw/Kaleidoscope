@@ -89,8 +89,15 @@ class Collection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, default="workspace")
     color: Mapped[str | None] = mapped_column(String(7))  # "#FF6B35"
     icon: Mapped[str | None] = mapped_column(String(50))  # "folder", "star", etc.
+    parent_collection_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
 
     # Smart collection
     is_smart: Mapped[bool] = mapped_column(default=False)
@@ -109,6 +116,27 @@ class Collection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="collection",
         cascade="all, delete-orphan",
         order_by="CollectionPaper.position",
+    )
+    parent_collection: Mapped["Collection | None"] = relationship(
+        "Collection",
+        back_populates="child_collections",
+        remote_side="Collection.id",
+    )
+    child_collections: Mapped[list["Collection"]] = relationship(
+        "Collection",
+        back_populates="parent_collection",
+        cascade="all, delete-orphan",
+    )
+    feed_links: Mapped[list["CollectionFeedSubscription"]] = relationship(
+        "CollectionFeedSubscription",
+        back_populates="collection",
+        cascade="all, delete-orphan",
+    )
+    chat_threads: Mapped[list["CollectionChatThread"]] = relationship(
+        "CollectionChatThread",
+        back_populates="collection",
+        cascade="all, delete-orphan",
+        order_by="CollectionChatThread.created_at.desc()",
     )
 
     def __repr__(self) -> str:
@@ -151,6 +179,97 @@ class CollectionPaper(Base):
         return (
             f"<CollectionPaper(collection={self.collection_id}, paper={self.paper_id})>"
         )
+
+
+class CollectionFeedSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Associates subscription collections with RSS feeds."""
+
+    __tablename__ = "collection_feed_subscriptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "collection_id",
+            "feed_id",
+            name="uq_collection_feed_subscription",
+        ),
+    )
+
+    collection_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    feed_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("rss_feeds.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    collection: Mapped["Collection"] = relationship(
+        "Collection",
+        back_populates="feed_links",
+    )
+    feed: Mapped["RSSFeed"] = relationship("RSSFeed")  # noqa: F821
+
+
+class CollectionChatThread(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A persisted chat thread scoped to a collection-like container."""
+
+    __tablename__ = "collection_chat_threads"
+
+    collection_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        server_default=DEFAULT_USER_ID,
+    )
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    collection: Mapped["Collection"] = relationship(
+        "Collection",
+        back_populates="chat_threads",
+    )
+    messages: Mapped[list["CollectionChatMessage"]] = relationship(
+        "CollectionChatMessage",
+        back_populates="thread",
+        cascade="all, delete-orphan",
+        order_by="CollectionChatMessage.created_at",
+    )
+
+
+class CollectionChatMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A single persisted chat message in a collection thread."""
+
+    __tablename__ = "collection_chat_messages"
+
+    thread_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("collection_chat_threads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        server_default=DEFAULT_USER_ID,
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    thread: Mapped["CollectionChatThread"] = relationship(
+        "CollectionChatThread",
+        back_populates="messages",
+    )
 
 
 class Tag(UUIDPrimaryKeyMixin, TimestampMixin, Base):

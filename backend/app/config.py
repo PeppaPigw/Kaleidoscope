@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     links_api_url: str = Field(...)
     links_model: str = Field(...)
 
+    # --- DeepXiv ---
+    deepxiv_token: str = Field(default="")
+    deepxiv_base_url: str = Field(default="https://data.rag.ac.cn")
+    deepxiv_timeout: int = Field(default=60)
+    deepxiv_max_retries: int = Field(default=2)
+
     openalex_api_url: str = Field(default="https://api.openalex.org")
     openalex_email: str = Field(default="")
     openalex_search_limit: int = Field(default=20)
@@ -110,6 +116,10 @@ class Settings(BaseSettings):
     celery_result_backend: str = Field(...)
 
     rss_poll_interval_minutes: int = Field(...)
+
+    # --- Admin auth ---
+    admin_username: str = Field(default="admin")
+    admin_password: str = Field(default="kaleidoscope")
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

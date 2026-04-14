@@ -7,11 +7,15 @@
  */
 import { Languages } from 'lucide-vue-next'
 
-const { translate, getCached, isPending, hasError, isZh, t } = useTranslation()
+const { translate, getCached, setCached, isPending, hasError, isZh, t } = useTranslation()
 
 const props = defineProps<{
   /** The abstract / text to translate */
   text: string
+  /** Optional paper ID for persisting translation */
+  paperId?: string
+  /** Pre-loaded translation from database */
+  abstractZh?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +26,18 @@ const translated = ref('')
 const showTranslation = ref(false)
 
 const loading = computed(() => isPending(props.text))
+
+// Pre-load translation from database if available
+watch(
+  () => props.abstractZh,
+  (zh) => {
+    if (zh && props.text) {
+      setCached(props.text, zh)
+      translated.value = zh
+    }
+  },
+  { immediate: true }
+)
 
 // Auto-load cached
 watch(
@@ -42,7 +58,10 @@ async function handleTranslate() {
     return
   }
   showTranslation.value = true
-  const result = await translate(props.text)
+  const result = await translate(props.text, {
+    paperId: props.paperId,
+    fieldType: 'abstract',
+  })
   if (result) {
     translated.value = result
     emit('translated', result)

@@ -236,7 +236,8 @@ async def _require_collection(
     collection = result.scalar_one_or_none()
     if collection is None:
         raise HTTPException(status_code=404, detail="Collection not found")
-    if user_id and str(collection.user_id) != user_id:
+    owner_id = getattr(collection, "user_id", None)
+    if user_id and owner_id is not None and str(owner_id) != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     return collection
 

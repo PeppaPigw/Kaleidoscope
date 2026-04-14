@@ -467,7 +467,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 14px 26px 32px;
+  padding: 14px 66px 32px;
   line-height: 1.75;
 }
 

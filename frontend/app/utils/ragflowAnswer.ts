@@ -5,7 +5,23 @@ export function normalizeRagflowAnswer(
 ): string {
   if (!answer) return "";
 
-  return answer.replace(/\r\n?/g, "\n").trim();
+  const normalized = answer.replace(/\r\n?/g, "\n").trim();
+  const lines = normalized.split("\n");
+  const out: string[] = [];
+
+  const isListLine = (line: string) => /^(\s*)([-*+]|\d+\.)\s+/.test(line);
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    out.push(line);
+
+    const next = lines[i + 1] ?? "";
+    if (isListLine(line) && isListLine(next)) {
+      out.push("");
+    }
+  }
+
+  return out.join("\n").trim();
 }
 
 export async function renderRagflowAnswer(

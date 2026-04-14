@@ -67,3 +67,6 @@ frontend/test-results/*
 output/
 
 backend/scripts/
+.cursor/
+.github
+.omx

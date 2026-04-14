@@ -2,11 +2,9 @@
 
 import uuid
 from datetime import date, datetime
-
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # --- Request Schemas ---
 
@@ -64,7 +62,9 @@ class PaperResponse(BaseModel):
     arxiv_id: str | None = None
     pmid: str | None = None
     title: str
+    title_zh: str | None = None
     abstract: str | None = None
+    abstract_zh: str | None = None
     published_at: date | None = None
     paper_type: str | None = None
     oa_status: str | None = None
@@ -94,7 +94,9 @@ class PaperBriefResponse(BaseModel):
     doi: str | None = None
     arxiv_id: str | None = None
     title: str
+    title_zh: str | None = None
     abstract: str | None = None
+    abstract_zh: str | None = None
     published_at: date | None = None
     citation_count: int | None = None
     has_full_text: bool = False

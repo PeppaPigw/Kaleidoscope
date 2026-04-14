@@ -352,13 +352,15 @@ class DocumentSyncService:
                     mapping.ragflow_dataset_id,
                     mapping.ragflow_document_id,
                 )
-                log.info(
-                    "ragflow_stale_paper_document_deleted",
-                    dataset_id=mapping.ragflow_dataset_id,
-                    document_id=mapping.ragflow_document_id,
-                )
+                if log is not None:
+                    log.info(
+                        "ragflow_stale_paper_document_deleted",
+                        dataset_id=mapping.ragflow_dataset_id,
+                        document_id=mapping.ragflow_document_id,
+                    )
             except Exception as exc:  # noqa: BLE001
-                log.warning("ragflow_stale_paper_delete_failed", error=str(exc))
+                if log is not None:
+                    log.warning("ragflow_stale_paper_delete_failed", error=str(exc))
         await self.registry.delete_by_paper_id(paper_id)
 
     async def _cleanup_stale_collection(self, collection_id: str, log: Any) -> None:

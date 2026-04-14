@@ -5,22 +5,29 @@ Revises: c3d4e5f6a7b8
 Create Date: 2026-03-30
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "d4e5f6a7b8c9"
-down_revision: Union[str, None] = "c3d4e5f6a7b8"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "c3d4e5f6a7b8"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "CREATE TYPE userrole AS ENUM ('personal', 'member', 'reviewer', 'admin')"
+    userrole = postgresql.ENUM(
+        "personal",
+        "member",
+        "reviewer",
+        "admin",
+        name="userrole",
+        create_type=False,
     )
+    userrole.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "users",
         sa.Column(
@@ -31,7 +38,7 @@ def upgrade() -> None:
         sa.Column("hashed_password", sa.String(length=255), nullable=True),
         sa.Column(
             "role",
-            sa.Enum("personal", "member", "reviewer", "admin", name="userrole"),
+            userrole,
             nullable=False,
             server_default=sa.text("'personal'"),
         ),

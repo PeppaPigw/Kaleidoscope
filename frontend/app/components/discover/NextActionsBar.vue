@@ -7,36 +7,51 @@
  */
 
 export interface NextActionsBarProps {
-  selectedCount: number
+  selectedCount: number;
 }
 
-defineProps<NextActionsBarProps>()
+defineProps<NextActionsBarProps>();
 
 defineEmits<{
-  'save': []
-  'compare': []
-  'add-to-workspace': []
-  'export-ris': []
-}>()
+  save: [];
+  compare: [];
+  "add-to-workspace": [];
+  "export-ris": [];
+}>();
 </script>
 
 <template>
   <div
-    :class="['ks-next-actions-bar', { 'ks-next-actions-bar--active': selectedCount > 0 }]"
+    :class="[
+      'ks-next-actions-bar',
+      { 'ks-next-actions-bar--active': selectedCount > 0 },
+    ]"
     role="toolbar"
     aria-label="Paper actions"
   >
-    <span class="ks-type-data" style="color: var(--color-primary);">
+    <span class="ks-type-data" style="color: var(--color-primary)">
       {{ selectedCount }} selected
     </span>
     <div class="ks-next-actions-bar__actions">
-      <KsButton variant="secondary" :disabled="selectedCount === 0" @click="$emit('save')">
+      <KsButton
+        variant="secondary"
+        :disabled="selectedCount === 0"
+        @click="$emit('save')"
+      >
         Save
       </KsButton>
-      <KsButton variant="secondary" :disabled="selectedCount === 0" @click="$emit('compare')">
+      <KsButton
+        variant="secondary"
+        :disabled="selectedCount === 0"
+        @click="$emit('compare')"
+      >
         Compare
       </KsButton>
-      <KsButton variant="primary" :disabled="selectedCount === 0" @click="$emit('add-to-workspace')">
+      <KsButton
+        variant="primary"
+        :disabled="selectedCount === 0"
+        @click="$emit('add-to-workspace')"
+      >
         Add to Workspace
       </KsButton>
       <KsButton
@@ -67,8 +82,11 @@ defineEmits<{
   backdrop-filter: blur(10px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  transition: height var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    left var(--duration-normal) var(--ease-smooth),
+    right var(--duration-normal) var(--ease-smooth),
+    height var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-fast) var(--ease-smooth);
   z-index: 50;
 }
 

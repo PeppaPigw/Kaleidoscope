@@ -22,7 +22,13 @@ useHead({
   meta: [{ name: 'description', content: 'Organize papers, research questions, and workflows.' }],
 })
 
-type CollectionData = { name?: string; description?: string | null; paper_count?: number | null; updated_at?: string | null }
+type CollectionData = {
+  name?: string
+  description?: string | null
+  kind?: string | null
+  paper_count?: number | null
+  updated_at?: string | null
+}
 type CollectionPaper = {
   id?: string
   paper_id?: string
@@ -96,6 +102,11 @@ async function handleTaskToggle(task: Task) {
 async function loadWorkspace() {
   try {
     collection.value = await apiFetch<CollectionData>(`/collections/${workspaceId.value}`)
+    if (collection.value?.kind && collection.value.kind !== 'workspace') {
+      collection.value = null
+      papers.value = []
+      return
+    }
     papers.value = await apiFetch<CollectionPaper[]>(`/collections/${workspaceId.value}/papers`)
   } catch {
     collection.value = null

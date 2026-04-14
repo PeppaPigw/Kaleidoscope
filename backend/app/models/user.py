@@ -4,7 +4,7 @@ import enum
 import uuid
 
 from sqlalchemy import Boolean, Enum as SQLEnum, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -41,3 +41,4 @@ class User(Base, TimestampMixin):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    preferences: Mapped[dict] = mapped_column(JSONB, nullable=True, default=dict)

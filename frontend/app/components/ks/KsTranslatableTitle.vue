@@ -6,7 +6,7 @@
  * and shows it as small gray text below the original English title.
  */
 
-const { isZh, translate, getCached, isPending } = useTranslation()
+const { isZh, translate, getCached, setCached, isPending } = useTranslation()
 
 const props = defineProps<{
   /** Original (English) title text */
@@ -15,10 +15,28 @@ const props = defineProps<{
   tag?: string
   /** Extra CSS class for the title element */
   titleClass?: string
+  /** Optional paper ID for persisting translation */
+  paperId?: string
+  /** Pre-loaded translation from database */
+  titleZh?: string
 }>()
 
 // ─── Auto-translate when locale switches to 'zh' ────────────
 const translatedText = ref('')
+
+// Pre-load translation from database if available
+watch(
+  () => props.titleZh,
+  (zh) => {
+    if (zh && props.text) {
+      setCached(props.text, zh)
+      if (isZh.value) {
+        translatedText.value = zh
+      }
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   () => [isZh.value, props.text],
@@ -27,14 +45,17 @@ watch(
       translatedText.value = ''
       return
     }
-    // Check cache first
+    // Check cache first (includes pre-loaded translations)
     const cached = getCached(props.text)
     if (cached) {
       translatedText.value = cached
       return
     }
-    // Fetch translation
-    const result = await translate(props.text)
+    // Fetch translation with optional persistence
+    const result = await translate(props.text, {
+      paperId: props.paperId,
+      fieldType: 'title',
+    })
     translatedText.value = result
   },
   { immediate: true },

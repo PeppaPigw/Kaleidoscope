@@ -60,7 +60,7 @@ const sortedWorkspaces = computed(() =>
 onMounted(async () => {
   isLoading.value = true
   try {
-    const collections = await api.listCollections()
+    const collections = await api.listCollections({ kind: 'workspace' })
     workspaces.value = collections.map(mapCollectionToWorkspace)
   } catch {
     workspaces.value = []
@@ -82,6 +82,7 @@ async function handleCreateWorkspace() {
     const collection = await api.createCollection({
       name,
       description: description || undefined,
+      kind: 'workspace',
     })
     workspaces.value.unshift(mapCollectionToWorkspace(collection))
   } catch {

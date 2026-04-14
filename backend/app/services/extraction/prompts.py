@@ -345,7 +345,7 @@ Instructions:
 Write a natural, polished answer suitable for a high-quality paper-reading assistant in a side panel.
 """
 
-PAPER_QA_RETRY_PROMPT = """Your previous answer failed validation and must be corrected.
+PAPER_QA_RETRY_PROMPT = """The previous answer was invalid. Your previous answer failed validation and must be corrected.
 
 Validation errors:
 {validation_errors}

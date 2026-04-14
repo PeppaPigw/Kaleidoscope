@@ -10,10 +10,12 @@
 export interface SearchResultItem {
   id: string
   title: string
+  title_zh?: string
   authors: string[]
   venue: string
   year: number
   abstract: string
+  abstract_zh?: string
   score: number
   tags: string[]
   cited: number
@@ -69,7 +71,7 @@ const { t } = useTranslation()
             class="ks-result-stack__card-title-link"
             @click="$emit('paper-click', result)"
           >
-            <KsTranslatableTitle :text="result.title" tag="h3" title-class="ks-result-stack__card-title" />
+            <KsTranslatableTitle :text="result.title" :paper-id="result.id" :title-zh="result.title_zh" tag="h3" title-class="ks-result-stack__card-title" />
           </NuxtLink>
           <span class="ks-type-data ks-result-stack__card-score" style="color: var(--color-primary);">
             {{ (result.score * 100).toFixed(0) }}%

@@ -8,7 +8,7 @@
  *
  * Topbar is hidden; the page manages its own slim nav strip in phases 2 & 3.
  */
-import type { OpenAlexPaper, OpenAlexGraphNode, OpenAlexEdge } from '~/composables/useApi'
+import type { OpenAlexPaper, OpenAlexGraphNode, OpenAlexEdge, Collection } from '~/composables/useApi'
 import type { GraphNode } from '~/components/search/RelationGraph.vue'
 
 definePageMeta({ layout: 'default', hideTopbar: true, flushContent: true })
@@ -159,6 +159,12 @@ async function buildGraph() {
     graphNodes.value = res.nodes
     graphEdges.value = res.edges
     graphSelectedId.value = null
+
+    // Notify user if some papers were filtered out due to no connections
+    if (res.isolated_count > 0) {
+      console.warn(`${res.isolated_count} paper(s) were excluded from the graph due to no citation connections`)
+    }
+
     phase.value = 'graph'
   }
   catch (err) {
@@ -230,6 +236,66 @@ watch(detailPaper, () => {
   showTranslated.value = false
 })
 
+// ── Add to Collection ─────────────────────────────────────────
+
+const collections = ref<Collection[]>([])
+const showCollectionDropdown = ref(false)
+const isAddingToCollection = ref(false)
+const addToCollectionError = ref<string | null>(null)
+const addToCollectionSuccess = ref<string | null>(null)
+
+async function addToCollection(collectionId: string, collectionName: string) {
+  if (!detailPaper.value) return
+
+  isAddingToCollection.value = true
+  addToCollectionError.value = null
+  addToCollectionSuccess.value = null
+  showCollectionDropdown.value = false
+
+  try {
+    // Step 1: Import paper to local DB using DOI or OpenAlex URL
+    const identifier = detailPaper.value.doi
+      || `https://openalex.org/${detailPaper.value.openalex_id}`
+    const identifierType = detailPaper.value.doi ? 'doi' : 'url'
+
+    const importResult = await api.importPaper({
+      identifier,
+      identifier_type: identifierType,
+    })
+
+    // Step 2: Check if we got a paper_id (immediate import) or if it's queued
+    if (importResult.status === 'queued') {
+      // Paper is being imported asynchronously
+      addToCollectionSuccess.value = `Importing paper... Check collection "${collectionName}" later`
+      setTimeout(() => {
+        addToCollectionSuccess.value = null
+      }, 5000)
+      return
+    }
+
+    if (!importResult.paper_id) {
+      throw new Error('Import succeeded but no paper_id returned')
+    }
+
+    // Step 3: Add to collection using the paper UUID
+    await api.addPapersToCollection(collectionId, [importResult.paper_id])
+
+    addToCollectionSuccess.value = `Added to "${collectionName}"`
+    setTimeout(() => {
+      addToCollectionSuccess.value = null
+    }, 3000)
+  }
+  catch (err) {
+    addToCollectionError.value = err instanceof Error ? err.message : 'Failed to add to collection'
+    setTimeout(() => {
+      addToCollectionError.value = null
+    }, 5000)
+  }
+  finally {
+    isAddingToCollection.value = false
+  }
+}
+
 // ── Venue display (arxiv category inference) ──────────────────
 
 const ARXIV_CAT_MAP: Array<[RegExp, string]> = [
@@ -268,9 +334,16 @@ function venueDisplay(paper: { venue?: string | null; doi?: string | null; prima
   return 'arXiv'
 }
 
-// Focus spotlight input on mount
-onMounted(() => {
+// ── Mount lifecycle ───────────────────────────────────────────
+
+onMounted(async () => {
   nextTick(() => spotlightInput.value?.focus())
+  try {
+    collections.value = await api.listCollections()
+  }
+  catch (err) {
+    console.error('Failed to load collections:', err)
+  }
 })
 
 const graphDisplayNodes = computed<GraphNode[]>(() =>
@@ -667,14 +740,28 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 8l6 6M4 6h7M2 4h7m6 16-3-8-3 8m0 0h6M21 4c-2 5-5 8.5-9 11"/>
                       </svg>
-                      {{ showTranslated ? 'Original' : (isPending(detailPaper.abstract) ? 'Translating…' : '中文') }}
+                      {{ showTranslated ? 'Hide Translation' : (isPending(detailPaper.abstract) ? 'Translating…' : '中文') }}
                     </button>
                   </div>
+                  <!-- Original Abstract -->
                   <div class="kss-detail__abstract">
                     <div class="kss-detail__abstract-bar" />
-                    <p class="kss-detail__abstract-text">
-                      {{ showTranslated && translatedAbstract ? translatedAbstract : detailPaper.abstract }}
-                    </p>
+                    <div class="kss-detail__abstract-content">
+                      <span class="kss-label kss-label--xs" style="display:block;margin-bottom:6px;color:#6e7979">Original</span>
+                      <p class="kss-detail__abstract-text">
+                        {{ detailPaper.abstract }}
+                      </p>
+                    </div>
+                  </div>
+                  <!-- Chinese Translation -->
+                  <div v-if="showTranslated && translatedAbstract" class="kss-detail__abstract" style="margin-top:16px">
+                    <div class="kss-detail__abstract-bar" style="background:#00595c" />
+                    <div class="kss-detail__abstract-content">
+                      <span class="kss-label kss-label--xs" style="display:block;margin-bottom:6px;color:#00595c">中文翻译</span>
+                      <p class="kss-detail__abstract-text">
+                        {{ translatedAbstract }}
+                      </p>
+                    </div>
                   </div>
                 </section>
 
@@ -702,6 +789,43 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
 
                 <!-- Actions -->
                 <div class="kss-detail__actions">
+                  <!-- Add to Collection (only in graph phase) -->
+                  <div v-if="phase === 'graph'" class="kss-collection-action">
+                    <button
+                      class="kss-detail__action-link"
+                      :disabled="isAddingToCollection"
+                      @click="showCollectionDropdown = !showCollectionDropdown"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                      {{ isAddingToCollection ? 'Adding…' : 'Add to Collection' }}
+                    </button>
+                    <!-- Dropdown -->
+                    <div v-if="showCollectionDropdown" class="kss-collection-dropdown">
+                      <div v-if="collections.length === 0" class="kss-collection-dropdown__empty">
+                        No collections found
+                      </div>
+                      <button
+                        v-for="col in collections"
+                        :key="col.id"
+                        class="kss-collection-dropdown__item"
+                        @click="addToCollection(col.id, col.name)"
+                      >
+                        {{ col.name }}
+                      </button>
+                    </div>
+                    <!-- Success/Error Messages -->
+                    <div v-if="addToCollectionSuccess" class="kss-collection-message kss-collection-message--success">
+                      {{ addToCollectionSuccess }}
+                    </div>
+                    <div v-if="addToCollectionError" class="kss-collection-message kss-collection-message--error">
+                      {{ addToCollectionError }}
+                    </div>
+                  </div>
+
                   <a
                     v-if="detailPaper.oa_url"
                     :href="detailPaper.oa_url"
@@ -1444,6 +1568,75 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
 }
 .kss-detail__action-link--muted { border-color: #bec9c9; color: #6e7979; }
 .kss-detail__action-link:hover { opacity: 0.65; }
+.kss-detail__action-link:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Collection dropdown */
+.kss-collection-action {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kss-collection-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #d4d5d2;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.kss-collection-dropdown__empty {
+  padding: 12px;
+  font: 400 0.6875rem/1.4 var(--font-sans, sans-serif);
+  color: #9eacac;
+  text-align: center;
+}
+
+.kss-collection-dropdown__item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font: 400 0.6875rem/1.4 var(--font-sans, sans-serif);
+  color: #3e4949;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f4f4f1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.kss-collection-dropdown__item:last-child {
+  border-bottom: none;
+}
+
+.kss-collection-dropdown__item:hover {
+  background: #f9f9f6;
+}
+
+.kss-collection-message {
+  padding: 8px 10px;
+  font: 400 0.6875rem/1.4 var(--font-sans, sans-serif);
+  border-radius: 3px;
+}
+
+.kss-collection-message--success {
+  background: rgba(13,115,119,0.08);
+  color: #00595c;
+}
+
+.kss-collection-message--error {
+  background: rgba(180,50,50,0.08);
+  color: #b43232;
+}
 
 /* ══ TRANSITIONS ═══════════════════════════════════════════ */
 .kss-fade-enter-active, .kss-fade-leave-active { transition: opacity 0.25s; }

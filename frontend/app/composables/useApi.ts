@@ -97,12 +97,58 @@ export interface Collection {
   id: string
   name: string
   description?: string | null
+  kind?: 'workspace' | 'subscription_collection' | 'paper_group'
   paper_count?: number | null
   color?: string | null
   icon?: string | null
+  parent_collection_id?: string | null
   is_smart?: boolean
   created_at?: string
   updated_at?: string
+}
+
+export interface Feed {
+  id: string
+  url: string
+  name: string
+  publisher?: string | null
+  category?: string | null
+  is_active: boolean
+  last_polled_at?: string | null
+  poll_error_count: number
+  total_items_discovered: number
+  pdf_capability?: string | null
+  created_at: string
+}
+
+export interface CollectionFeedSubscription {
+  id: string
+  feed_id: string
+  collection_id: string
+  feed_name?: string | null
+  publisher?: string | null
+  category?: string | null
+  created_at: string
+}
+
+export interface CollectionChatThread {
+  id: string
+  collection_id: string
+  user_id: string
+  title?: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+export interface CollectionChatMessage {
+  id: string
+  thread_id: string
+  user_id: string
+  role: string
+  content: string
+  sources?: { items?: Array<Record<string, unknown>> } | null
+  metadata_json?: Record<string, unknown> | null
+  created_at: string
 }
 
 export interface PaperContent {
@@ -354,6 +400,16 @@ export function useApi() {
     return apiFetch(`/papers/${paperId}/import-status`)
   }
 
+  async function importPaper(req: {
+    identifier: string
+    identifier_type: 'doi' | 'arxiv' | 'pmid' | 'url' | 'title'
+  }): Promise<{ paper_id: string | null; identifier: string; status: string; message: string | null }> {
+    return apiFetch('/papers/import', {
+      method: 'POST',
+      body: req,
+    })
+  }
+
   // ── Search ──────────────────────────────────────────────────
 
   async function searchPapers(
@@ -379,13 +435,26 @@ export function useApi() {
 
   // ── Collections ─────────────────────────────────────────────
 
-  async function listCollections(): Promise<Collection[]> {
-    return apiFetch('/collections')
+  async function listCollections(params?: {
+    kind?: Collection['kind']
+    parentCollectionId?: string
+  }): Promise<Collection[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.kind) searchParams.set('kind', params.kind)
+    if (params?.parentCollectionId) {
+      searchParams.set('parent_collection_id', params.parentCollectionId)
+    }
+    const qs = searchParams.toString()
+    return apiFetch(`/collections${qs ? `?${qs}` : ''}`)
   }
 
   async function createCollection(req: {
     name: string
     description?: string
+    kind?: Collection['kind']
+    parent_collection_id?: string
+    color?: string
+    icon?: string
   }): Promise<Collection> {
     return apiFetch('/collections', {
       method: 'POST',
@@ -404,6 +473,95 @@ export function useApi() {
     return {
       papers: papers.map(paper => ({ ...paper, id: paper.id || paper.paper_id || '' })),
     }
+  }
+
+  async function addPapersToCollection(
+    collectionId: string,
+    paperIds: string[],
+    note?: string,
+  ): Promise<{ added: number; total: number }> {
+    return apiFetch(`/collections/${collectionId}/papers`, {
+      method: 'POST',
+      body: { paper_ids: paperIds, note },
+    })
+  }
+
+  async function listCollectionChildren(
+    collectionId: string,
+    params?: { kind?: Collection['kind'] },
+  ): Promise<Collection[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.kind) searchParams.set('kind', params.kind)
+    const qs = searchParams.toString()
+    return apiFetch(`/collections/${collectionId}/children${qs ? `?${qs}` : ''}`)
+  }
+
+  async function listFeeds(): Promise<{ items: Feed[]; total: number }> {
+    return apiFetch('/feeds')
+  }
+
+  async function attachCollectionFeeds(
+    collectionId: string,
+    feedIds: string[],
+  ): Promise<CollectionFeedSubscription[]> {
+    return apiFetch(`/collections/${collectionId}/feeds`, {
+      method: 'POST',
+      body: { feed_ids: feedIds },
+    })
+  }
+
+  async function listCollectionFeeds(
+    collectionId: string,
+  ): Promise<CollectionFeedSubscription[]> {
+    return apiFetch(`/collections/${collectionId}/feeds`)
+  }
+
+  async function createCollectionThread(
+    collectionId: string,
+    title?: string,
+  ): Promise<CollectionChatThread> {
+    return apiFetch(`/collections/${collectionId}/threads`, {
+      method: 'POST',
+      body: { title },
+    })
+  }
+
+  async function listCollectionThreads(
+    collectionId: string,
+  ): Promise<CollectionChatThread[]> {
+    return apiFetch(`/collections/${collectionId}/threads`)
+  }
+
+  async function listCollectionThreadMessages(
+    collectionId: string,
+    threadId: string,
+  ): Promise<CollectionChatMessage[]> {
+    return apiFetch(`/collections/${collectionId}/threads/${threadId}/messages`)
+  }
+
+  async function askCollectionThread(
+    collectionId: string,
+    threadId: string,
+    content: string,
+    topK = 10,
+  ): Promise<{
+    thread_id: string
+    user_message: CollectionChatMessage
+    assistant_message: CollectionChatMessage
+  }> {
+    return apiFetch(`/collections/${collectionId}/threads/${threadId}/ask`, {
+      method: 'POST',
+      body: { content, top_k: topK },
+    })
+  }
+
+  async function triggerCollectionSync(
+    collectionId: string,
+  ): Promise<{ task_id?: string; queued: boolean; enabled?: boolean }> {
+    return apiFetch('/ragflow/sync/trigger', {
+      method: 'POST',
+      body: { collection_id: collectionId },
+    })
   }
 
   async function getResearcherProfile(researcherId: string): Promise<unknown> {
@@ -701,6 +859,7 @@ export function useApi() {
     importFromUrl,
     reparsePaper,
     getImportStatus,
+    importPaper,
     // Search
     searchPapers,
     getHealth,
@@ -710,6 +869,16 @@ export function useApi() {
     createCollection,
     getCollection,
     getCollectionPapers,
+    addPapersToCollection,
+    listCollectionChildren,
+    listFeeds,
+    attachCollectionFeeds,
+    listCollectionFeeds,
+    createCollectionThread,
+    listCollectionThreads,
+    listCollectionThreadMessages,
+    askCollectionThread,
+    triggerCollectionSync,
     getResearcherProfile,
     // Writing
     listWritingDocuments,
@@ -850,6 +1019,7 @@ export interface OpenAlexGraphResponse {
   edges: OpenAlexEdge[]
   origin_count: number
   ref_count: number
+  isolated_count: number
 }
 
 export interface AnalyticsCitationNetwork {

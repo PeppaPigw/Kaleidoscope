@@ -374,9 +374,28 @@ async def build_citation_graph(body: GraphRequest, db: AsyncSession = Depends(ge
         for ref_url in w.get("referenced_works") or []:
             _add_edge(rid, ref_url.replace("https://openalex.org/", ""))
 
+    # ── Step 6: Filter out isolated nodes ────────────────────────────────────
+    # Remove nodes that have no edges (neither as source nor target)
+    connected_node_ids = set()
+    for edge in edges:
+        connected_node_ids.add(edge["source"])
+        connected_node_ids.add(edge["target"])
+
+    filtered_nodes = [n for n in nodes if n["openalex_id"] in connected_node_ids]
+    isolated_count = len(nodes) - len(filtered_nodes)
+
+    if isolated_count > 0:
+        logger.info(
+            "filtered_isolated_nodes",
+            total_nodes=len(nodes),
+            connected_nodes=len(filtered_nodes),
+            isolated_count=isolated_count,
+        )
+
     return {
-        "nodes": nodes,
+        "nodes": filtered_nodes,
         "edges": edges,
-        "origin_count": len(origin_ids),
-        "ref_count": len(ref_papers),
+        "origin_count": len([n for n in filtered_nodes if n.get("is_origin")]),
+        "ref_count": len([n for n in filtered_nodes if not n.get("is_origin")]),
+        "isolated_count": isolated_count,
     }

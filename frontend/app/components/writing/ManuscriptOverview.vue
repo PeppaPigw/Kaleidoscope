@@ -44,7 +44,7 @@ function statusVariant(s: ManuscriptSection['status']): TagVariant {
           {{ totalWordCount.toLocaleString() }} / {{ targetWordCount.toLocaleString() }} words
         </span>
         <div class="ks-manuscript__bar" aria-hidden="true">
-          <div class="ks-manuscript__fill" :style="{ width: `${Math.min((totalWordCount / targetWordCount) * 100, 100)}%` }"></div>
+          <div class="ks-manuscript__fill" :style="{ width: `${Math.min((totalWordCount / targetWordCount) * 100, 100)}%` }"/>
         </div>
       </div>
     </div>

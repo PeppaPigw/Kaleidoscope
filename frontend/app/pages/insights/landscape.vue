@@ -389,7 +389,7 @@ onMounted(async () => {
             class="rc-search-input"
             placeholder="Filter collections…"
             readonly
-          />
+          >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="rc-search-icon" aria-hidden="true">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -413,7 +413,7 @@ onMounted(async () => {
           </div>
           <transition name="form-drop">
             <div v-if="showWorkspaceForm" class="rc-form">
-              <input v-model="workspaceName" type="text" class="rc-form__input" placeholder="Clinical reasoning review" />
+              <input v-model="workspaceName" type="text" class="rc-form__input" placeholder="Clinical reasoning review" >
               <textarea v-model="workspaceDescription" rows="2" class="rc-form__input rc-form__input--area" placeholder="What is this workspace for?" />
               <button type="button" class="rc-form__submit" :disabled="!workspaceName.trim()" @click="createWorkspace">
                 Create workspace
@@ -450,11 +450,11 @@ onMounted(async () => {
           </div>
           <transition name="form-drop">
             <div v-if="showSubscriptionForm" class="rc-form">
-              <input v-model="subscriptionName" type="text" class="rc-form__input" placeholder="AI safety signals" />
+              <input v-model="subscriptionName" type="text" class="rc-form__input" placeholder="AI safety signals" >
               <textarea v-model="subscriptionDescription" rows="2" class="rc-form__input rc-form__input--area" placeholder="Describe this feed cluster…" />
               <div class="rc-feed-picker">
                 <label v-for="feed in feedCatalog.slice(0, 8)" :key="feed.id" class="rc-feed-opt">
-                  <input v-model="selectedFeedIds" type="checkbox" :value="feed.id" />
+                  <input v-model="selectedFeedIds" type="checkbox" :value="feed.id" >
                   <span>{{ feed.name }}</span>
                 </label>
                 <p v-if="!feedCatalog.length" class="rc-muted">No feeds configured yet.</p>
@@ -493,7 +493,7 @@ onMounted(async () => {
           </div>
           <transition name="form-drop">
             <div v-if="showGroupForm" class="rc-form">
-              <input v-model="groupName" type="text" class="rc-form__input" placeholder="Week 3 screening set" />
+              <input v-model="groupName" type="text" class="rc-form__input" placeholder="Week 3 screening set" >
               <p class="rc-muted">
                 Parent: <strong>{{ createGroupParent?.name || 'Select a workspace first' }}</strong>
               </p>
@@ -582,7 +582,7 @@ onMounted(async () => {
                 <span class="rc-empty__line" />
                 <p class="rc-eyebrow rc-eyebrow--teal">Start a Conversation</p>
               </div>
-              <h3 class="rc-empty__heading">What do you want to know about<br /><em>{{ activeCollection.name }}</em>?</h3>
+              <h3 class="rc-empty__heading">What do you want to know about<br ><em>{{ activeCollection.name }}</em>?</h3>
               <div class="rc-suggestions">
                 <button
                   v-for="q in suggestedQuestions(activeCollection.kind)"
@@ -687,7 +687,7 @@ onMounted(async () => {
                 @focus="inputFocused = true"
                 @blur="inputFocused = false"
                 @keydown.enter.prevent="sendMessage"
-              />
+              >
               <button
                 type="submit"
                 class="rc-composer__send"
@@ -713,7 +713,7 @@ onMounted(async () => {
             <span class="rc-empty__line" />
             <p class="rc-eyebrow rc-eyebrow--teal">Research Chat</p>
           </div>
-          <h3 class="rc-empty__heading">Select a research space<br />to start the conversation.</h3>
+          <h3 class="rc-empty__heading">Select a research space<br >to start the conversation.</h3>
           <p class="rc-muted">Create a workspace, subscription collection, or paper group from the left panel.</p>
         </div>
       </div>
@@ -769,7 +769,7 @@ onMounted(async () => {
           <p class="rc-muted">Select papers from the parent collection.</p>
           <div class="rc-paper-picker">
             <label v-for="paper in parentCollectionPapers.slice(0, 8)" :key="paper.id" class="rc-paper-opt">
-              <input v-model="selectedParentPaperIds" type="checkbox" :value="paper.id" />
+              <input v-model="selectedParentPaperIds" type="checkbox" :value="paper.id" >
               <span>{{ paper.title }}</span>
             </label>
             <p v-if="!parentCollectionPapers.length" class="rc-muted">Parent has no papers yet.</p>

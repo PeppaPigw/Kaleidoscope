@@ -154,7 +154,7 @@ function goToPaper() {
           placeholder="https://arxiv.org/pdf/2401.00001 or HTML page URL"
           :disabled="importing"
           autocomplete="off"
-        />
+        >
       </div>
 
       <button
@@ -172,9 +172,9 @@ function goToPaper() {
           class="ks-import__input ks-import__input--sm"
           placeholder="Custom title (optional)"
           :disabled="importing"
-        />
+        >
         <label class="ks-import__checkbox">
-          <input v-model="isHtml" type="checkbox" :disabled="importing" />
+          <input v-model="isHtml" type="checkbox" :disabled="importing" >
           <span>HTML source (auto-detected)</span>
         </label>
       </div>

@@ -39,7 +39,7 @@ const maxPaperCount = computed(() => Math.max(...props.topics.map(t => t.paperCo
         @click="$emit('topic-click', topic)"
       >
         <div class="ks-topic-evolution__bar" aria-hidden="true">
-          <div class="ks-topic-evolution__fill" :style="{ height: `${(topic.paperCount / maxPaperCount) * 100}%` }"></div>
+          <div class="ks-topic-evolution__fill" :style="{ height: `${(topic.paperCount / maxPaperCount) * 100}%` }"/>
         </div>
         <span class="ks-topic-evolution__label">{{ topic.label }}</span>
         <span class="ks-type-data">{{ topic.years }}</span>

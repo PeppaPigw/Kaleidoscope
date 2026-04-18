@@ -45,7 +45,7 @@ const uid = useId()
           <div
             :class="['ks-collab-atlas__intensity', `ks-collab-atlas__intensity--${c.intensity}`]"
             :aria-label="`${c.intensity} collaboration`"
-          ></div>
+          />
           <span class="ks-collab-atlas__name">{{ c.name }}</span>
         </div>
         <span class="ks-type-data" style="color: var(--color-secondary);">{{ c.affiliation }}</span>

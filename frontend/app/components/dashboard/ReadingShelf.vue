@@ -105,8 +105,8 @@ function handleCardAction(pick: ReadingPick) {
       <div class="ks-reading-shelf__tabs" role="tablist" :aria-label="t('recommendedReading')">
         <button
           v-for="(tab, idx) in tabs"
-          :key="tab"
           :id="tabId(tab)"
+          :key="tab"
           role="tab"
           :aria-selected="activeTab === tab"
           :aria-controls="panelId(tab)"

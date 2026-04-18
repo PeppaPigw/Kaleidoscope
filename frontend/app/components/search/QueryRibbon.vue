@@ -59,7 +59,7 @@ function handleSubmit() {
           :value="modelValue"
           placeholder="Search papers, claims, authors..."
           @input="handleInput"
-        />
+        >
       </div>
       <div class="ks-query-ribbon__modes" role="radiogroup" aria-label="Search mode">
         <button

@@ -28,7 +28,7 @@ const uid = useId()
 <template>
   <header class="ks-researcher-hero ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
     <div class="ks-researcher-hero__avatar">
-      <img v-if="imageUrl" :src="imageUrl" :alt="`Photo of ${name}`" class="ks-researcher-hero__avatar-img" />
+      <img v-if="imageUrl" :src="imageUrl" :alt="`Photo of ${name}`" class="ks-researcher-hero__avatar-img" >
       <div v-else class="ks-researcher-hero__avatar-placeholder" aria-hidden="true">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </div>

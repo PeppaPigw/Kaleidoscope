@@ -39,7 +39,7 @@ withDefaults(defineProps<KsFullBleedProps>(), {
       :style="{ aspectRatio, objectFit }"
       loading="lazy"
       decoding="async"
-    />
+    >
     <figcaption v-if="$slots.caption">
       <slot name="caption" />
     </figcaption>

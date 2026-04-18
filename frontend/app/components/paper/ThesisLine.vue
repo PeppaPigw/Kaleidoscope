@@ -18,7 +18,7 @@ defineEmits<{ 'show-provenance': [] }>()
 
 <template>
   <div class="ks-thesis-line ks-motion-paper-reveal">
-    <div class="ks-thesis-line__accent" aria-hidden="true"></div>
+    <div class="ks-thesis-line__accent" aria-hidden="true"/>
     <blockquote class="ks-thesis-line__text">
       {{ thesis }}
     </blockquote>

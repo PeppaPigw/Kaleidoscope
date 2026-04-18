@@ -20,7 +20,8 @@ import type { DeepXivSearchResult, DeepXivBriefResponse } from '~/composables/us
 
 definePageMeta({ layout: 'default', title: 'Discovery Explorer' })
 
-const { t } = useTranslation()
+const route = useRoute()
+const router = useRouter()
 
 useHead({
   title: 'Discover — Kaleidoscope',
@@ -28,6 +29,26 @@ useHead({
     { name: 'description', content: 'Explore curated research collections and discover papers with intelligent filtering.' },
   ],
 })
+
+// ── Tab state (from URL query) ────────────────────────────────
+const activeTab = computed({
+  get: () => (route.query.tab as string) || 'search',
+  set: (val: string) => {
+    router.push({ query: { ...route.query, tab: val } })
+  },
+})
+
+// ── AI Assistant drawer state ──────────────────────────────────
+const aiDrawerOpen = ref(false)
+
+// Open drawer if ?agent=open in URL
+watch(() => route.query.agent, (val) => {
+  if (val === 'open') {
+    aiDrawerOpen.value = true
+    // Remove query param after opening
+    router.replace({ query: { ...route.query, agent: undefined } })
+  }
+}, { immediate: true })
 
 // ── Search state ──────────────────────────────────────────────
 const queryText = ref('')
@@ -454,8 +475,26 @@ const hasMore = computed(() => offset.value + PAGE_SIZE < resultTotal.value)
       />
     </div>
 
+    <!-- ═══ Tab Navigation ═══ -->
+    <div class="ks-discover__tabs">
+      <button
+        type="button"
+        :class="['ks-discover__tab', activeTab === 'search' && 'ks-discover__tab--active']"
+        @click="activeTab = 'search'"
+      >
+        Search Results
+      </button>
+      <button
+        type="button"
+        :class="['ks-discover__tab', activeTab === 'trending' && 'ks-discover__tab--active']"
+        @click="activeTab = 'trending'"
+      >
+        Trending Papers
+      </button>
+    </div>
+
     <!-- ═══ Row 2+: Facets + Stream + Sidebar ═══ -->
-    <div class="ks-discover__row ks-discover__row--main">
+    <div v-if="activeTab === 'search'" class="ks-discover__row ks-discover__row--main">
       <DiscoverFacetWall
         :groups="facetGroups"
         @facet-toggle="handleFacetToggle"
@@ -526,6 +565,11 @@ const hasMore = computed(() => offset.value + PAGE_SIZE < resultTotal.value)
       </div>
     </div>
 
+    <!-- ═══ Trending Tab Content ═══ -->
+    <div v-else-if="activeTab === 'trending'" class="ks-discover__trending-container">
+      <DiscoverTrendingTab />
+    </div>
+
     <!-- ═══ Next Actions Bar (fixed bottom) ═══ -->
     <DiscoverNextActionsBar :selected-count="selectedCount" />
 
@@ -537,6 +581,15 @@ const hasMore = computed(() => offset.value + PAGE_SIZE < resultTotal.value)
       @close="bookmarkTarget = null"
       @saved="bookmarkTarget = null"
     />
+
+    <!-- AI Assistant Drawer -->
+    <DiscoverAiAssistantDrawer
+      :open="aiDrawerOpen"
+      @close="aiDrawerOpen = false"
+    />
+
+    <!-- Floating AI Button -->
+    <DiscoverFloatingAiButton @click="aiDrawerOpen = true" />
   </div>
 </template>
 
@@ -682,6 +735,41 @@ const hasMore = computed(() => offset.value + PAGE_SIZE < resultTotal.value)
   max-height: calc(100dvh - 128px);
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+/* ─── Tab Navigation ──────────────────────────────────────── */
+.ks-discover__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+}
+
+.ks-discover__tab {
+  padding: 12px 24px;
+  border: none;
+  background: none;
+  font: 500 0.875rem / 1 var(--font-sans);
+  color: var(--color-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  position: relative;
+  bottom: -1px;
+}
+
+.ks-discover__tab:hover {
+  color: var(--color-text);
+}
+
+.ks-discover__tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ─── Trending Container ──────────────────────────────────── */
+.ks-discover__trending-container {
+  width: 100%;
 }
 
 /* ─── Responsive ──────────────────────────────────────────── */

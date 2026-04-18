@@ -197,7 +197,7 @@ function statusColor(status: string) {
                 class="ks-workspaces__input"
                 placeholder="e.g. Clinical Reasoning Review"
                 @keydown.enter="handleCreateWorkspace"
-              />
+              >
             </label>
 
             <label class="ks-workspaces__field">

@@ -40,7 +40,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
         placeholder="cs.AI, cs.CL, stat.ML"
         :value="modelValue.categories"
         @input="update('categories', ($event.target as HTMLInputElement).value)"
-      />
+      >
     </div>
 
     <div class="ks-search-filters__field">
@@ -52,7 +52,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
         placeholder="Author names"
         :value="modelValue.authors"
         @input="update('authors', ($event.target as HTMLInputElement).value)"
-      />
+      >
     </div>
 
     <div class="ks-search-filters__row">
@@ -64,7 +64,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
           class="ks-search-filters__input"
           :value="modelValue.date_from"
           @input="update('date_from', ($event.target as HTMLInputElement).value)"
-        />
+        >
       </div>
 
       <div class="ks-search-filters__field">
@@ -75,7 +75,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
           class="ks-search-filters__input"
           :value="modelValue.date_to"
           @input="update('date_to', ($event.target as HTMLInputElement).value)"
-        />
+        >
       </div>
     </div>
 
@@ -88,7 +88,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
         min="0"
         :value="modelValue.min_citation"
         @input="update('min_citation', Number(($event.target as HTMLInputElement).value))"
-      />
+      >
     </div>
   </div>
 </template>

@@ -96,7 +96,7 @@ const signaturePapers = computed<SignaturePaper[]>(() =>
   (profile.value?.top_papers ?? []).map((paper, i) => ({
     id: String(paper.id ?? `paper-${i}`),
     title: String(paper.title ?? 'Untitled paper'),
-    venue: Boolean(paper.is_corresponding) ? 'Corresponding author' : 'Library paper',
+    venue: paper.is_corresponding ? 'Corresponding author' : 'Library paper',
     year: paper.year ? Number(paper.year) : new Date(String(paper.published_at ?? new Date().toISOString())).getFullYear(),
     citations: Number(paper.citation_count ?? 0),
     highlight: paper.author_position !== undefined ? `Author #${Number(paper.author_position) + 1}` : undefined,

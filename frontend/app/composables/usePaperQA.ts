@@ -189,7 +189,7 @@ export function usePaperQA(paperId: Ref<string>) {
       let accumulatedAnswer = ''
       let finalSources: QASource[] = []
 
-      // eslint-disable-next-line no-constant-condition
+       
       while (true) {
         const { done, value } = await reader.read()
         if (done) break

@@ -608,7 +608,7 @@ function handleRelatedClick(paper: RelatedPaper) {
               alt="Paper overview poster"
               class="ks-overview-image__img"
               loading="lazy"
-            />
+            >
           </template>
 
           <!-- Generating in progress -->

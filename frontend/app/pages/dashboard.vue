@@ -511,7 +511,7 @@ function authorLabel(brief: DeepXivBriefResponse | undefined, raw: DeepXivTrendi
         >
           Personalize →
         </NuxtLink>
-        <NuxtLink v-else to="/deepxiv" class="ks-db__view-all">Explore more →</NuxtLink>
+        <NuxtLink v-else to="/discover" class="ks-db__view-all">Explore more →</NuxtLink>
       </div>
 
       <div v-if="forYouPapers.length > 0" class="ks-db__foryou-grid">
@@ -550,7 +550,7 @@ function authorLabel(brief: DeepXivBriefResponse | undefined, raw: DeepXivTrendi
         <div v-for="n in 6" :key="n" class="ks-db__skeleton-card" />
       </div>
       <div v-else class="ks-db__foryou-empty">
-        <p>No results loaded. <NuxtLink to="/deepxiv">Browse DeepXiv →</NuxtLink></p>
+        <p>No results loaded. <NuxtLink to="/discover">Browse Papers →</NuxtLink></p>
       </div>
     </div>
 

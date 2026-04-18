@@ -206,17 +206,17 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 
 所有接口挂载在 `/api/v1/` 下，主要分组：
 
-| 分组       | 前缀                   | 说明                           |
-| ---------- | ---------------------- | ------------------------------ |
-| 论文       | `/papers`              | 增删改查、搜索、内容获取       |
-| 内容       | `/papers/{id}/content` | Markdown 阅读器数据            |
-| 数据分析   | `/analytics`           | 文库统计与洞察                 |
-| 合集       | `/collections`         | 论文组织管理                   |
-| 搜索       | `/search`              | 多模态搜索                     |
-| OpenAlex   | `/openalex`            | 外部论文搜索 + 引用关系图构建  |
-| 知识       | `/knowledge`           | 笔记图谱                       |
-| 订阅源     | `/feeds`               | RSS 管理                       |
-| 智能分析   | `/intelligence`        | AI 驱动的深度洞察              |
+| 分组     | 前缀                   | 说明                          |
+| -------- | ---------------------- | ----------------------------- |
+| 论文     | `/papers`              | 增删改查、搜索、内容获取      |
+| 内容     | `/papers/{id}/content` | Markdown 阅读器数据           |
+| 数据分析 | `/analytics`           | 文库统计与洞察                |
+| 合集     | `/collections`         | 论文组织管理                  |
+| 搜索     | `/search`              | 多模态搜索                    |
+| OpenAlex | `/openalex`            | 外部论文搜索 + 引用关系图构建 |
+| 知识     | `/knowledge`           | 笔记图谱                      |
+| 订阅源   | `/feeds`               | RSS 管理                      |
+| 智能分析 | `/intelligence`        | AI 驱动的深度洞察             |
 
 后端运行后，访问 `http://localhost:8000/docs` 查看交互式 API 文档。
 

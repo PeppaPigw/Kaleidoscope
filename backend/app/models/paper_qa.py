@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Float, ForeignKey
+from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
@@ -34,7 +35,7 @@ class PaperChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     normalized_section_title: Mapped[str] = mapped_column(String(100), nullable=False)
     section_level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list[float] | None] = mapped_column(ARRAY(Float), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_appendix: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_references: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

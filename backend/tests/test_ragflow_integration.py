@@ -91,18 +91,22 @@ async def test_document_sync_disabled_returns_early(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.asyncio
-async def test_workspace_ask_disabled_returns_enabled_false():
-    """Workspace ask should gracefully report disabled state when the feature flag is off."""
+async def test_workspace_ask_disabled_uses_local_rag(monkeypatch: pytest.MonkeyPatch):
+    """Workspace ask should use local embeddings when the RAGFlow flag is off."""
+    from app.config import settings
     from app.dependencies import get_db
     from app.main import app
+    from app.models.collection import DEFAULT_USER_ID
 
     collection_id = uuid4()
+    calls: dict[str, object] = {}
 
     mock_collection_result = MagicMock()
     mock_collection_result.scalar_one_or_none.return_value = SimpleNamespace(
         id=collection_id,
         name="Workspace",
         deleted_at=None,
+        user_id=DEFAULT_USER_ID,
     )
 
     db = MagicMock()
@@ -111,9 +115,26 @@ async def test_workspace_ask_disabled_returns_enabled_false():
     async def mock_db():
         yield db
 
-    app.dependency_overrides[get_db] = mock_db
+    class FakeLocalRAGService:
+        def __init__(self, service_db, user_id: str):
+            calls["db"] = service_db
+            calls["user_id"] = user_id
 
-    from app.config import settings
+        async def ask_collection(
+            self,
+            service_collection_id: str,
+            question: str,
+            top_k: int = 10,
+        ) -> dict[str, object]:
+            calls["ask"] = (service_collection_id, question, top_k)
+            return {
+                "answer": "local answer",
+                "sources": [{"paper_id": "paper-1"}],
+                "chunks_found": 1,
+            }
+
+    app.dependency_overrides[get_db] = mock_db
+    monkeypatch.setattr("app.api.v1.ragflow.LocalRAGService", FakeLocalRAGService)
 
     original_enabled = settings.ragflow_sync_enabled
     settings.ragflow_sync_enabled = False
@@ -131,7 +152,97 @@ async def test_workspace_ask_disabled_returns_enabled_false():
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()["enabled"] is False
+    payload = response.json()
+    assert payload["enabled"] is True
+    assert payload["backend"] == "local"
+    assert payload["answer"] == "local answer"
+    assert payload["sources"] == [{"paper_id": "paper-1"}]
+    assert calls == {
+        "db": db,
+        "user_id": DEFAULT_USER_ID,
+        "ask": (str(collection_id), "What changed?", 10),
+    }
+    db.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_workspace_evidence_disabled_uses_local_rag(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Workspace evidence should use local retrieval when the RAGFlow flag is off."""
+    from app.config import settings
+    from app.dependencies import get_db
+    from app.main import app
+    from app.models.collection import DEFAULT_USER_ID
+
+    collection_id = uuid4()
+    calls: dict[str, object] = {}
+
+    mock_collection_result = MagicMock()
+    mock_collection_result.scalar_one_or_none.return_value = SimpleNamespace(
+        id=collection_id,
+        name="Workspace",
+        deleted_at=None,
+        user_id=DEFAULT_USER_ID,
+    )
+
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=mock_collection_result)
+
+    async def mock_db():
+        yield db
+
+    class FakeLocalRAGService:
+        def __init__(self, service_db, user_id: str):
+            calls["db"] = service_db
+            calls["user_id"] = user_id
+
+        async def get_collection_evidence(
+            self,
+            service_collection_id: str,
+            question: str,
+            top_k: int = 15,
+        ) -> dict[str, object]:
+            calls["evidence"] = (service_collection_id, question, top_k)
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [{"id": "chunk-1", "source": "local"}],
+                "total": 1,
+            }
+
+    app.dependency_overrides[get_db] = mock_db
+    monkeypatch.setattr("app.api.v1.ragflow.LocalRAGService", FakeLocalRAGService)
+
+    original_enabled = settings.ragflow_sync_enabled
+    settings.ragflow_sync_enabled = False
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.get(
+                f"/api/v1/workspaces/{collection_id}/evidence",
+                params={"q": "Which methods changed?", "top_k": 7},
+            )
+    finally:
+        settings.ragflow_sync_enabled = original_enabled
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "enabled": True,
+        "backend": "local",
+        "chunks": [{"id": "chunk-1", "source": "local"}],
+        "total": 1,
+    }
+    assert calls == {
+        "db": db,
+        "user_id": DEFAULT_USER_ID,
+        "evidence": (str(collection_id), "Which methods changed?", 7),
+    }
+    db.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -257,22 +368,30 @@ def test_reconcile_disabled_returns_early(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.asyncio
-async def test_workspace_ask_disabled_before_collection_lookup():
-    """Workspace ask should return disabled state before touching collection storage."""
+async def test_workspace_ask_disabled_requires_collection_before_local_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Workspace ask should validate collection access before local fallback."""
     from app.config import settings
     from app.dependencies import get_db
     from app.main import app
 
     collection_id = uuid4()
+    mock_collection_result = MagicMock()
+    mock_collection_result.scalar_one_or_none.return_value = None
+
     db = MagicMock()
-    db.execute = AsyncMock(
-        side_effect=AssertionError("collection lookup should not run")
-    )
+    db.execute = AsyncMock(return_value=mock_collection_result)
 
     async def mock_db():
         yield db
 
+    class FailingLocalRAGService:
+        def __init__(self, *_args, **_kwargs):
+            raise AssertionError("local fallback should not start")
+
     app.dependency_overrides[get_db] = mock_db
+    monkeypatch.setattr("app.api.v1.ragflow.LocalRAGService", FailingLocalRAGService)
 
     original_enabled = settings.ragflow_sync_enabled
     settings.ragflow_sync_enabled = False
@@ -289,9 +408,11 @@ async def test_workspace_ask_disabled_before_collection_lookup():
         settings.ragflow_sync_enabled = original_enabled
         app.dependency_overrides.clear()
 
-    assert response.status_code == 200
-    assert response.json() == {"enabled": False, "answer": None, "sources": []}
-    db.execute.assert_not_awaited()
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["message"] == "Collection not found"
+    assert payload["code"] == "HTTP_404"
+    db.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio

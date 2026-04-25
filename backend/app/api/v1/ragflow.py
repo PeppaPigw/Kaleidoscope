@@ -15,6 +15,7 @@ from app.config import settings
 from app.dependencies import get_current_user_id, get_db
 from app.models.collection import Collection
 from app.models.paper import Paper
+from app.services.local_rag_service import LocalRAGService
 from app.services.ragflow.dataset_registry import (
     DatasetRegistryService,
     RagflowDocumentMapping,
@@ -56,10 +57,18 @@ async def ask_workspace(
     db: DbSession,
     user_id: UserId,
 ) -> dict[str, Any]:
-    """Ask a bounded question against a synced workspace collection."""
-    if not settings.ragflow_sync_enabled:
-        return {"enabled": False, "answer": None, "sources": []}
+    """Ask a bounded question against a workspace collection."""
     await _require_collection(db, collection_id, user_id)
+
+    if not settings.ragflow_sync_enabled:
+        result = await LocalRAGService(db, user_id=user_id).ask_collection(
+            collection_id,
+            body.question,
+            top_k=body.top_k,
+        )
+        result.setdefault("enabled", True)
+        result.setdefault("backend", "local")
+        return result
 
     service = RagflowQueryService(db)
     return await service.ask_workspace(collection_id, body.question, top_k=body.top_k)
@@ -74,9 +83,14 @@ async def get_workspace_evidence(
     top_k: int = Query(15, ge=1, le=50),
 ) -> dict[str, Any]:
     """Return raw retrieval chunks for a workspace question."""
-    if not settings.ragflow_sync_enabled:
-        return {"enabled": False, "chunks": [], "total": 0}
     await _require_collection(db, collection_id, user_id)
+
+    if not settings.ragflow_sync_enabled:
+        return await LocalRAGService(db, user_id=user_id).get_collection_evidence(
+            collection_id,
+            q,
+            top_k=top_k,
+        )
 
     service = RagflowQueryService(db)
     return await service.get_evidence_pack(collection_id, q, top_k=top_k)

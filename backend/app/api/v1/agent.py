@@ -9,14 +9,18 @@ The tool registry and dispatcher are shared — when a real MCP server
 is added, it will reuse the same TOOLS list and MCPToolDispatcher.
 """
 
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
+from app.services.agent.manifest import build_agent_manifest
 from app.services.agent.tool_dispatcher import TOOLS, ToolDispatcher
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 # ─── Request / Response Schemas ──────────────────────────────────
@@ -40,6 +44,12 @@ class ToolCallResponse(BaseModel):
 # ─── Endpoints ───────────────────────────────────────────────────
 
 
+@router.get("/manifest")
+async def get_agent_manifest() -> dict[str, Any]:
+    """Return agent-friendly tool schemas, scopes, costs, and examples."""
+    return build_agent_manifest()
+
+
 @router.get("/tools")
 async def list_tools():
     """
@@ -55,7 +65,7 @@ async def list_tools():
 @router.post("/call", response_model=ToolCallResponse)
 async def call_tool(
     body: ToolCallRequest,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ):
     """
     Execute a single tool call.
@@ -77,7 +87,7 @@ async def call_tool(
 @router.post("/batch")
 async def batch_tool_calls(
     calls: list[ToolCallRequest],
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ):
     """
     Execute multiple tool calls in sequence.

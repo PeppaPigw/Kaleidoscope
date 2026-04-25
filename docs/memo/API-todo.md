@@ -5,13 +5,13 @@ This is the executable API checklist for turning Kaleidoscope into an API-first 
 Legend:
 
 - `[x]` means the endpoint currently exists in the FastAPI codebase and must be verified/hardened over time.
-- `[ ]` means the endpoint or endpoint family is proposed in `API.md` and still needs implementation or contract design.
+- `[ ]` means the endpoint or endpoint family is proposed in `docs/memo/API.md` and still needs implementation or contract design.
 - `Exposure` is the recommended public/API tier, not necessarily the current authorization behavior.
 
-Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `API.md`.
+Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `docs/memo/API.md`.
 
-- Current explicit endpoints: 253
-- Proposed/missing endpoint entries from `API.md`: 56
+- Current explicit endpoints: 258
+- Proposed/missing endpoint entries from `docs/memo/API.md`: 50
 
 ## Immediate Validation Pass
 
@@ -39,9 +39,10 @@ Exposure: Admin/internal only.
 
 Exposure: Agent information service.
 
-- [x] `POST /api/v1/agent/batch` — current; source `/backend/app/api/v1/agent.py:78`; handler `batch_tool_calls` — Execute multiple tool calls in sequence. Useful for agents that need to gather information from multiple sources in a single request.
-- [x] `POST /api/v1/agent/call` — current; source `/backend/app/api/v1/agent.py:56`; handler `call_tool` — Execute a single tool call. The agent specifies a tool name and arguments, and receives structured results.
-- [x] `GET /api/v1/agent/tools` — current; source `/backend/app/api/v1/agent.py:44`; handler `list_tools` — List all available tools. Returns the tool registry with names, descriptions, and parameter schemas. AI agents use this to discover available capabilities.
+- [x] `GET /api/v1/agent/manifest` — current; source `/backend/app/api/v1/agent.py:47`; handler `get_agent_manifest` — Return an agent-friendly JSON manifest with service metadata, tool input/output schemas, intended scopes, cost tiers, limits, DeepXIV proxy metadata, and examples.
+- [x] `POST /api/v1/agent/batch` — current; source `/backend/app/api/v1/agent.py:87`; handler `batch_tool_calls` — Execute multiple tool calls in sequence. Useful for agents that need to gather information from multiple sources in a single request.
+- [x] `POST /api/v1/agent/call` — current; source `/backend/app/api/v1/agent.py:65`; handler `call_tool` — Execute a single tool call. The agent specifies a tool name and arguments, and receives structured results.
+- [x] `GET /api/v1/agent/tools` — current; source `/backend/app/api/v1/agent.py:53`; handler `list_tools` — List all available tools. Returns the tool registry with names, descriptions, and parameter schemas. AI agents use this to discover available capabilities.
 
 ### Alerts
 
@@ -265,6 +266,14 @@ Exposure: Agent information service.
 - [x] `POST /api/v1/intelligence/papers/{paper_id}/summarize` — current; source `/backend/app/api/v1/intelligence.py:239`; handler `summarize_paper` — Return AI summary for a paper.
 - [x] `GET /api/v1/intelligence/reading-path` — current; source `/backend/app/api/v1/intelligence.py:97`; handler `get_reading_path` — Find the shortest citation path between two papers.
 
+### Jobs
+
+Exposure: Agent information service / Async lifecycle.
+
+- [x] `GET /api/v1/jobs` — current; source `/backend/app/api/v1/jobs.py:22`; handler `list_jobs` — Return a stable JSON list shape for jobs associated with an entity ID; currently reports the Celery result-backend-only tracking limitation until durable entity-to-job indexing is added.
+- [x] `GET /api/v1/jobs/{job_id}` — current; source `/backend/app/api/v1/jobs.py:30`; handler `get_job` — Return Celery-backed job state, public status, readiness, result, error, terminal flags, and optional traceback.
+- [x] `POST /api/v1/jobs/{job_id}/cancel` — current; source `/backend/app/api/v1/jobs.py:39`; handler `cancel_job` — Revoke a queued or running Celery job, with optional terminate/signal controls, and return the observed job state.
+
 ### Knowledge
 
 Exposure: User workspace / Agent information service.
@@ -377,6 +386,12 @@ Exposure: Agent information service.
 - [x] `GET /api/v1/researchers/{author_id}/network` — current; source `/backend/app/api/v1/researchers.py:113`; handler `author_ego_network` — Co-authorship ego-network centered on a specific author. Returns all co-authors who have shared papers with this author in the local library, plus the edges between th...
 - [x] `GET /api/v1/researchers/{author_id}/profile` — current; source `/backend/app/api/v1/researchers.py:91`; handler `get_author_profile` — Full author profile including per-year publication timeline and top papers. Returns all papers for this author in the local library, not global stats. Use *openalex_id...
 
+### Resolve
+
+Exposure: Agent information service.
+
+- [x] `POST /api/v1/resolve` — current; source `/backend/app/api/v1/resolve.py:27`; handler `resolve_identifier` — Resolve DOI, arXiv ID, PMID, PMCID, OpenAlex ID, Semantic Scholar ID, URL, or title into local paper matches, external candidates, duplicate confidence, import status, and recommended action.
+
 ### Search
 
 Exposure: Agent information service.
@@ -464,144 +479,132 @@ Exposure: User workspace / Agent writing service.
 
 ## Proposed Or Missing API Surface
 
-These entries are derived from `API.md` and should be implemented only after schema, auth scope, rate-limit, and compatibility review.
+These entries are derived from `docs/memo/API.md` and should be implemented only after schema, auth scope, rate-limit, and compatibility review.
 
 ### Agent
 
-- [ ] `POST /api/v1/agent/context-pack` — proposed/missing; source `/API.md:596`
-- [ ] `GET /api/v1/agent/manifest` — proposed/missing; source `/API.md:168`
+- [ ] `POST /api/v1/agent/context-pack` — proposed/missing; source `/docs/memo/API.md:596`
 
 ### Answers
 
-- [ ] `POST /api/v1/answers/grounded` — proposed/missing; source `/API.md:326`
+- [ ] `POST /api/v1/answers/grounded` — proposed/missing; source `/docs/memo/API.md:326`
 
 ### Api Keys
 
-- [ ] `GET /api/v1/api-keys` — proposed/missing; source `/API.md:535`
-- [ ] `POST /api/v1/api-keys` — proposed/missing; source `/API.md:534`
-- [ ] `DELETE /api/v1/api-keys/{key_id}` — proposed/missing; source `/API.md:536`
+- [ ] `GET /api/v1/api-keys` — proposed/missing; source `/docs/memo/API.md:535`
+- [ ] `POST /api/v1/api-keys` — proposed/missing; source `/docs/memo/API.md:534`
+- [ ] `DELETE /api/v1/api-keys/{key_id}` — proposed/missing; source `/docs/memo/API.md:536`
 
 ### Batch
 
-- [ ] `POST /api/v1/batch` — proposed/missing; source `/API.md:576`
+- [ ] `POST /api/v1/batch` — proposed/missing; source `/docs/memo/API.md:576`
 
 ### Benchmarks
 
-- [ ] `POST /api/v1/benchmarks/extract` — proposed/missing; source `/API.md:608`
+- [ ] `POST /api/v1/benchmarks/extract` — proposed/missing; source `/docs/memo/API.md:608`
 
 ### Citations
 
-- [ ] `POST /api/v1/citations/intent-classify` — proposed/missing; source `/API.md:422`
+- [ ] `POST /api/v1/citations/intent-classify` — proposed/missing; source `/docs/memo/API.md:422`
 
 ### Claims
 
-- [ ] `POST /api/v1/claims/verify` — proposed/missing; source `/API.md:614`
+- [ ] `POST /api/v1/claims/verify` — proposed/missing; source `/docs/memo/API.md:614`
 
 ### Discovery
 
-- [ ] `GET /api/v1/discovery/delta?since=...` — proposed/missing; source `/API.md:627`
+- [ ] `GET /api/v1/discovery/delta?since=...` — proposed/missing; source `/docs/memo/API.md:627`
 
 ### Evidence
 
-- [ ] `ANY /api/v1/evidence/*` — proposed/missing; source `/API.md:675`
-- [ ] `POST /api/v1/evidence/packs` — proposed/missing; source `/API.md:590`
-- [ ] `POST /api/v1/evidence/search` — proposed/missing; source `/API.md:695`
+- [ ] `ANY /api/v1/evidence/*` — proposed/missing; source `/docs/memo/API.md:675`
+- [ ] `POST /api/v1/evidence/packs` — proposed/missing; source `/docs/memo/API.md:590`
+- [ ] `POST /api/v1/evidence/search` — proposed/missing; source `/docs/memo/API.md:695`
 
 ### Exports
 
-- [ ] `POST /api/v1/exports/jsonl` — proposed/missing; source `/API.md:632`
+- [ ] `POST /api/v1/exports/jsonl` — proposed/missing; source `/docs/memo/API.md:632`
 
 ### Extract
 
-- [ ] `POST /api/v1/extract/claims/batch` — proposed/missing; source `/API.md:363`
-- [ ] `POST /api/v1/extract/experiments/batch` — proposed/missing; source `/API.md:364`
-- [ ] `POST /api/v1/extract/figures/batch` — proposed/missing; source `/API.md:365`
-
-### Jobs
-
-- [ ] `ANY /api/v1/jobs/*` — proposed/missing; source `/API.md:680`
-- [ ] `GET /api/v1/jobs/{job_id}` — proposed/missing; source `/API.md:555`
-- [ ] `POST /api/v1/jobs/{job_id}/cancel` — proposed/missing; source `/API.md:557`
-- [ ] `GET /api/v1/jobs?entity_id={paper_id}` — proposed/missing; source `/API.md:556`
+- [ ] `POST /api/v1/extract/claims/batch` — proposed/missing; source `/docs/memo/API.md:363`
+- [ ] `POST /api/v1/extract/experiments/batch` — proposed/missing; source `/docs/memo/API.md:364`
+- [ ] `POST /api/v1/extract/figures/batch` — proposed/missing; source `/docs/memo/API.md:365`
 
 ### Labs
 
-- [ ] `GET /api/v1/labs/search` — proposed/missing; source `/API.md:658`
+- [ ] `GET /api/v1/labs/search` — proposed/missing; source `/docs/memo/API.md:658`
 
 ### Literature
 
-- [ ] `POST /api/v1/literature/consensus-map` — proposed/missing; source `/API.md:652`
-- [ ] `POST /api/v1/literature/contradiction-map` — proposed/missing; source `/API.md:396`
-- [ ] `POST /api/v1/literature/minimal-reading-set` — proposed/missing; source `/API.md:397`
-- [ ] `POST /api/v1/literature/plan-review` — proposed/missing; source `/API.md:640`
-- [ ] `POST /api/v1/literature/related-work-pack` — proposed/missing; source `/API.md:395`
-- [ ] `POST /api/v1/literature/research-timeline` — proposed/missing; source `/API.md:398`
-- [ ] `POST /api/v1/literature/review-map` — proposed/missing; source `/API.md:394`
+- [ ] `POST /api/v1/literature/consensus-map` — proposed/missing; source `/docs/memo/API.md:652`
+- [ ] `POST /api/v1/literature/contradiction-map` — proposed/missing; source `/docs/memo/API.md:396`
+- [ ] `POST /api/v1/literature/minimal-reading-set` — proposed/missing; source `/docs/memo/API.md:397`
+- [ ] `POST /api/v1/literature/plan-review` — proposed/missing; source `/docs/memo/API.md:640`
+- [ ] `POST /api/v1/literature/related-work-pack` — proposed/missing; source `/docs/memo/API.md:395`
+- [ ] `POST /api/v1/literature/research-timeline` — proposed/missing; source `/docs/memo/API.md:398`
+- [ ] `POST /api/v1/literature/review-map` — proposed/missing; source `/docs/memo/API.md:394`
 
 ### Papers
 
-- [ ] `GET /api/v1/papers/{paper_id}/assets` — proposed/missing; source `/API.md:235`
-- [ ] `GET /api/v1/papers/{paper_id}/citation-contexts` — proposed/missing; source `/API.md:601`
-- [ ] `GET /api/v1/papers/{paper_id}/citations/context` — proposed/missing; source `/API.md:421`
-- [ ] `GET /api/v1/papers/{paper_id}/code-and-data` — proposed/missing; source `/API.md:622`
-- [ ] `GET /api/v1/papers/{paper_id}/figures` — proposed/missing; source `/API.md:620`
-- [ ] `GET /api/v1/papers/{paper_id}/references` — proposed/missing; source `/API.md:420`
-- [ ] `GET /api/v1/papers/{paper_id}/sections` — proposed/missing; source `/API.md:233`
-- [ ] `GET /api/v1/papers/{paper_id}/tables` — proposed/missing; source `/API.md:621`
+- [ ] `GET /api/v1/papers/{paper_id}/assets` — proposed/missing; source `/docs/memo/API.md:235`
+- [ ] `GET /api/v1/papers/{paper_id}/citation-contexts` — proposed/missing; source `/docs/memo/API.md:601`
+- [ ] `GET /api/v1/papers/{paper_id}/citations/context` — proposed/missing; source `/docs/memo/API.md:421`
+- [ ] `GET /api/v1/papers/{paper_id}/code-and-data` — proposed/missing; source `/docs/memo/API.md:622`
+- [ ] `GET /api/v1/papers/{paper_id}/figures` — proposed/missing; source `/docs/memo/API.md:620`
+- [ ] `GET /api/v1/papers/{paper_id}/references` — proposed/missing; source `/docs/memo/API.md:420`
+- [ ] `GET /api/v1/papers/{paper_id}/sections` — proposed/missing; source `/docs/memo/API.md:233`
+- [ ] `GET /api/v1/papers/{paper_id}/tables` — proposed/missing; source `/docs/memo/API.md:621`
 
 ### Quality
 
-- [ ] `POST /api/v1/quality/batch` — proposed/missing; source `/API.md:366`
+- [ ] `POST /api/v1/quality/batch` — proposed/missing; source `/docs/memo/API.md:366`
 
 ### Reproducibility
 
-- [ ] `POST /api/v1/reproducibility/dossier` — proposed/missing; source `/API.md:663`
+- [ ] `POST /api/v1/reproducibility/dossier` — proposed/missing; source `/docs/memo/API.md:663`
 
 ### Researchers
 
-- [ ] `GET /api/v1/researchers/{id}/global-profile` — proposed/missing; source `/API.md:657`
-
-### Resolve
-
-- [ ] `POST /api/v1/resolve` — proposed/missing; source `/API.md:548`
+- [ ] `GET /api/v1/researchers/{id}/global-profile` — proposed/missing; source `/docs/memo/API.md:657`
 
 ### Review
 
-- [ ] `POST /api/v1/review/screen` — proposed/missing; source `/API.md:646`
+- [ ] `POST /api/v1/review/screen` — proposed/missing; source `/docs/memo/API.md:646`
 
 ### Search
 
-- [ ] `POST /api/v1/search/federated` — proposed/missing; source `/API.md:687`
+- [ ] `POST /api/v1/search/federated` — proposed/missing; source `/docs/memo/API.md:687`
 
 ### Subscriptions
 
-- [ ] `ANY /api/v1/subscriptions/*` — proposed/missing; source `/API.md:681`
-- [ ] `GET /api/v1/subscriptions/events` — proposed/missing; source `/API.md:471`
-- [ ] `POST /api/v1/subscriptions/searches` — proposed/missing; source `/API.md:470`
+- [ ] `ANY /api/v1/subscriptions/*` — proposed/missing; source `/docs/memo/API.md:681`
+- [ ] `GET /api/v1/subscriptions/events` — proposed/missing; source `/docs/memo/API.md:471`
+- [ ] `POST /api/v1/subscriptions/searches` — proposed/missing; source `/docs/memo/API.md:470`
 
 ### Translate
 
-- [ ] `POST /api/v1/translate/evidence-pack` — proposed/missing; source `/API.md:509`
-- [ ] `POST /api/v1/translate/papers/batch` — proposed/missing; source `/API.md:508`
+- [ ] `POST /api/v1/translate/evidence-pack` — proposed/missing; source `/docs/memo/API.md:509`
+- [ ] `POST /api/v1/translate/papers/batch` — proposed/missing; source `/docs/memo/API.md:508`
 
 ### Usage
 
-- [ ] `GET /api/v1/usage/current` — proposed/missing; source `/API.md:542`
-- [ ] `GET /api/v1/usage/history?days=30` — proposed/missing; source `/API.md:543`
+- [ ] `GET /api/v1/usage/current` — proposed/missing; source `/docs/memo/API.md:542`
+- [ ] `GET /api/v1/usage/history?days=30` — proposed/missing; source `/docs/memo/API.md:543`
 
 ### Webhooks
 
-- [ ] `ANY /api/v1/webhooks/*` — proposed/missing; source `/API.md:681`
-- [ ] `POST /api/v1/webhooks/test` — proposed/missing; source `/API.md:472`
-- [ ] `POST /api/v1/webhooks/{id}/rotate-secret` — proposed/missing; source `/API.md:473`
+- [ ] `ANY /api/v1/webhooks/*` — proposed/missing; source `/docs/memo/API.md:681`
+- [ ] `POST /api/v1/webhooks/test` — proposed/missing; source `/docs/memo/API.md:472`
+- [ ] `POST /api/v1/webhooks/{id}/rotate-secret` — proposed/missing; source `/docs/memo/API.md:473`
 
 ### Workspaces
 
-- [ ] `POST /api/v1/workspaces/{collection_id}/ask-local` — proposed/missing; source `/API.md:583`
+- [ ] `POST /api/v1/workspaces/{collection_id}/ask-local` — proposed/missing; source `/docs/memo/API.md:583`
 
 ### Writing
 
-- [ ] `POST /api/v1/writing/citation-check` — proposed/missing; source `/API.md:494`
+- [ ] `POST /api/v1/writing/citation-check` — proposed/missing; source `/docs/memo/API.md:494`
 
 ## First Optimization Queue
 
@@ -609,7 +612,7 @@ These entries are derived from `API.md` and should be implemented only after sch
 - [x] DeepXIV retrieve parity: add `POST /api/v1/deepxiv/retrieve` with JSON request body for search/retrieve parameters.
 - [x] DeepXIV PMC parity: add `GET /api/v1/deepxiv/pmc/{pmc_id}/json` alias for full JSON.
 - [x] DeepXIV usage parity: add `GET /api/v1/deepxiv/usage?days={n}` with typed JSON when `DEEPXIV_TOKEN` is not configured.
-- [ ] Local workspace RAG fallback: route collection Q&A through local embeddings when RAGFlow is disabled.
-- [ ] Agent manifest: add `GET /api/v1/agent/manifest` with tool schemas, scopes, costs, and examples.
-- [ ] Universal resolver: add `POST /api/v1/resolve` for DOI/arXiv/PMID/PMCID/OpenAlex/Semantic Scholar/URL/title.
-- [ ] Job API: add `/api/v1/jobs/*` for ingestion, parsing, embedding, analysis, sync, translation, and image generation lifecycle.
+- [x] Local workspace RAG fallback: route collection Q&A through local embeddings when RAGFlow is disabled.
+- [x] Agent manifest: add `GET /api/v1/agent/manifest` with tool schemas, scopes, costs, and examples.
+- [x] Universal resolver: add `POST /api/v1/resolve` for DOI/arXiv/PMID/PMCID/OpenAlex/Semantic Scholar/URL/title.
+- [x] Job API: add `/api/v1/jobs/*` for ingestion, parsing, embedding, analysis, sync, translation, and image generation lifecycle.

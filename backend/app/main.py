@@ -9,6 +9,8 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import (
     HTTPException as FastAPIHTTPException,
+)
+from fastapi.exceptions import (
     RequestValidationError,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,8 +34,9 @@ async def _background_enrich_authors() -> None:
     Processes in small batches to respect S2 free-tier rate limits.
     """
     from sqlalchemy import select
-    from app.models.author import Author
+
     from app.dependencies import async_session_factory
+    from app.models.author import Author
     from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 
     try:
@@ -111,8 +114,9 @@ async def _background_label_papers() -> None:
     Uses concurrency=50 (LLM API supports it) with asyncio.Semaphore.
     """
     from sqlalchemy import select
-    from app.models.paper import Paper
+
     from app.dependencies import async_session_factory
+    from app.models.paper import Paper
     from app.services.analysis.labeling_service import LabelingService
 
     try:
@@ -181,9 +185,10 @@ async def _background_analyse_papers() -> None:
     """
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    from app.models.paper import Paper
-    from app.models.author import PaperAuthor
+
     from app.dependencies import async_session_factory
+    from app.models.author import PaperAuthor
+    from app.models.paper import Paper
     from app.services.analysis.paper_analyst import PaperAnalystService
 
     try:
@@ -254,12 +259,14 @@ async def _background_overview_images() -> None:
     Concurrency=1: each job runs a long LLM call + image API call + OSS upload (~3-5 min).
     Starts after analysis is well underway (20 minutes delay).
     """
+    from datetime import datetime
+
     from sqlalchemy import select
-    from app.models.paper import Paper
+
     from app.dependencies import async_session_factory
+    from app.models.paper import Paper
     from app.services.analysis.overview_image_service import OverviewImageService
     from app.services.analysis.paper_analyst import deep_analysis_is_valid
-    from datetime import datetime, timezone
 
     try:
         await asyncio.sleep(1200)  # 20 minutes — let analysis sweep run first
@@ -318,7 +325,7 @@ async def _background_overview_images() -> None:
                         ):
                             return
                         paper.overview_image = {"status": "generating"}
-                        paper.overview_image_at = datetime.now(timezone.utc)
+                        paper.overview_image_at = datetime.now(UTC)
                         await db.commit()
 
                     # Generate image
@@ -328,7 +335,7 @@ async def _background_overview_images() -> None:
                         image_data = {
                             "status": "ok",
                             "url": url,
-                            "generated_at": datetime.now(timezone.utc).isoformat(),
+                            "generated_at": datetime.now(UTC).isoformat(),
                         }
                         done += 1
                         logger.info(
@@ -353,7 +360,7 @@ async def _background_overview_images() -> None:
                         paper = r.scalar_one_or_none()
                         if paper is not None:
                             paper.overview_image = image_data
-                            paper.overview_image_at = datetime.now(timezone.utc)
+                            paper.overview_image_at = datetime.now(UTC)
                             await db.commit()
 
                 except Exception as e:
@@ -380,13 +387,15 @@ async def _background_translate_analyses() -> None:
     no deep_analysis_zh.  RPM=20 → one request every 3 seconds, sequential.
     Starts 25 minutes after startup (after analysis + image sweeps).
     """
-    from sqlalchemy import select
-    from app.models.paper import Paper
-    from app.dependencies import async_session_factory
-    from app.clients.translate_client import TranslateClient
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    _SYS = (
+    from sqlalchemy import select
+
+    from app.clients.translate_client import TranslateClient
+    from app.dependencies import async_session_factory
+    from app.models.paper import Paper
+
+    _system_prompt = (
         "你是一个翻译助手。使用专业简洁的术语，把英文翻译为中文。"
         "无任何其他输出。严格保持输出格式与输入的内容格式一致"
     )
@@ -438,20 +447,20 @@ async def _background_translate_analyses() -> None:
                 if (p.deep_analysis_zh or {}).get("status") in ("ok", "translating"):
                     continue
                 p.deep_analysis_zh = {"status": "translating"}
-                p.deep_analysis_zh_at = datetime.now(timezone.utc)
+                p.deep_analysis_zh_at = datetime.now(UTC)
                 await db.commit()
 
             try:
-                async with TranslateClient(system_prompt=_SYS) as client:
+                async with TranslateClient(system_prompt=_system_prompt) as client:
                     translated = await client.translate(
-                        analysis_text, system_prompt=_SYS
+                        analysis_text, system_prompt=_system_prompt
                     )
 
                 if translated:
                     zh_data = {
                         "status": "ok",
                         "analysis": translated,
-                        "translated_at": datetime.now(timezone.utc).isoformat(),
+                        "translated_at": datetime.now(UTC).isoformat(),
                     }
                     done += 1
                 else:
@@ -470,7 +479,7 @@ async def _background_translate_analyses() -> None:
                 ).scalar_one_or_none()
                 if p is not None:
                     p.deep_analysis_zh = zh_data
-                    p.deep_analysis_zh_at = datetime.now(timezone.utc)
+                    p.deep_analysis_zh_at = datetime.now(UTC)
                     await db.commit()
 
             # RPM=20 → 3 seconds between requests
@@ -487,11 +496,13 @@ async def _background_fetch_links() -> None:
     Fetch AI-powered paper links for papers that don't have them yet.
     Concurrency=2.  Starts 10 minutes after startup.
     """
+    from datetime import datetime
+
     from sqlalchemy import select
-    from app.models.paper import Paper
+
     from app.dependencies import async_session_factory
+    from app.models.paper import Paper
     from app.services.analysis.links_service import LinksService
-    from datetime import datetime, timezone
 
     try:
         await asyncio.sleep(600)  # 10 minutes
@@ -539,7 +550,7 @@ async def _background_fetch_links() -> None:
                         if (p.paper_links or {}).get("status") in ("ok", "fetching"):
                             return
                         p.paper_links = {"status": "fetching"}
-                        p.paper_links_at = datetime.now(timezone.utc)
+                        p.paper_links_at = datetime.now(UTC)
                         await db.commit()
 
                     async with LinksService() as svc:
@@ -547,7 +558,7 @@ async def _background_fetch_links() -> None:
 
                     links_data = {
                         "status": "ok",
-                        "fetched_at": datetime.now(timezone.utc).isoformat(),
+                        "fetched_at": datetime.now(UTC).isoformat(),
                         **links,
                     }
                     done += 1
@@ -570,7 +581,7 @@ async def _background_fetch_links() -> None:
                         ).scalar_one_or_none()
                         if p is not None:
                             p.paper_links = links_data
-                            p.paper_links_at = datetime.now(timezone.utc)
+                            p.paper_links_at = datetime.now(UTC)
                             await db.commit()
                 except Exception:
                     pass
@@ -592,10 +603,11 @@ async def _background_embed_papers() -> None:
     and does not block any foreground requests.
     Concurrency=5: each paper holds a DB session + one LLM embed call.
     """
-    from sqlalchemy import select, not_, exists
+    from sqlalchemy import exists, not_, select
+
+    from app.dependencies import async_session_factory
     from app.models.paper import Paper
     from app.models.paper_qa import PaperEmbeddingJob
-    from app.dependencies import async_session_factory
     from app.tasks.embedding_tasks import embed_paper_async
 
     try:
@@ -822,34 +834,36 @@ def create_app() -> FastAPI:
         )
 
     # --- Register Routers ---
-    from app.api.v1.imports import router as imports_router
-    from app.api.v1.papers import router as papers_router
-    from app.api.v1.search import router as search_router
-    from app.api.v1.feeds import router as feeds_router
-    from app.api.v1.collections import router as collections_router
-    from app.api.v1.tags import router as tags_router
-    from app.api.v1.graph import router as graph_router
-    from app.api.v1.governance import router as governance_router
-    from app.api.v1.intelligence import router as intelligence_router
-    from app.api.v1.agent import router as agent_router
-    from app.api.v1.filters import router as filters_router
-    from app.api.v1.local_pdf import router as local_pdf_router
-    from app.api.v1.analysis import router as analysis_router
     from app.api.v1 import ragflow as ragflow_router
-    from app.api.v1.trends import router as trends_router
-    from app.api.v1.trend_ext import router as trend_ext_router
-    from app.api.v1.writing import router as writing_router
+    from app.api.v1.agent import router as agent_router
     from app.api.v1.alerts import router as alerts_router
+    from app.api.v1.analysis import router as analysis_router
+    from app.api.v1.auth import router as auth_router
 
     # P3 routers
     from app.api.v1.claims import router as claims_router
+    from app.api.v1.collections import router as collections_router
     from app.api.v1.cross_paper import router as cross_paper_router
+    from app.api.v1.feeds import router as feeds_router
     from app.api.v1.figures import router as figures_router
+    from app.api.v1.filters import router as filters_router
+    from app.api.v1.governance import router as governance_router
+    from app.api.v1.graph import router as graph_router
+    from app.api.v1.imports import router as imports_router
+    from app.api.v1.intelligence import router as intelligence_router
+    from app.api.v1.jobs import router as jobs_router
     from app.api.v1.knowledge import router as knowledge_router
     from app.api.v1.knowledge_ext import router as knowledge_ext_router
+    from app.api.v1.local_pdf import router as local_pdf_router
+    from app.api.v1.papers import router as papers_router
     from app.api.v1.quality import router as quality_router
     from app.api.v1.researchers import router as researchers_router
-    from app.api.v1.auth import router as auth_router
+    from app.api.v1.resolve import router as resolve_router
+    from app.api.v1.search import router as search_router
+    from app.api.v1.tags import router as tags_router
+    from app.api.v1.trend_ext import router as trend_ext_router
+    from app.api.v1.trends import router as trends_router
+    from app.api.v1.writing import router as writing_router
 
     app.include_router(papers_router, prefix="/api/v1")
     app.include_router(imports_router, prefix="/api/v1")
@@ -860,7 +874,9 @@ def create_app() -> FastAPI:
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(governance_router, prefix="/api/v1")
     app.include_router(intelligence_router, prefix="/api/v1")
+    app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(resolve_router, prefix="/api/v1")
     app.include_router(filters_router, prefix="/api/v1")
     app.include_router(local_pdf_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
@@ -969,8 +985,9 @@ def create_app() -> FastAPI:
 
         # PostgreSQL
         try:
-            from app.dependencies import engine
             from sqlalchemy import text
+
+            from app.dependencies import engine
 
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))

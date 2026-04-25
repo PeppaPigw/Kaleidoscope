@@ -6,7 +6,7 @@ import asyncio
 import io
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -83,7 +83,7 @@ def test_quality_service_exposes_score_metadata_alias():
         abstract="Abstract",
         doi="10.1000/example",
         arxiv_id="2401.12345",
-        published_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        published_at=datetime(2026, 1, 1, tzinfo=UTC),
         keywords=["ml"],
         citation_count=1,
         venue_id=uuid4(),
@@ -271,7 +271,10 @@ def test_deep_analysis_is_valid_rejects_empty_prompt_artifacts():
         deep_analysis_is_valid(
             {
                 "status": "ok",
-                "analysis": "[EXT] *Note: As the prompt provided empty fields for the paper's Abstract and Full Text...",
+                "analysis": (
+                    "[EXT] *Note: As the prompt provided empty fields for "
+                    "the paper's Abstract and Full Text..."
+                ),
                 "fulltext_chars": 0,
             }
         )
@@ -844,3 +847,203 @@ def test_batch_upload_pdfs_queues_mineru_parse(monkeypatch):
         ]
 
     asyncio.run(run_test())
+
+
+def test_agent_manifest_exposes_tool_contracts():
+    from app.services.agent.manifest import build_agent_manifest
+    from app.services.agent.tool_dispatcher import TOOLS
+
+    manifest = build_agent_manifest()
+    tools = {tool["name"]: tool for tool in manifest["tools"]}
+
+    assert manifest["schema_version"] == "1.0.0"
+    assert manifest["service"]["base_path"] == "/api/v1"
+    assert manifest["transports"]["rest"]["endpoints"]["call_tool"] == (
+        "/api/v1/agent/call"
+    )
+    assert set(tools) == {tool["name"] for tool in TOOLS}
+
+    search_tool = tools["search_papers"]
+    assert search_tool["id"] == "kaleidoscope.search_papers"
+    assert search_tool["input_schema"]["required"] == ["query"]
+    assert search_tool["output_schema"]["type"] == "object"
+    assert "papers:read" in search_tool["scopes"]
+    assert search_tool["cost"] == {"tier": "low", "units": 2}
+    assert search_tool["examples"][0]["arguments"]["mode"] == "hybrid"
+
+    assert manifest["external_integrations"]["deepxiv"]["base_path"] == (
+        "/api/v1/deepxiv"
+    )
+
+
+def test_paper_resolver_returns_local_doi_match():
+    from app.services.paper_resolver_service import PaperResolverService
+
+    paper_id = uuid4()
+    paper = SimpleNamespace(
+        id=paper_id,
+        title="Resolved Paper",
+        doi="10.1000/example",
+        arxiv_id=None,
+        pmid=None,
+        openalex_id="W123",
+        semantic_scholar_id="abc123",
+        ingestion_status="indexed",
+        has_full_text=True,
+        published_at=None,
+    )
+    db = SimpleNamespace(execute=AsyncMock(return_value=FakeScalarResult([paper])))
+    service = PaperResolverService(db)
+
+    async def run_test():
+        result = await service.resolve(
+            "https://doi.org/10.1000/EXAMPLE",
+            include_external=False,
+        )
+        assert result["query"]["identifier_type"] == "doi"
+        assert result["query"]["canonical"] == "10.1000/example"
+        assert result["local"]["matched"] is True
+        assert result["local"]["paper"]["paper_id"] == str(paper_id)
+        assert result["import_status"] == {
+            "state": "existing",
+            "paper_id": str(paper_id),
+            "ingestion_status": "indexed",
+        }
+        assert result["recommended_action"] == "open_local"
+        assert result["external_candidates"] == []
+
+    asyncio.run(run_test())
+
+
+def test_paper_resolver_returns_external_arxiv_candidate():
+    from app.services.paper_resolver_service import PaperResolverService
+
+    class FakeOpenAlexClient:
+        async def close(self):
+            return None
+
+    class FakeSemanticScholarClient:
+        async def get_paper(self, paper_id: str):
+            assert paper_id == "arXiv:2401.12345"
+            return {
+                "paperId": "s2-paper",
+                "title": "External Paper",
+                "externalIds": {"ArXiv": "2401.12345", "DOI": "10.1000/ext"},
+                "year": 2024,
+                "citationCount": 7,
+            }
+
+        async def close(self):
+            return None
+
+    db = SimpleNamespace(execute=AsyncMock(return_value=FakeScalarResult([])))
+    service = PaperResolverService(
+        db,
+        openalex_client=FakeOpenAlexClient(),
+        semantic_scholar_client=FakeSemanticScholarClient(),
+    )
+
+    async def run_test():
+        result = await service.resolve("arXiv:2401.12345", include_external=True)
+        assert result["local"]["matched"] is False
+        assert result["external_candidates"] == [
+            {
+                "source": "semantic_scholar",
+                "external_id": "s2-paper",
+                "title": "External Paper",
+                "doi": "10.1000/ext",
+                "arxiv_id": "2401.12345",
+                "pmid": None,
+                "pmcid": None,
+                "url": "https://www.semanticscholar.org/paper/s2-paper",
+                "year": 2024,
+                "citation_count": 7,
+                "match_type": "arxiv",
+                "confidence": 0.9,
+            }
+        ]
+        assert result["import_status"] == {"state": "ready_to_import"}
+        assert result["recommended_action"] == "import"
+
+    asyncio.run(run_test())
+
+
+def test_job_service_formats_success_result(monkeypatch):
+    from app.services import job_service
+    from app.services.job_service import JobService
+
+    class FakeResult:
+        id = "job-1"
+        state = "SUCCESS"
+        result = {"paper_id": "paper-1"}
+        info = None
+        traceback = None
+
+        def ready(self):
+            return True
+
+        def successful(self):
+            return True
+
+    monkeypatch.setattr(job_service.celery_app, "AsyncResult", lambda job_id: FakeResult())
+
+    assert JobService().get_job("job-1") == {
+        "job_id": "job-1",
+        "state": "SUCCESS",
+        "status": "succeeded",
+        "ready": True,
+        "successful": True,
+        "failed": False,
+        "terminal": True,
+        "result": {"paper_id": "paper-1"},
+        "error": None,
+        "metadata": None,
+    }
+
+
+def test_job_service_cancel_revokes_task(monkeypatch):
+    from app.services import job_service
+    from app.services.job_service import JobService
+
+    revoked: list[tuple[str, bool, str]] = []
+
+    class FakeControl:
+        @staticmethod
+        def revoke(job_id: str, terminate: bool = False, signal: str = "SIGTERM"):
+            revoked.append((job_id, terminate, signal))
+
+    class FakeResult:
+        id = "job-2"
+        state = "REVOKED"
+        result = None
+        info = "revoked"
+        traceback = None
+
+        def ready(self):
+            return True
+
+        def successful(self):
+            return False
+
+    monkeypatch.setattr(job_service.celery_app, "control", FakeControl())
+    monkeypatch.setattr(job_service.celery_app, "AsyncResult", lambda job_id: FakeResult())
+
+    result = JobService().cancel_job("job-2", terminate=True, signal="SIGKILL")
+
+    assert revoked == [("job-2", True, "SIGKILL")]
+    assert result["state"] == "REVOKED"
+    assert result["status"] == "cancelled"
+    assert result["cancel_requested"] is True
+    assert result["terminate_requested"] is True
+
+
+def test_job_service_lists_entity_jobs_with_tracking_warning():
+    from app.services.job_service import JobService
+
+    assert JobService().list_jobs(entity_id="paper-1") == {
+        "entity_id": "paper-1",
+        "jobs": [],
+        "total": 0,
+        "tracking": "celery_result_backend_only",
+        "warning": "No durable entity-to-job index is available yet.",
+    }

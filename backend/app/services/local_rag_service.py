@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
-from typing import Any
 import time
+from typing import Any
 
 import structlog
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
-from sqlalchemy.exc import OperationalError, TimeoutError as SQLAlchemyTimeoutError
 
 from app.clients.llm_client import LLMClient
+from app.models.collection import DEFAULT_USER_ID
 from app.services.collection_service import CollectionService
 from app.services.vector_search_service import VectorSearchService
 
 logger = structlog.get_logger(__name__)
 
-COLLECTION_QA_PROMPT = """You are a research assistant helping analyze academic papers. Answer the question based on the following excerpts from research papers.
+COLLECTION_QA_PROMPT = """You are a research assistant helping analyze academic papers.
+Answer the question based on the following excerpts from research papers.
 
 Relevant excerpts:
 {context}
@@ -41,10 +44,11 @@ Answer:"""
 class LocalRAGService:
     """Local RAG service using vector search + LLM."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, user_id: str = DEFAULT_USER_ID):
         self.db = db
+        self.user_id = user_id
         self.vector_search = VectorSearchService(db)
-        self.collection_service = CollectionService(db)
+        self.collection_service = CollectionService(db, user_id=user_id)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -177,7 +181,11 @@ class LocalRAGService:
 
         if not chunks:
             return {
-                "answer": "I couldn't find relevant information in the papers to answer this question. The papers may not have been processed yet, or the question may be outside their scope.",
+                "answer": (
+                    "I couldn't find relevant information in the papers to answer "
+                    "this question. The papers may not have been processed yet, "
+                    "or the question may be outside their scope."
+                ),
                 "sources": [],
                 "chunks_found": 0,
                 "latency_ms": int((time.perf_counter() - started) * 1000),
@@ -226,6 +234,106 @@ class LocalRAGService:
             "latency_ms": latency_ms,
         }
 
+    async def get_collection_evidence(
+        self,
+        collection_id: str,
+        question: str,
+        top_k: int = 15,
+        min_similarity: float = 0.3,
+    ) -> dict[str, Any]:
+        """Return local vector-search evidence chunks for a collection question."""
+        started = time.perf_counter()
+        if not question or not question.strip():
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "error": "empty_question",
+                "latency_ms": 0,
+            }
+
+        if not isinstance(top_k, int) or top_k < 1 or top_k > 50:
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "error": "invalid_top_k",
+                "latency_ms": 0,
+            }
+
+        try:
+            papers = await self.collection_service.get_collection_papers(
+                collection_id,
+                limit=1000,
+            )
+            paper_ids = [str(p["paper_id"]) for p in papers]
+        except Exception as exc:
+            logger.error(
+                "local_evidence_collection_fetch_failed",
+                collection_id=collection_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "error": f"collection_fetch_error: {type(exc).__name__}",
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+            }
+
+        if not paper_ids:
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+            }
+
+        try:
+            chunks = await self.vector_search.search_by_text(
+                query_text=question,
+                paper_ids=paper_ids,
+                top_k=top_k,
+                min_similarity=min_similarity,
+            )
+        except ValueError as exc:
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "error": str(exc),
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+            }
+        except Exception as exc:
+            logger.error(
+                "local_evidence_vector_search_failed",
+                collection_id=collection_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {
+                "enabled": True,
+                "backend": "local",
+                "chunks": [],
+                "total": 0,
+                "error": f"vector_search_error: {type(exc).__name__}",
+                "latency_ms": int((time.perf_counter() - started) * 1000),
+            }
+
+        return {
+            "enabled": True,
+            "backend": "local",
+            "chunks": self._format_evidence_chunks(chunks),
+            "total": len(chunks),
+            "latency_ms": int((time.perf_counter() - started) * 1000),
+        }
+
     def _build_context(self, chunks: list[dict[str, Any]]) -> str:
         """Build context string from retrieved chunks."""
         context_parts = []
@@ -264,3 +372,23 @@ class LocalRAGService:
                 }
             )
         return sources
+
+    def _format_evidence_chunks(
+        self, chunks: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Format local vector chunks as evidence retrieval results."""
+        return [
+            {
+                "id": chunk.get("chunk_id"),
+                "paper_id": chunk.get("paper_id"),
+                "paper_title": chunk.get("paper_title"),
+                "section_title": chunk.get("section_title"),
+                "content": chunk.get("content"),
+                "score": chunk.get("similarity"),
+                "similarity": chunk.get("similarity"),
+                "doi": chunk.get("paper_doi"),
+                "arxiv_id": chunk.get("paper_arxiv_id"),
+                "source": "local",
+            }
+            for chunk in chunks
+        ]

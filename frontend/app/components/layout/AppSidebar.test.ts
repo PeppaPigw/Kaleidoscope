@@ -18,4 +18,9 @@ describe("AppSidebar branding", () => {
     expect(sidebarSource).toContain("'ks-sidebar--mobile-open': mobileOpen");
     expect(sidebarSource).toContain('@click="toggleSidebar()"');
   });
+  it("links to the live API documentation console", () => {
+    expect(sidebarSource).toContain('labelKey: "apiDocs"');
+    expect(sidebarSource).toContain('to: "/api-docs"');
+    expect(sidebarSource).toContain('sectionKey: "developer"');
+  });
 });

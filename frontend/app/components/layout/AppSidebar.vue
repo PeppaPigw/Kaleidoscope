@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable vue/html-self-closing */
 import {
   LayoutDashboard,
   Compass,
@@ -14,6 +15,7 @@ import {
   ChevronLeft,
   Bookmark,
   Rss,
+  Braces,
 } from "lucide-vue-next";
 
 import { isSidebarItemActive } from "./sidebarActive";
@@ -63,6 +65,12 @@ const navDefinition: NavItem[] = [
   { labelKey: "writing", icon: PenTool, to: "/writing", sectionKey: "create" },
   { labelKey: "knowledge", icon: Flower2, to: "/knowledge" },
   { labelKey: "subscriptions", icon: Rss, to: "/settings/subscriptions" },
+  {
+    labelKey: "apiDocs",
+    icon: Braces,
+    to: "/api-docs",
+    sectionKey: "developer",
+  },
 ];
 
 const navPaths = navDefinition.map((item) => item.to);

@@ -51,6 +51,7 @@ export const UI_LABELS = {
     explore: "EXPLORE",
     research: "RESEARCH",
     create: "CREATE",
+    developer: "DEVELOPER",
     // Sidebar items
     dashboard: "Dashboard",
     discover: "Discovery Explorer",
@@ -65,6 +66,7 @@ export const UI_LABELS = {
     settings: "Settings",
     collections: "Collections",
     subscriptions: "Subscriptions",
+    apiDocs: "API Docs",
     // DeepXiv
     deepxiv: "DeepXiv",
     deepxivSearch: "arXiv Search",
@@ -169,6 +171,7 @@ export const UI_LABELS = {
     explore: "探索",
     research: "研究",
     create: "创作",
+    developer: "开发者",
     // Sidebar items
     dashboard: "仪表板",
     discover: "发现探索",
@@ -183,6 +186,7 @@ export const UI_LABELS = {
     settings: "设置",
     collections: "收藏夹",
     subscriptions: "订阅管理",
+    apiDocs: "API 文档",
     // DeepXiv
     deepxiv: "DeepXiv",
     deepxivSearch: "arXiv 搜索",
@@ -346,7 +350,7 @@ export function useTranslation() {
         const config = useRuntimeConfig();
         const apiBase = config.public.apiUrl as string;
 
-        const body: any = { text, direction: "en2zh" };
+        const body: Record<string, unknown> = { text, direction: "en2zh" };
         if (options?.paperId) {
           body.paper_id = options.paperId;
         }

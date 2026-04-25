@@ -13,6 +13,7 @@ const {
 
 const hideTopbar = computed(() => route.meta.hideTopbar === true);
 const isFlushContent = computed(() => route.meta.flushContent === true);
+const isApiDocsChrome = computed(() => route.meta.apiDocsChrome === true);
 
 const shellToggleLabel = computed(() => {
   if (isMobile.value) {
@@ -57,6 +58,7 @@ watch(
           'ks-layout__content',
           {
             'ks-layout__content--flush': isFlushContent,
+            'ks-layout__content--api-docs': isApiDocsChrome,
           },
         ]"
       >
@@ -105,6 +107,11 @@ watch(
   padding: 8px 10px;
 }
 
+.ks-layout__content--api-docs {
+  max-width: none;
+  padding: 0;
+}
+
 .ks-layout__scrim {
   position: fixed;
   inset: 0;
@@ -140,6 +147,10 @@ watch(
   .ks-layout__content--flush {
     padding: 8px 10px;
   }
+
+  .ks-layout__content--api-docs {
+    padding: 0;
+  }
 }
 
 @media (max-width: 960px) {
@@ -153,6 +164,10 @@ watch(
 
   .ks-layout__content--flush {
     padding: 6px 8px;
+  }
+
+  .ks-layout__content--api-docs {
+    padding: 0;
   }
 
   .ks-layout__mobile-toggle {

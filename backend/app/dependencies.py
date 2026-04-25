@@ -41,7 +41,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 def get_current_user_id(request: Request) -> str:
     """
-    FastAPI dependency: extract user ID from JWT Bearer token.
+    FastAPI dependency: extract user ID from API-key middleware or JWT.
 
     Falls back to DEFAULT_USER_ID in single-user / no-auth mode.
     Set KALEIDOSCOPE_JWT_SECRET env var to enable real auth.
@@ -50,6 +50,10 @@ def get_current_user_id(request: Request) -> str:
 
     from app.auth import JWT_SECRET, decode_access_token
     from app.models.collection import DEFAULT_USER_ID
+
+    state_user_id = getattr(request.state, "user_id", None)
+    if state_user_id:
+        return str(state_user_id)
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):

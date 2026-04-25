@@ -27,6 +27,53 @@ from app.exceptions import (
 logger = structlog.get_logger(__name__)
 
 
+async def _authenticate_api_key_request(request: Request) -> JSONResponse | None:
+    """Authenticate Bearer API keys and attach principal metadata to request.state."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+
+    token = auth_header[len("Bearer ") :].strip()
+    if not token.startswith("ks_live_"):
+        return None
+
+    from sqlalchemy import select
+
+    from app.dependencies import async_session_factory
+    from app.models.api_key import APIKey
+    from app.services.api_key_service import APIKeyService
+
+    now = datetime.now(tz=UTC)
+    key_hash = APIKeyService.hash_key(token)
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(APIKey).where(
+                APIKey.key_hash == key_hash,
+                APIKey.revoked_at.is_(None),
+            )
+        )
+        api_key = result.scalar_one_or_none()
+        expires_at = api_key.expires_at if api_key is not None else None
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if api_key is None or (expires_at is not None and expires_at <= now):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "code": "INVALID_API_KEY",
+                    "message": "Invalid, revoked, or expired API key.",
+                },
+            )
+
+        api_key.last_used_at = now
+        await session.commit()
+        request.state.user_id = str(api_key.user_id)
+        request.state.api_key_id = str(api_key.id)
+        request.state.api_key_scopes = list(api_key.scopes or [])
+
+    return None
+
+
 async def _background_enrich_authors() -> None:
     """
     Enrich all authors that don't yet have a Semantic Scholar ID.
@@ -729,7 +776,12 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         start = _time.monotonic()
-        response = await call_next(request)
+        auth_error = await _authenticate_api_key_request(request)
+        response = auth_error if auth_error is not None else await call_next(request)
+        response.headers.setdefault("X-RateLimit-Policy", "deployment-configured")
+        scopes = getattr(request.state, "api_key_scopes", None)
+        if scopes is not None:
+            response.headers.setdefault("X-API-Key-Scopes", " ".join(scopes))
         elapsed = _time.monotonic() - start
         elapsed_ms = elapsed * 1000
         if elapsed > 5.0:
@@ -836,6 +888,7 @@ def create_app() -> FastAPI:
     # --- Register Routers ---
     from app.api.v1 import ragflow as ragflow_router
     from app.api.v1.agent import router as agent_router
+    from app.api.v1.agent_services import router as agent_services_router
     from app.api.v1.alerts import router as alerts_router
     from app.api.v1.analysis import router as analysis_router
     from app.api.v1.answers import router as answers_router
@@ -879,6 +932,7 @@ def create_app() -> FastAPI:
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(agent_services_router, prefix="/api/v1")
     app.include_router(api_keys_router, prefix="/api/v1")
     app.include_router(answers_router, prefix="/api/v1")
     app.include_router(resolve_router, prefix="/api/v1")

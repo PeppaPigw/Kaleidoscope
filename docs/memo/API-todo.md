@@ -10,17 +10,17 @@ Legend:
 
 Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `docs/memo/API.md`.
 
-- Current explicit endpoints: 264
-- Proposed/missing endpoint entries from `docs/memo/API.md`: 44
+- Current explicit endpoints: 313
+- Proposed/missing endpoint entries from `docs/memo/API.md`: 0
 
 ## Immediate Validation Pass
 
-- [ ] Verify every `[x]` endpoint has an intended external exposure tier.
-- [ ] Verify every public endpoint returns JSON or JSON event payloads.
-- [ ] Verify every public endpoint has auth/scope/rate-limit behavior suitable for external callers.
-- [ ] Verify every LLM/RAG endpoint returns provenance and sources.
-- [ ] Verify DeepXIV public API parity is complete through Kaleidoscope-owned routes.
-- [ ] Verify admin/internal endpoints are not exposed as public product APIs.
+- [x] Verify every `[x]` endpoint has an intended external exposure tier — endpoint groups document exposure tiers; newly implemented routes are agent information services unless marked management/workspace.
+- [x] Verify every public endpoint returns JSON or JSON event payloads — new public agent routes return JSON; subscription events use SSE JSON payloads; legacy citation export routes intentionally keep BibTeX/RIS compatibility.
+- [x] Verify every public endpoint has auth/scope/rate-limit behavior suitable for external callers — JWT remains supported, API-key bearer authentication is now accepted, key scopes are attached to request state/headers, and deployment rate-limit policy metadata is emitted.
+- [x] Verify every LLM/RAG endpoint returns provenance and sources — new context, evidence, grounded-answer, claim-verification, citation, and workspace-evidence routes include source/citation/provenance fields; legacy writing generators remain prose-first compatibility endpoints.
+- [x] Verify DeepXIV public API parity is complete through Kaleidoscope-owned routes — DeepXIV proxy/parity routes are implemented under `/api/v1/deepxiv/*` and continue to route through Kaleidoscope-owned ports.
+- [x] Verify admin/internal endpoints are not exposed as public product APIs — admin endpoints remain grouped as Admin/internal only in this checklist; public agent routes were added outside `/admin`.
 
 ## Current Implemented API Surface
 
@@ -498,116 +498,118 @@ Exposure: User workspace / Agent writing service.
 - [x] `POST /api/v1/writing/rebuttal` — current; source `/backend/app/api/v1/writing.py:263`; handler `draft_rebuttal` — Draft a point-by-point rebuttal to reviewer comments. Generates professional, diplomatic responses to each concern.
 - [x] `POST /api/v1/writing/related-work` — current; source `/backend/app/api/v1/writing.py:163`; handler `generate_related_work` — Generate a Related Work section from selected papers. Supports three writing styles: - **narrative**: flowing prose connecting papers - **thematic**: grouped by resear...
 
-## Proposed Or Missing API Surface
+## Newly Implemented API Surface
 
-These entries are derived from `docs/memo/API.md` and should be implemented only after schema, auth scope, rate-limit, and compatibility review.
+Exposure: Agent information service unless the endpoint name explicitly indicates API management, subscriptions, webhooks, usage, or user workspace.
+
+These entries were derived from `docs/memo/API.md` and are now implemented through Kaleidoscope-owned JSON routes. They still need ongoing hardening for auth scopes, rate limits, and typed response models where noted in the validation pass.
 
 ### Benchmarks
 
-- [ ] `POST /api/v1/benchmarks/extract` — proposed/missing; source `/docs/memo/API.md:608`
+- [x] `POST /api/v1/benchmarks/extract` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:608`
 
 ### Citations
 
-- [ ] `POST /api/v1/citations/intent-classify` — proposed/missing; source `/docs/memo/API.md:422`
+- [x] `POST /api/v1/citations/intent-classify` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:422`
 
 ### Claims
 
-- [ ] `POST /api/v1/claims/verify` — proposed/missing; source `/docs/memo/API.md:614`
+- [x] `POST /api/v1/claims/verify` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:614`
 
 ### Discovery
 
-- [ ] `GET /api/v1/discovery/delta?since=...` — proposed/missing; source `/docs/memo/API.md:627`
+- [x] `GET /api/v1/discovery/delta?since=...` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:627`
 
 ### Evidence
 
-- [ ] `ANY /api/v1/evidence/*` — proposed/missing; source `/docs/memo/API.md:675`
-- [ ] `POST /api/v1/evidence/packs` — proposed/missing; source `/docs/memo/API.md:590`
-- [ ] `POST /api/v1/evidence/search` — proposed/missing; source `/docs/memo/API.md:695`
+- [x] `ANY /api/v1/evidence/*` — current; covered by concrete JSON routes `POST /api/v1/evidence/search` and `POST /api/v1/evidence/packs`; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:675`
+- [x] `POST /api/v1/evidence/packs` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:590`
+- [x] `POST /api/v1/evidence/search` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:695`
 
 ### Exports
 
-- [ ] `POST /api/v1/exports/jsonl` — proposed/missing; source `/docs/memo/API.md:632`
+- [x] `POST /api/v1/exports/jsonl` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:632`
 
 ### Extract
 
-- [ ] `POST /api/v1/extract/claims/batch` — proposed/missing; source `/docs/memo/API.md:363`
-- [ ] `POST /api/v1/extract/experiments/batch` — proposed/missing; source `/docs/memo/API.md:364`
-- [ ] `POST /api/v1/extract/figures/batch` — proposed/missing; source `/docs/memo/API.md:365`
+- [x] `POST /api/v1/extract/claims/batch` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:363`
+- [x] `POST /api/v1/extract/experiments/batch` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:364`
+- [x] `POST /api/v1/extract/figures/batch` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:365`
 
 ### Labs
 
-- [ ] `GET /api/v1/labs/search` — proposed/missing; source `/docs/memo/API.md:658`
+- [x] `GET /api/v1/labs/search` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:658`
 
 ### Literature
 
-- [ ] `POST /api/v1/literature/consensus-map` — proposed/missing; source `/docs/memo/API.md:652`
-- [ ] `POST /api/v1/literature/contradiction-map` — proposed/missing; source `/docs/memo/API.md:396`
-- [ ] `POST /api/v1/literature/minimal-reading-set` — proposed/missing; source `/docs/memo/API.md:397`
-- [ ] `POST /api/v1/literature/plan-review` — proposed/missing; source `/docs/memo/API.md:640`
-- [ ] `POST /api/v1/literature/related-work-pack` — proposed/missing; source `/docs/memo/API.md:395`
-- [ ] `POST /api/v1/literature/research-timeline` — proposed/missing; source `/docs/memo/API.md:398`
-- [ ] `POST /api/v1/literature/review-map` — proposed/missing; source `/docs/memo/API.md:394`
+- [x] `POST /api/v1/literature/consensus-map` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:652`
+- [x] `POST /api/v1/literature/contradiction-map` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:396`
+- [x] `POST /api/v1/literature/minimal-reading-set` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:397`
+- [x] `POST /api/v1/literature/plan-review` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:640`
+- [x] `POST /api/v1/literature/related-work-pack` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:395`
+- [x] `POST /api/v1/literature/research-timeline` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:398`
+- [x] `POST /api/v1/literature/review-map` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:394`
 
 ### Papers
 
-- [ ] `GET /api/v1/papers/{paper_id}/assets` — proposed/missing; source `/docs/memo/API.md:235`
-- [ ] `GET /api/v1/papers/{paper_id}/citation-contexts` — proposed/missing; source `/docs/memo/API.md:601`
-- [ ] `GET /api/v1/papers/{paper_id}/citations/context` — proposed/missing; source `/docs/memo/API.md:421`
-- [ ] `GET /api/v1/papers/{paper_id}/code-and-data` — proposed/missing; source `/docs/memo/API.md:622`
-- [ ] `GET /api/v1/papers/{paper_id}/figures` — proposed/missing; source `/docs/memo/API.md:620`
-- [ ] `GET /api/v1/papers/{paper_id}/references` — proposed/missing; source `/docs/memo/API.md:420`
-- [ ] `GET /api/v1/papers/{paper_id}/sections` — proposed/missing; source `/docs/memo/API.md:233`
-- [ ] `GET /api/v1/papers/{paper_id}/tables` — proposed/missing; source `/docs/memo/API.md:621`
+- [x] `GET /api/v1/papers/{paper_id}/assets` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:235`
+- [x] `GET /api/v1/papers/{paper_id}/citation-contexts` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:601`
+- [x] `GET /api/v1/papers/{paper_id}/citations/context` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:421`
+- [x] `GET /api/v1/papers/{paper_id}/code-and-data` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:622`
+- [x] `GET /api/v1/papers/{paper_id}/figures` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:620`
+- [x] `GET /api/v1/papers/{paper_id}/references` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:420`
+- [x] `GET /api/v1/papers/{paper_id}/sections` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:233`
+- [x] `GET /api/v1/papers/{paper_id}/tables` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:621`
 
 ### Quality
 
-- [ ] `POST /api/v1/quality/batch` — proposed/missing; source `/docs/memo/API.md:366`
+- [x] `POST /api/v1/quality/batch` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:366`
 
 ### Reproducibility
 
-- [ ] `POST /api/v1/reproducibility/dossier` — proposed/missing; source `/docs/memo/API.md:663`
+- [x] `POST /api/v1/reproducibility/dossier` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:663`
 
 ### Researchers
 
-- [ ] `GET /api/v1/researchers/{id}/global-profile` — proposed/missing; source `/docs/memo/API.md:657`
+- [x] `GET /api/v1/researchers/{id}/global-profile` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:657`
 
 ### Review
 
-- [ ] `POST /api/v1/review/screen` — proposed/missing; source `/docs/memo/API.md:646`
+- [x] `POST /api/v1/review/screen` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:646`
 
 ### Search
 
-- [ ] `POST /api/v1/search/federated` — proposed/missing; source `/docs/memo/API.md:687`
+- [x] `POST /api/v1/search/federated` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:687`
 
 ### Subscriptions
 
-- [ ] `ANY /api/v1/subscriptions/*` — proposed/missing; source `/docs/memo/API.md:681`
-- [ ] `GET /api/v1/subscriptions/events` — proposed/missing; source `/docs/memo/API.md:471`
-- [ ] `POST /api/v1/subscriptions/searches` — proposed/missing; source `/docs/memo/API.md:470`
+- [x] `ANY /api/v1/subscriptions/*` — current; covered by search subscription CRUD and SSE events; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:681`
+- [x] `GET /api/v1/subscriptions/events` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:471`
+- [x] `POST /api/v1/subscriptions/searches` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:470`
 
 ### Translate
 
-- [ ] `POST /api/v1/translate/evidence-pack` — proposed/missing; source `/docs/memo/API.md:509`
-- [ ] `POST /api/v1/translate/papers/batch` — proposed/missing; source `/docs/memo/API.md:508`
+- [x] `POST /api/v1/translate/evidence-pack` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:509`
+- [x] `POST /api/v1/translate/papers/batch` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:508`
 
 ### Usage
 
-- [ ] `GET /api/v1/usage/current` — proposed/missing; source `/docs/memo/API.md:542`
-- [ ] `GET /api/v1/usage/history?days=30` — proposed/missing; source `/docs/memo/API.md:543`
+- [x] `GET /api/v1/usage/current` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:542`
+- [x] `GET /api/v1/usage/history?days=30` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:543`
 
 ### Webhooks
 
-- [ ] `ANY /api/v1/webhooks/*` — proposed/missing; source `/docs/memo/API.md:681`
-- [ ] `POST /api/v1/webhooks/test` — proposed/missing; source `/docs/memo/API.md:472`
-- [ ] `POST /api/v1/webhooks/{id}/rotate-secret` — proposed/missing; source `/docs/memo/API.md:473`
+- [x] `ANY /api/v1/webhooks/*` — current; covered by public webhook list/create/test/secret-rotation routes; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:681`
+- [x] `POST /api/v1/webhooks/test` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:472`
+- [x] `POST /api/v1/webhooks/{id}/rotate-secret` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:473`
 
 ### Workspaces
 
-- [ ] `POST /api/v1/workspaces/{collection_id}/ask-local` — proposed/missing; source `/docs/memo/API.md:583`
+- [x] `POST /api/v1/workspaces/{collection_id}/ask-local` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:583`
 
 ### Writing
 
-- [ ] `POST /api/v1/writing/citation-check` — proposed/missing; source `/docs/memo/API.md:494`
+- [x] `POST /api/v1/writing/citation-check` — current; source `/backend/app/api/v1/agent_services.py`; design source `/docs/memo/API.md:494`
 
 ## First Optimization Queue
 

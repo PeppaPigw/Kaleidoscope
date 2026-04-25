@@ -864,6 +864,12 @@ def test_agent_manifest_exposes_tool_contracts():
     assert manifest["transports"]["rest"]["endpoints"]["call_tool"] == (
         "/api/v1/agent/call"
     )
+    assert manifest["transports"]["rest"]["endpoints"]["evidence_search"] == (
+        "/api/v1/evidence/search"
+    )
+    assert manifest["transports"]["rest"]["endpoints"]["claim_verify"] == (
+        "/api/v1/claims/verify"
+    )
     assert set(tools) == {tool["name"] for tool in TOOLS}
 
     search_tool = tools["search_papers"]
@@ -1312,3 +1318,97 @@ def test_batch_service_rejects_non_object_arguments():
         }
 
     asyncio.run(run_test())
+
+
+def test_agent_information_classifies_citation_intent():
+    from app.services.agent_information_service import AgentInformationService
+
+    result = AgentInformationService.classify_citation_intent(
+        "We compare against this baseline and report stronger benchmark scores."
+    )
+
+    assert result["label"] == "comparison"
+    assert result["confidence"] > 0
+    assert result["scores"]["comparison"] > result["scores"]["background"]
+
+
+def test_agent_information_extracts_benchmark_record():
+    from app.services.agent_information_service import AgentInformationService
+
+    record = AgentInformationService.extract_benchmark_record(
+        {
+            "paper_id": "paper-1",
+            "paper_title": "Benchmark Paper",
+            "text": (
+                "The ResNet baseline is evaluated on ImageNet with accuracy "
+                "of 83.4% using A100 GPU hardware."
+            ),
+        }
+    )
+
+    assert record["signals_found"] is True
+    assert record["datasets"] == ["ImageNet"]
+    assert "accuracy" in record["metrics"]
+    assert "A100" in record["hardware"]
+    assert record["result_values"][0]["value"] == 83.4
+
+
+def test_agent_information_extracts_code_and_data_assets():
+    from app.services.agent_information_service import AgentInformationService
+
+    paper = SimpleNamespace(
+        id=uuid4(),
+        title="Artifact Paper",
+        abstract="",
+        summary="",
+        highlights=[],
+        contributions=[],
+        limitations=[],
+        parsed_sections=None,
+        full_text_markdown=(
+            "Code is available at https://github.com/example/project and data "
+            "at https://zenodo.org/records/123."
+        ),
+        paper_links={
+            "status": "ok",
+            "code_url": "https://github.com/example/project",
+            "dataset_urls": ["https://zenodo.org/records/123"],
+            "project_page_url": "https://example.org/project",
+        },
+    )
+
+    assets = AgentInformationService(SimpleNamespace())._code_and_data_assets(paper)
+
+    assert assets["code_urls"] == ["https://github.com/example/project"]
+    assert assets["dataset_urls"] == ["https://zenodo.org/records/123"]
+    assert assets["project_page_url"] == "https://example.org/project"
+
+
+def test_agent_service_routes_are_registered():
+    from app.main import create_app
+
+    app = create_app()
+    routes = {route.path for route in app.routes}
+
+    expected = {
+        "/api/v1/evidence/search",
+        "/api/v1/evidence/packs",
+        "/api/v1/claims/verify",
+        "/api/v1/benchmarks/extract",
+        "/api/v1/discovery/delta",
+        "/api/v1/exports/jsonl",
+        "/api/v1/search/federated",
+        "/api/v1/writing/citation-check",
+    }
+    assert expected <= routes
+
+
+def test_get_current_user_id_prefers_api_key_middleware_state(monkeypatch):
+    from app import auth
+    from app.dependencies import get_current_user_id
+
+    request = _request()
+    request.state.user_id = "api-user-1"
+    monkeypatch.setattr(auth, "JWT_SECRET", "configured-secret")
+
+    assert get_current_user_id(request) == "api-user-1"

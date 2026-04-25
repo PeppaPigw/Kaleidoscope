@@ -44,9 +44,9 @@ The backend is already a substantial FastAPI API server:
 
 | Tier                      | Audience                              | Examples                                                                                  | Auth                       | Notes                                                                  |
 | ------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------- |
-| Public discovery          | unauthenticated or low-scope API keys | health, DeepXIV free paper reads, public search previews, OpenAlex graph previews         | optional API key           | Rate-limit aggressively; never expose private library data by default. |
-| Agent information service | downstream agents and apps            | paper resolution, search, content, evidence, summaries, QA, citation graph, analysis JSON | API key or JWT             | This should be the main commercial/stable API tier.                    |
-| User workspace API        | logged-in users and first-party UI    | collections, reading status, annotations, writing docs, alerts                            | JWT/API key scoped to user | Keep user-owned state private.                                         |
+| Public discovery          | low-scope API keys                    | OpenAPI schema, health, DeepXIV free paper reads, public search previews, OpenAlex graph previews         | API key required           | Rate-limit aggressively; never expose private library data by default. |
+| Agent information service | downstream agents and apps            | paper resolution, search, content, evidence, summaries, QA, citation graph, analysis JSON | API key required           | This should be the main commercial/stable API tier.                    |
+| User workspace API        | logged-in users and first-party UI    | collections, reading status, annotations, writing docs, alerts                            | API key + JWT/user scope   | Keep user-owned state private.                                         |
 | Admin/internal API        | operators                             | reprocess, cost stats, sync triggers, benchmark reset, retraction batch scans             | admin-only                 | Do not expose as public product endpoints.                             |
 
 ## Core JSON Contract
@@ -728,8 +728,8 @@ stronger as a downstream-agent information platform.
 
 ## Deployment Readiness Checklist
 
-- Replace default admin credentials and require JWT/API keys in production.
-- Add scoped API keys and per-key quotas.
+- Replace default admin credentials and replace the development API key (`sk-kaleidoscope`) before production.
+- Add scoped API keys and per-key quotas for all externally reachable APIs.
 - Add request IDs and structured access logs for all public endpoints.
 - Add response caching for DeepXIV, OpenAlex, Semantic Scholar, CrossRef, search, and
   trend endpoints.

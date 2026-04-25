@@ -1,3 +1,5 @@
+import { withKaleidoscopeApiKeyQuery } from "../utils/apiKey";
+
 /**
  * useAlertStream — Subscribe to real-time alert event stream.
  */
@@ -49,7 +51,9 @@ export function useAlertStream() {
   function connect() {
     if (!import.meta.client || eventSource) return;
     const apiUrl = (useRuntimeConfig().public.apiUrl as string) || "";
-    eventSource = new EventSource(`${apiUrl}/api/v1/sse`);
+    eventSource = new EventSource(
+      withKaleidoscopeApiKeyQuery(`${apiUrl}/api/v1/sse`),
+    );
     eventSource.onopen = () => {
       isConnected.value = true;
     };

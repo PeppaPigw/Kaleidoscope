@@ -139,7 +139,7 @@ describe("useUserPreferences", () => {
           },
           interests_set: true,
         },
-        headers: {},
+        headers: { "X-API-Key": "sk-kaleidoscope" },
       }),
     );
     expect(preferences.value).toEqual({

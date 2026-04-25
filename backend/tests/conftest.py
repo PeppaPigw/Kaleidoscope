@@ -2,13 +2,12 @@
 
 import sys
 from pathlib import Path
-
-pytest_plugins = ("pytest_asyncio.plugin",)
-
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+
+pytest_plugins = ("pytest_asyncio.plugin",)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -16,10 +15,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 @pytest_asyncio.fixture
-async def async_client():
+async def async_client(monkeypatch):
     """HTTP client with a minimal mocked DB for route smoke tests."""
+    from app.config import settings
     from app.dependencies import get_db
     from app.main import app
+
+    monkeypatch.setattr(settings, "admin_username", "test")
+    monkeypatch.setattr(settings, "admin_password", "test")
 
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = []
@@ -37,6 +40,7 @@ async def async_client():
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             yield client
     finally:

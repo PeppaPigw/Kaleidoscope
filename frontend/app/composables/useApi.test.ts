@@ -52,7 +52,10 @@ describe("useApi.searchPapers", () => {
     expect(requestUrl.searchParams.get("per_page")).toBe("40");
     expect(options).toEqual(
       expect.objectContaining({
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
     expect(result).toEqual(response);
@@ -102,7 +105,10 @@ describe("useApi.listRecentPapers", () => {
     expect(requestUrl.searchParams.get("order")).toBe("desc");
     expect(options).toEqual(
       expect.objectContaining({
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
     expect(result).toEqual([
@@ -148,7 +154,10 @@ describe("useApi.collections", () => {
     expect(new URL(url as string).pathname).toBe("/api/v1/collections");
     expect(options).toEqual(
       expect.objectContaining({
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
     expect(result).toEqual(response);
@@ -199,7 +208,10 @@ describe("useApi.collections", () => {
           name: "New Workspace",
           description: "Created from modal",
         },
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
     expect(result).toEqual(response);
@@ -421,7 +433,10 @@ describe("useApi.writing", () => {
     );
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
 
@@ -431,7 +446,10 @@ describe("useApi.writing", () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
 
@@ -445,7 +463,10 @@ describe("useApi.writing", () => {
           title: "Draft One",
           markdown_content: "# Draft One",
         },
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
 
@@ -455,7 +476,10 @@ describe("useApi.writing", () => {
     expect(fetchMock.mock.calls[3]?.[1]).toEqual(
       expect.objectContaining({
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "sk-kaleidoscope",
+        },
       }),
     );
 
@@ -482,7 +506,7 @@ describe("useApi.writing", () => {
       }),
     );
     expect(options?.body).toBeInstanceOf(FormData);
-    expect(options?.headers).toEqual({});
+    expect(options?.headers).toEqual({ "X-API-Key": "sk-kaleidoscope" });
     expect(result.url).toBe(
       "https://img.example.com/writing/user-1/figure.png",
     );

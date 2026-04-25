@@ -95,6 +95,7 @@ PID = "00000000-0000-0000-0000-000000000001"
 PAPER = f"/api/v1/papers/{PID}"
 PAPER_BODY = {"paper_ids": [PID]}
 LIT_BODY = {"topic": "retrieval", "limit": 3}
+API_KEY_HEADERS = {"X-API-Key": "sk-kaleidoscope"}
 
 SMOKE_CASES: tuple[SmokeCase, ...] = (
     SmokeCase("POST", "/api/v1/evidence/search", {"query": "ImageNet accuracy"}),
@@ -190,7 +191,7 @@ def is_json_response(response: Any) -> bool:
 
 
 def run_case(client: TestClient, case: SmokeCase) -> dict[str, Any]:
-    response = client.request(case.method, case.path, json=case.json_body)
+    response = client.request(case.method, case.path, json=case.json_body, headers=API_KEY_HEADERS)
     ok = response.status_code in case.expected_statuses and is_json_response(response)
     return {
         "method": case.method,

@@ -16,6 +16,7 @@ def test_health_check_includes_service_metadata():
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             return await client.get("/health")
 
@@ -58,6 +59,7 @@ def test_get_import_status_returns_current_paper_state():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}/import-status")
 
@@ -110,6 +112,7 @@ def test_get_paper_content_tolerates_legacy_figures_dict():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}/content")
 
@@ -165,6 +168,7 @@ def test_get_paper_labels_rejects_stale_empty_payloads():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}/labels")
 
@@ -206,6 +210,7 @@ def test_get_deep_analysis_rejects_empty_prompt_artifacts():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}/deep-analysis")
 

@@ -1,5 +1,6 @@
 """Application settings via pydantic-settings, loaded from backend/.env."""
 
+import json
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -121,6 +122,19 @@ class Settings(BaseSettings):
     admin_username: str = Field(default="admin")
     admin_password: str = Field(default="kaleidoscope")
 
+    # --- External API auth ---
+    external_api_key_required: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "KALEIDOSCOPE_REQUIRE_API_KEY",
+            "EXTERNAL_API_KEY_REQUIRED",
+        ),
+    )
+    external_api_keys: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["sk-kaleidoscope"],
+        validation_alias=AliasChoices("KALEIDOSCOPE_API_KEYS", "EXTERNAL_API_KEYS"),
+    )
+
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: Any) -> Any:
@@ -130,6 +144,24 @@ class Settings(BaseSettings):
                 return ["*"]
             if raw.startswith("["):
                 return raw
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        return value
+
+    @field_validator("external_api_keys", mode="before")
+    @classmethod
+    def parse_external_api_keys(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    return [raw]
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
+                return [raw]
             return [item.strip() for item in raw.split(",") if item.strip()]
         return value
 

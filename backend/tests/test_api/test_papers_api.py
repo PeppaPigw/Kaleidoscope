@@ -17,6 +17,7 @@ def test_health_check():
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             return await client.get("/health")
 
@@ -46,6 +47,7 @@ def test_list_papers_empty():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get("/api/v1/papers")
 
@@ -82,6 +84,7 @@ def test_get_paper_not_found():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}")
 
@@ -137,6 +140,7 @@ def test_get_paper_includes_venue_and_raw_metadata():
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 return await client.get(f"/api/v1/papers/{paper_id}")
 
@@ -171,7 +175,9 @@ def test_intelligence_summarize_not_found():
         try:
             paper_id = str(uuid4())
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+                headers={"X-API-Key": "sk-kaleidoscope"},
             ) as client:
                 response = await client.post(
                     f"/api/v1/intelligence/papers/{paper_id}/summarize"

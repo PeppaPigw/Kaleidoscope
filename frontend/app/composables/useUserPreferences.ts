@@ -1,3 +1,5 @@
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
+
 /**
  * useUserPreferences — singleton composable for managing user preferences.
  *
@@ -80,10 +82,12 @@ export function useUserPreferences() {
     if (import.meta.client) {
       const token = localStorage.getItem("ks_access_token");
       if (token && token !== "single-user-mode") {
-        return { Authorization: `Bearer ${token}` };
+        return withKaleidoscopeApiKeyHeaders({
+          Authorization: `Bearer ${token}`,
+        });
       }
     }
-    return {};
+    return withKaleidoscopeApiKeyHeaders();
   }
 
   async function loadPreferences(): Promise<UserPreferences> {

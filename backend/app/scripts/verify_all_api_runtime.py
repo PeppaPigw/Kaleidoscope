@@ -27,6 +27,7 @@ DOI = "10.1000/smoke-test"
 OPENALEX_ID = "W2741809807"
 PMCID = "PMC7339034"
 BASE_TIMEOUT = httpx.Timeout(connect=3.0, read=8.0, write=8.0, pool=3.0)
+DEFAULT_API_KEY = "sk-kaleidoscope"
 STREAMING_PATHS = {"/api/v1/sse", "/api/v1/subscriptions/events"}
 
 SAFE_4XX = {400, 401, 403, 404, 405, 409, 410, 415, 422, 424, 429}
@@ -406,9 +407,16 @@ class OpenAPISampler:
         return body
 
 
-def fetch_openapi(base_url: str) -> dict[str, Any]:
+def api_key_headers(api_key: str) -> dict[str, str]:
+    return {"X-API-Key": api_key} if api_key else {}
+
+
+def fetch_openapi(base_url: str, api_key: str) -> dict[str, Any]:
     with httpx.Client(timeout=BASE_TIMEOUT) as client:
-        response = client.get(f"{base_url.rstrip('/')}/api/openapi.json")
+        response = client.get(
+            f"{base_url.rstrip('/')}/api/openapi.json",
+            headers=api_key_headers(api_key),
+        )
         response.raise_for_status()
         return response.json()
 
@@ -451,8 +459,10 @@ def request_operation(
     base_url: str,
     sampler: OpenAPISampler,
     operation: ApiOperation,
+    api_key: str,
 ) -> ApiResult:
     built = sampler.build_request(operation)
+    built["headers"] = {**api_key_headers(api_key), **built["headers"]}
     url = f"{base_url.rstrip('/')}{built['path']}"
     started = datetime.now(tz=UTC)
     try:
@@ -520,11 +530,11 @@ def request_operation(
         )
 
 
-def verify_health(client: httpx.Client, base_url: str) -> ApiResult:
+def verify_health(client: httpx.Client, base_url: str, api_key: str) -> ApiResult:
     url = f"{base_url.rstrip('/')}/health"
     started = datetime.now(tz=UTC)
     try:
-        response = client.get(url)
+        response = client.get(url, headers=api_key_headers(api_key))
         elapsed = (datetime.now(tz=UTC) - started).total_seconds() * 1000
         ok, category = accepted_response(response)
         return ApiResult(
@@ -623,19 +633,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--out", default="docs/memo/full-api-runtime-report.md")
     parser.add_argument("--json-out", default="docs/memo/full-api-runtime-report.json")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     base_url = args.base_url.rstrip("/")
-    openapi = fetch_openapi(base_url)
+    openapi = fetch_openapi(base_url, args.api_key)
     operations = iter_operations(openapi)
     sampler = OpenAPISampler(openapi)
     results: list[ApiResult] = []
     with httpx.Client(timeout=BASE_TIMEOUT) as client:
         for index, operation in enumerate(operations, 1):
-            result = request_operation(client, base_url, sampler, operation)
+            result = request_operation(client, base_url, sampler, operation, args.api_key)
             results.append(result)
             status = result.status if result.status is not None else "ERR"
             marker = "OK" if result.ok else "FAIL"
@@ -643,7 +654,7 @@ def main() -> int:
                 f"[{index:03d}/{len(operations)}] {marker} "
                 f"{operation.method} {operation.path} -> {status}"
             )
-        health_result = verify_health(client, base_url)
+        health_result = verify_health(client, base_url, args.api_key)
         results.append(health_result)
         status = health_result.status if health_result.status is not None else "ERR"
         marker = "OK" if health_result.ok else "FAIL"

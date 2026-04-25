@@ -56,6 +56,7 @@ async def test_search_browse_returns_discovery_feed():
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.get("/api/v1/search/browse?limit=2")
 
@@ -114,6 +115,7 @@ async def test_similar_papers_response_is_wrapped_and_renamed(monkeypatch):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.get(
                 f"/api/v1/intelligence/papers/{uuid4()}/similar?top_k=3"
@@ -162,6 +164,7 @@ async def test_analysis_missing_paper_becomes_404(monkeypatch):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 f"/api/v1/analysis/papers/{uuid4()}/innovation"
@@ -198,6 +201,7 @@ async def test_writing_service_failures_become_502(monkeypatch):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 "/api/v1/writing/related-work",
@@ -239,6 +243,7 @@ async def test_cross_paper_embedded_errors_become_http_404(monkeypatch):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 "/api/v1/cross-paper/synthesize",

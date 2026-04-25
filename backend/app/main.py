@@ -1,6 +1,7 @@
 """FastAPI application factory with middleware, exception handlers, and router registration."""
 
 import asyncio
+import secrets
 import time as _time
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -14,6 +15,7 @@ from fastapi.exceptions import (
     RequestValidationError,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from app.config import settings
@@ -27,15 +29,86 @@ from app.exceptions import (
 logger = structlog.get_logger(__name__)
 
 
-async def _authenticate_api_key_request(request: Request) -> JSONResponse | None:
-    """Authenticate Bearer API keys and attach principal metadata to request.state."""
+API_KEY_HEADER_NAMES = ("X-API-Key", "X-Kaleidoscope-API-Key")
+API_KEY_PROTECTED_PREFIXES = ("/api/v1",)
+API_KEY_PROTECTED_PATHS = ("/api/openapi.json", "/health", "/health/services")
+
+
+def _api_key_error(status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"code": code, "message": message},
+        headers={"WWW-Authenticate": 'ApiKey realm="Kaleidoscope"'},
+    )
+
+
+def _is_api_key_protected_request(request: Request) -> bool:
+    if request.method == "OPTIONS":
+        return False
+    path = request.url.path.rstrip("/") or "/"
+    if path in API_KEY_PROTECTED_PATHS:
+        return True
+    return any(
+        path == prefix or path.startswith(f"{prefix}/")
+        for prefix in API_KEY_PROTECTED_PREFIXES
+    )
+
+
+def _extract_api_key_token(request: Request) -> str | None:
+    for header_name in API_KEY_HEADER_NAMES:
+        value = request.headers.get(header_name)
+        if value and value.strip():
+            return value.strip()
+
     auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
+    scheme, _, credentials = auth_header.partition(" ")
+    if scheme.lower() == "bearer" and credentials.strip():
+        return credentials.strip()
+
+    query_key = request.query_params.get("api_key")
+    if query_key and query_key.strip():
+        return query_key.strip()
+    return None
+
+
+def _matches_configured_api_key(token: str) -> bool:
+    return any(
+        secrets.compare_digest(token, configured_key)
+        for configured_key in settings.external_api_keys
+        if configured_key
+    )
+
+
+async def _authenticate_api_key_request(request: Request) -> JSONResponse | None:
+    """Require API keys for externally exposed API paths."""
+    if (
+        not settings.external_api_key_required
+        or not _is_api_key_protected_request(request)
+    ):
         return None
 
-    token = auth_header[len("Bearer ") :].strip()
-    if not token.startswith("ks_live_"):
+    token = _extract_api_key_token(request)
+    if token is None:
+        return _api_key_error(
+            401,
+            "API_KEY_REQUIRED",
+            "API key required. Send X-API-Key or Authorization: Bearer.",
+        )
+
+    if _matches_configured_api_key(token):
+        from app.models.collection import DEFAULT_USER_ID
+
+        request.state.user_id = DEFAULT_USER_ID
+        request.state.api_key_id = "configured"
+        request.state.api_key_scopes = ["*"]
         return None
+
+    if not token.startswith("ks_live_"):
+        return _api_key_error(
+            401,
+            "INVALID_API_KEY",
+            "Invalid, revoked, or expired API key.",
+        )
 
     from sqlalchemy import select
 
@@ -57,12 +130,10 @@ async def _authenticate_api_key_request(request: Request) -> JSONResponse | None
         if expires_at is not None and expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=UTC)
         if api_key is None or (expires_at is not None and expires_at <= now):
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "code": "INVALID_API_KEY",
-                    "message": "Invalid, revoked, or expired API key.",
-                },
+            return _api_key_error(
+                401,
+                "INVALID_API_KEY",
+                "Invalid, revoked, or expired API key.",
             )
 
         api_key.last_used_at = now
@@ -1070,6 +1141,44 @@ def create_app() -> FastAPI:
         results["grobid"] = "ok" if await grobid.is_alive() else "unavailable"
 
         return {"services": results}
+
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        components = openapi_schema.setdefault("components", {})
+        security_schemes = components.setdefault("securitySchemes", {})
+        security_schemes.setdefault(
+            "ApiKeyHeader",
+            {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+        )
+        security_schemes.setdefault(
+            "BearerApiKey",
+            {"type": "http", "scheme": "bearer"},
+        )
+        for path, path_item in openapi_schema.get("paths", {}).items():
+            normalized_path = path.rstrip("/") or "/"
+            is_protected = normalized_path in API_KEY_PROTECTED_PATHS or any(
+                normalized_path == prefix or normalized_path.startswith(f"{prefix}/")
+                for prefix in API_KEY_PROTECTED_PREFIXES
+            )
+            if not is_protected:
+                continue
+            for method_spec in path_item.values():
+                if isinstance(method_spec, dict):
+                    method_spec.setdefault(
+                        "security",
+                        [{"ApiKeyHeader": []}, {"BearerApiKey": []}],
+                    )
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
 
     logger.info("app_created", app_name=settings.app_name)
     return app

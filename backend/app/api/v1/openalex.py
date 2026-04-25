@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import structlog
 import httpx
-
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +28,17 @@ def _user_agent() -> str:
     email = settings.openalex_email
     contact = f" (mailto:{email})" if email else ""
     return f"Kaleidoscope/1.0{contact}"
+
+
+def _openalex_dependency_error(exc: httpx.HTTPError) -> HTTPException:
+    return HTTPException(
+        status_code=424,
+        detail={
+            "code": "OPENALEX_REQUEST_FAILED",
+            "message": "OpenAlex request failed.",
+            "upstream_error": str(exc)[:240],
+        },
+    )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -169,17 +179,21 @@ async def openalex_search(
     # Fetch up to 2× limit so trimming to top-N by similarity is meaningful
     fetch_n = min(limit * 2, settings.openalex_search_max * 2)
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(
-            _api_url("/works"),
-            params={
-                "search": q,
-                "per-page": fetch_n,
-                "select": _SELECT_FIELDS,
-                "sort": "relevance_score:desc",
-            },
-            headers={"User-Agent": _user_agent()},
-        )
-        resp.raise_for_status()
+        try:
+            resp = await client.get(
+                _api_url("/works"),
+                params={
+                    "search": q,
+                    "per-page": fetch_n,
+                    "select": _SELECT_FIELDS,
+                    "sort": "relevance_score:desc",
+                },
+                headers={"User-Agent": _user_agent()},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("openalex_search_failed", error=str(exc)[:240])
+            raise _openalex_dependency_error(exc) from exc
 
     raw_results = resp.json().get("results", [])
     papers = [_extract_paper(w) for w in raw_results if w.get("id")]
@@ -277,16 +291,20 @@ async def build_citation_graph(body: GraphRequest, db: AsyncSession = Depends(ge
     # ── Step 1: Fetch origin papers ───────────────────────────────────────────
     filter_origin = "|".join(paper_ids)
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(
-            _api_url("/works"),
-            params={
-                "filter": f"openalex_id:{filter_origin}",
-                "per-page": 50,
-                "select": _SELECT_FIELDS,
-            },
-            headers={"User-Agent": _user_agent()},
-        )
-        resp.raise_for_status()
+        try:
+            resp = await client.get(
+                _api_url("/works"),
+                params={
+                    "filter": f"openalex_id:{filter_origin}",
+                    "per-page": 50,
+                    "select": _SELECT_FIELDS,
+                },
+                headers={"User-Agent": _user_agent()},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("openalex_graph_origin_failed", error=str(exc)[:240])
+            raise _openalex_dependency_error(exc) from exc
 
     origin_works = resp.json().get("results", [])
     # raw_id → raw work dict (needed to iterate referenced_works for edge building)
@@ -320,16 +338,21 @@ async def build_citation_graph(body: GraphRequest, db: AsyncSession = Depends(ge
     if ref_ids_list:
         filter_refs = "|".join(ref_ids_list)
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp2 = await client.get(
-                _api_url("/works"),
-                params={
-                    "filter": f"openalex_id:{filter_refs}",
-                    "per-page": 50,
-                    "select": _SELECT_FIELDS,
-                },
-                headers={"User-Agent": _user_agent()},
-            )
-            if resp2.status_code == 200:
+            try:
+                resp2 = await client.get(
+                    _api_url("/works"),
+                    params={
+                        "filter": f"openalex_id:{filter_refs}",
+                        "per-page": 50,
+                        "select": _SELECT_FIELDS,
+                    },
+                    headers={"User-Agent": _user_agent()},
+                )
+                resp2.raise_for_status()
+            except httpx.HTTPError as exc:
+                logger.warning("openalex_graph_refs_failed", error=str(exc)[:240])
+                resp2 = None
+            if resp2 is not None:
                 for w in resp2.json().get("results", []):
                     p = _extract_paper(w)
                     ref_papers[p["openalex_id"]] = p

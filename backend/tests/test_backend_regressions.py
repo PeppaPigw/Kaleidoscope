@@ -1412,3 +1412,75 @@ def test_get_current_user_id_prefers_api_key_middleware_state(monkeypatch):
     monkeypatch.setattr(auth, "JWT_SECRET", "configured-secret")
 
     assert get_current_user_id(request) == "api-user-1"
+
+
+def test_external_api_requires_api_key_header():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "API_KEY_REQUIRED"
+
+
+def test_external_api_accepts_default_api_key_header():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"X-API-Key": "sk-kaleidoscope"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["X-API-Key-Scopes"] == "*"
+    assert response.json()["user_id"]
+
+
+def test_openapi_schema_requires_api_key_header():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        missing = client.get("/api/openapi.json")
+        keyed = client.get(
+            "/api/openapi.json",
+            headers={"X-API-Key": "sk-kaleidoscope"},
+        )
+
+    assert missing.status_code == 401
+    assert missing.json()["code"] == "API_KEY_REQUIRED"
+    assert keyed.status_code == 200
+    assert keyed.json()["components"]["securitySchemes"]["ApiKeyHeader"]
+
+
+def test_external_api_rejects_invalid_api_key_header():
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"X-API-Key": "sk-wrong"},
+        )
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_API_KEY"
+
+
+def test_openalex_dependency_error_is_handled_4xx():
+    import httpx
+
+    from app.api.v1.openalex import _openalex_dependency_error
+
+    exc = _openalex_dependency_error(httpx.TimeoutException("upstream timeout"))
+
+    assert exc.status_code == 424
+    assert exc.detail["code"] == "OPENALEX_REQUEST_FAILED"

@@ -1,3 +1,5 @@
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
+
 /**
  * useApi — typed, reactive wrapper around Kaleidoscope backend.
  *
@@ -582,12 +584,12 @@ export function useApi() {
       : null;
     const isFormDataBody =
       typeof FormData !== "undefined" && options.body instanceof FormData;
-    const baseHeaders: Record<string, string> = {
+    const baseHeaders: Record<string, string> = withKaleidoscopeApiKeyHeaders({
       ...(token && token !== "single-user-mode"
         ? { Authorization: `Bearer ${token}` }
         : {}),
       ...((options.headers as Record<string, string> | undefined) ?? {}),
-    };
+    });
     const headers = isFormDataBody
       ? baseHeaders
       : { "Content-Type": "application/json", ...baseHeaders };
@@ -601,7 +603,13 @@ export function useApi() {
     path: string,
     options: Parameters<typeof $fetch>[1] = {},
   ): Promise<T> {
-    return $fetch<T>(`${config.public.apiUrl}${path}`, options);
+    const headers = withKaleidoscopeApiKeyHeaders(
+      (options.headers as Record<string, string> | undefined) ?? {},
+    );
+    return $fetch<T>(`${config.public.apiUrl}${path}`, {
+      ...options,
+      headers,
+    });
   }
 
   // ── Papers ──────────────────────────────────────────────────

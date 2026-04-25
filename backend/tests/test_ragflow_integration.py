@@ -142,6 +142,7 @@ async def test_workspace_ask_disabled_uses_local_rag(monkeypatch: pytest.MonkeyP
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 f"/api/v1/workspaces/{collection_id}/ask",
@@ -220,6 +221,7 @@ async def test_workspace_evidence_disabled_uses_local_rag(
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.get(
                 f"/api/v1/workspaces/{collection_id}/evidence",
@@ -291,6 +293,7 @@ async def test_workspace_ask_degraded_on_httpx_error(monkeypatch: pytest.MonkeyP
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 f"/api/v1/workspaces/{collection_id}/ask",
@@ -399,6 +402,7 @@ async def test_workspace_ask_disabled_requires_collection_before_local_fallback(
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"X-API-Key": "sk-kaleidoscope"},
         ) as client:
             response = await client.post(
                 f"/api/v1/workspaces/{collection_id}/ask",
@@ -435,6 +439,7 @@ async def test_sync_status_endpoint():
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
+        headers={"X-API-Key": "sk-kaleidoscope"},
     ) as client:
         response = await client.get("/api/v1/ragflow/sync/status")
 

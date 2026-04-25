@@ -1,3 +1,5 @@
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
+
 /**
  * usePaperQA — reactive Paper QA composable.
  *
@@ -165,9 +167,9 @@ export function usePaperQA(paperId: Ref<string>) {
       const token = import.meta.client
         ? localStorage.getItem("ks_access_token")
         : null;
-      const headers: Record<string, string> = {
+      const headers: Record<string, string> = withKaleidoscopeApiKeyHeaders({
         "Content-Type": "application/json",
-      };
+      });
       if (token && token !== "single-user-mode") {
         headers["Authorization"] = `Bearer ${token}`;
       }

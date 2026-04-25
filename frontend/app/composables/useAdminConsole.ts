@@ -1,3 +1,5 @@
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
+
 export type AdminMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type AdminProbeStatus = "idle" | "ok" | "warning" | "error";
 type AdminProbeMode = "safe" | "manual" | "mutating" | "stream";
@@ -756,7 +758,7 @@ export function useAdminConsole() {
       }
     }
 
-    return headers;
+    return withKaleidoscopeApiKeyHeaders(headers);
   }
 
   async function requestRaw(

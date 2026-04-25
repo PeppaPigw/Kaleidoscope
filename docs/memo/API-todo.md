@@ -10,8 +10,8 @@ Legend:
 
 Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `docs/memo/API.md`.
 
-- Current explicit endpoints: 258
-- Proposed/missing endpoint entries from `docs/memo/API.md`: 50
+- Current explicit endpoints: 264
+- Proposed/missing endpoint entries from `docs/memo/API.md`: 44
 
 ## Immediate Validation Pass
 
@@ -39,10 +39,31 @@ Exposure: Admin/internal only.
 
 Exposure: Agent information service.
 
-- [x] `GET /api/v1/agent/manifest` — current; source `/backend/app/api/v1/agent.py:47`; handler `get_agent_manifest` — Return an agent-friendly JSON manifest with service metadata, tool input/output schemas, intended scopes, cost tiers, limits, DeepXIV proxy metadata, and examples.
-- [x] `POST /api/v1/agent/batch` — current; source `/backend/app/api/v1/agent.py:87`; handler `batch_tool_calls` — Execute multiple tool calls in sequence. Useful for agents that need to gather information from multiple sources in a single request.
-- [x] `POST /api/v1/agent/call` — current; source `/backend/app/api/v1/agent.py:65`; handler `call_tool` — Execute a single tool call. The agent specifies a tool name and arguments, and receives structured results.
-- [x] `GET /api/v1/agent/tools` — current; source `/backend/app/api/v1/agent.py:53`; handler `list_tools` — List all available tools. Returns the tool registry with names, descriptions, and parameter schemas. AI agents use this to discover available capabilities.
+- [x] `GET /api/v1/agent/manifest` — current; source `/backend/app/api/v1/agent.py:60`; handler `get_agent_manifest` — Return an agent-friendly JSON manifest with service metadata, tool input/output schemas, intended scopes, cost tiers, limits, DeepXIV proxy metadata, and examples.
+- [x] `POST /api/v1/agent/context-pack` — current; source `/backend/app/api/v1/agent.py:80`; handler `build_context_pack` — Return compressed, cited JSON context optimized for downstream agent token budgets, using local paper metadata, summaries, analysis snippets, collection scopes, and optional evidence chunks.
+- [x] `POST /api/v1/agent/batch` — current; source `/backend/app/api/v1/agent.py:115`; handler `batch_tool_calls` — Execute multiple tool calls in sequence. Useful for agents that need to gather information from multiple sources in a single request.
+- [x] `POST /api/v1/agent/call` — current; source `/backend/app/api/v1/agent.py:97`; handler `call_tool` — Execute a single tool call. The agent specifies a tool name and arguments, and receives structured results.
+- [x] `GET /api/v1/agent/tools` — current; source `/backend/app/api/v1/agent.py:66`; handler `list_tools` — List all available tools. Returns the tool registry with names, descriptions, and parameter schemas. AI agents use this to discover available capabilities.
+
+### Answers
+
+Exposure: Agent information service.
+
+- [x] `POST /api/v1/answers/grounded` — current; source `/backend/app/api/v1/answers.py:27`; handler `grounded_answer` — Produce a non-streaming cited answer from supplied evidence or evidence packs, returning citation anchors and grounding diagnostics as JSON.
+
+### Api Keys
+
+Exposure: API management / User workspace.
+
+- [x] `GET /api/v1/api-keys` — current; source `/backend/app/api/v1/api_keys.py:48`; handler `list_api_keys` — List redacted API keys for the current user, including scopes, lifecycle timestamps, revocation state, and valid scope vocabulary without exposing raw secrets.
+- [x] `POST /api/v1/api-keys` — current; source `/backend/app/api/v1/api_keys.py:30`; handler `create_api_key` — Create a scoped API key, store only its SHA-256 hash, and return the raw secret exactly once.
+- [x] `DELETE /api/v1/api-keys/{key_id}` — current; source `/backend/app/api/v1/api_keys.py:59`; handler `revoke_api_key` — Soft-revoke a user-owned API key by setting `revoked_at`, preserving auditability while preventing reuse.
+
+### Batch
+
+Exposure: Agent information service.
+
+- [x] `POST /api/v1/batch` — current; source `/backend/app/api/v1/batch.py:34`; handler `execute_batch` — Execute up to 20 independent, allowlisted agent-safe operations (`agent.tool`, `resolve`, `context_pack`, `grounded_answer`) and return ordered JSON results.
 
 ### Alerts
 
@@ -480,24 +501,6 @@ Exposure: User workspace / Agent writing service.
 ## Proposed Or Missing API Surface
 
 These entries are derived from `docs/memo/API.md` and should be implemented only after schema, auth scope, rate-limit, and compatibility review.
-
-### Agent
-
-- [ ] `POST /api/v1/agent/context-pack` — proposed/missing; source `/docs/memo/API.md:596`
-
-### Answers
-
-- [ ] `POST /api/v1/answers/grounded` — proposed/missing; source `/docs/memo/API.md:326`
-
-### Api Keys
-
-- [ ] `GET /api/v1/api-keys` — proposed/missing; source `/docs/memo/API.md:535`
-- [ ] `POST /api/v1/api-keys` — proposed/missing; source `/docs/memo/API.md:534`
-- [ ] `DELETE /api/v1/api-keys/{key_id}` — proposed/missing; source `/docs/memo/API.md:536`
-
-### Batch
-
-- [ ] `POST /api/v1/batch` — proposed/missing; source `/docs/memo/API.md:576`
 
 ### Benchmarks
 

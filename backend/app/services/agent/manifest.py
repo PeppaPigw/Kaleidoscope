@@ -275,6 +275,7 @@ def build_agent_manifest(api_base_path: str = "/api/v1") -> dict[str, Any]:
                 "endpoints": {
                     "manifest": f"{api_base_path}/agent/manifest",
                     "list_tools": f"{api_base_path}/agent/tools",
+                    "context_pack": f"{api_base_path}/agent/context-pack",
                     "call_tool": f"{api_base_path}/agent/call",
                     "batch_call": f"{api_base_path}/agent/batch",
                 },

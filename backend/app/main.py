@@ -838,7 +838,10 @@ def create_app() -> FastAPI:
     from app.api.v1.agent import router as agent_router
     from app.api.v1.alerts import router as alerts_router
     from app.api.v1.analysis import router as analysis_router
+    from app.api.v1.answers import router as answers_router
+    from app.api.v1.api_keys import router as api_keys_router
     from app.api.v1.auth import router as auth_router
+    from app.api.v1.batch import router as batch_router
 
     # P3 routers
     from app.api.v1.claims import router as claims_router
@@ -876,6 +879,8 @@ def create_app() -> FastAPI:
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(api_keys_router, prefix="/api/v1")
+    app.include_router(answers_router, prefix="/api/v1")
     app.include_router(resolve_router, prefix="/api/v1")
     app.include_router(filters_router, prefix="/api/v1")
     app.include_router(local_pdf_router, prefix="/api/v1")
@@ -886,6 +891,7 @@ def create_app() -> FastAPI:
     app.include_router(writing_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(batch_router, prefix="/api/v1")
     # P3 routers
     app.include_router(claims_router, prefix="/api/v1")
     app.include_router(cross_paper_router, prefix="/api/v1")

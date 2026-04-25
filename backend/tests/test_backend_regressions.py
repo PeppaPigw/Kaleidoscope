@@ -858,6 +858,9 @@ def test_agent_manifest_exposes_tool_contracts():
 
     assert manifest["schema_version"] == "1.0.0"
     assert manifest["service"]["base_path"] == "/api/v1"
+    assert manifest["transports"]["rest"]["endpoints"]["context_pack"] == (
+        "/api/v1/agent/context-pack"
+    )
     assert manifest["transports"]["rest"]["endpoints"]["call_tool"] == (
         "/api/v1/agent/call"
     )
@@ -1047,3 +1050,265 @@ def test_job_service_lists_entity_jobs_with_tracking_warning():
         "tracking": "celery_result_backend_only",
         "warning": "No durable entity-to-job index is available yet.",
     }
+
+
+def test_agent_context_pack_builds_compressed_cited_json():
+    from app.services.agent.context_pack import AgentContextPackService
+
+    paper_id = uuid4()
+    paper = SimpleNamespace(
+        id=paper_id,
+        title="Context Paper",
+        doi="10.1000/context",
+        arxiv_id="2401.00001",
+        pmid=None,
+        openalex_id="W123",
+        semantic_scholar_id="s2-123",
+        published_at=datetime(2024, 1, 1, tzinfo=UTC),
+        raw_metadata={"venue": "TestConf", "pdf_url": "https://example.org/p.pdf"},
+        abstract="A" * 1200,
+        summary="Short summary",
+        contributions=["Contribution one", "Contribution two"],
+        limitations=["Limitation one"],
+        deep_analysis={"analysis": "Detailed analysis"},
+        keywords=["rag", "agents"],
+        ingestion_status="indexed",
+        has_full_text=True,
+    )
+    db = SimpleNamespace(execute=AsyncMock(return_value=FakeScalarResult([paper])))
+    service = AgentContextPackService(db)
+
+    async def run_test():
+        result = await service.build_context_pack(
+            paper_ids=[str(paper_id)],
+            question="What does the paper contribute?",
+            token_budget=800,
+            include_evidence=False,
+        )
+        assert result["scope"]["paper_ids"] == [str(paper_id)]
+        assert result["citations"] == [{"key": "P1", "paper_id": str(paper_id)}]
+        assert result["papers"][0]["citation_key"] == "P1"
+        assert result["papers"][0]["title"] == "Context Paper"
+        assert result["papers"][0]["identifiers"]["doi"] == "10.1000/context"
+        assert result["papers"][0]["links"]["doi"] == "https://doi.org/10.1000/context"
+        assert result["papers"][0]["links"]["pdf"] == "https://example.org/p.pdf"
+        assert result["papers"][0]["abstract"].endswith("…")
+        assert result["evidence"] == []
+        assert result["budget"]["requested_tokens"] == 800
+
+    asyncio.run(run_test())
+
+
+def test_agent_context_pack_empty_scope_returns_warning():
+    from app.services.agent.context_pack import AgentContextPackService
+
+    db = SimpleNamespace(execute=AsyncMock(return_value=FakeScalarResult([])))
+    service = AgentContextPackService(db)
+
+    async def run_test():
+        result = await service.build_context_pack(paper_ids=[], include_evidence=False)
+        assert result["papers"] == []
+        assert result["evidence"] == []
+        assert result["warnings"] == ["No papers resolved for context pack."]
+
+    asyncio.run(run_test())
+
+
+def test_grounded_answer_service_builds_cited_answer():
+    from app.services.answers.grounded_answer_service import GroundedAnswerService
+
+    result = GroundedAnswerService().build_answer(
+        question="What datasets are used?",
+        evidence=[
+            {
+                "id": "chunk-1",
+                "paper_id": "paper-1",
+                "paper_title": "Dataset Paper",
+                "section_title": "Experiments",
+                "content": "The evaluation uses CIFAR-10 and ImageNet. Accuracy is reported.",
+                "score": 0.91,
+                "source": "local_chunk",
+            },
+            {
+                "id": "chunk-2",
+                "paper_id": "paper-2",
+                "paper_title": "Benchmark Paper",
+                "section_title": "Results",
+                "content": "The benchmark includes COCO for detection and segmentation tasks.",
+                "score": 0.84,
+                "source": "local_chunk",
+            },
+        ],
+    )
+
+    assert "[E1]" in result["answer"]
+    assert "[E2]" in result["answer"]
+    assert result["citations"][0]["anchor"] == "E1"
+    assert result["citations"][0]["paper_title"] == "Dataset Paper"
+    assert result["diagnostics"]["grounded"] is True
+    assert result["diagnostics"]["source_count"] == 2
+    assert result["warnings"] == []
+
+
+def test_grounded_answer_service_reports_missing_evidence():
+    from app.services.answers.grounded_answer_service import GroundedAnswerService
+
+    result = GroundedAnswerService().build_answer(
+        question="What datasets are used?",
+        evidence=[],
+    )
+
+    assert result["answer"] == "This cannot be answered from the provided evidence."
+    assert result["diagnostics"]["grounded"] is False
+    assert result["warnings"] == ["No evidence sources were provided."]
+
+
+def test_api_key_service_creates_hashed_key(monkeypatch):
+    from app.services.api_key_service import APIKeyService
+
+    added: list[object] = []
+
+    class FakeDB:
+        def add(self, obj):
+            added.append(obj)
+
+        async def flush(self):
+            added[0].id = uuid4()
+            added[0].created_at = datetime(2026, 4, 25, tzinfo=UTC)
+            added[0].updated_at = None
+            added[0].last_used_at = None
+            added[0].revoked_at = None
+
+    monkeypatch.setattr(
+        APIKeyService, "_generate_key", staticmethod(lambda: "ks_live_test-secret")
+    )
+
+    async def run_test():
+        result = await APIKeyService(FakeDB(), "user-1").create_key(
+            name="Agent Key",
+            scopes=["papers:read", "rag:ask", "papers:read"],
+            description="For tests",
+        )
+        assert result["key"] == "ks_live_test-secret"
+        assert result["key_prefix"] == "ks_live_test-sec"
+        assert result["scopes"] == ["papers:read", "rag:ask"]
+        assert result["description"] == "For tests"
+        assert added[0].key_hash == APIKeyService.hash_key("ks_live_test-secret")
+        assert added[0].key_hash != "ks_live_test-secret"
+
+    asyncio.run(run_test())
+
+
+def test_api_key_service_rejects_invalid_scope():
+    from app.services.api_key_service import APIKeyService
+
+    with pytest.raises(ValueError, match="Invalid API key scopes: bad:scope"):
+        APIKeyService._normalize_scopes(["papers:read", "bad:scope"])
+
+
+def test_api_key_service_lists_and_revokes_without_raw_secret():
+    from app.services.api_key_service import APIKeyService
+
+    key_id = uuid4()
+    key = SimpleNamespace(
+        id=key_id,
+        name="Agent Key",
+        key_prefix="ks_live_test-sec",
+        scopes=["papers:read"],
+        description=None,
+        created_at=datetime(2026, 4, 25, tzinfo=UTC),
+        updated_at=None,
+        expires_at=None,
+        last_used_at=None,
+        revoked_at=None,
+    )
+    db = SimpleNamespace(
+        execute=AsyncMock(return_value=FakeScalarResult(key)),
+        flush=AsyncMock(),
+    )
+
+    async def run_test():
+        listed = await APIKeyService(db, "user-1").list_keys()
+        assert listed == [
+            {
+                "id": str(key_id),
+                "name": "Agent Key",
+                "key_prefix": "ks_live_test-sec",
+                "scopes": ["papers:read"],
+                "description": None,
+                "created_at": "2026-04-25T00:00:00+00:00",
+                "updated_at": None,
+                "expires_at": None,
+                "last_used_at": None,
+                "revoked_at": None,
+            }
+        ]
+        assert "key" not in listed[0]
+
+        revoked = await APIKeyService(db, "user-1").revoke_key(str(key_id))
+        assert revoked is not None
+        assert revoked["revoked_at"] is not None
+        db.flush.assert_awaited_once()
+
+    asyncio.run(run_test())
+
+
+def test_batch_service_executes_ordered_grounded_answer_and_errors():
+    from app.services.batch_service import BatchService
+
+    service = BatchService(db=SimpleNamespace(), user_id="user-1")
+
+    async def run_test():
+        result = await service.execute(
+            [
+                {
+                    "id": "answer",
+                    "operation": "grounded_answer",
+                    "arguments": {
+                        "question": "What dataset?",
+                        "evidence": [
+                            {
+                                "id": "chunk-1",
+                                "content": "The method is evaluated on ImageNet.",
+                                "paper_title": "Vision Paper",
+                            }
+                        ],
+                    },
+                },
+                {"id": "bad", "operation": "unknown", "arguments": {}},
+            ]
+        )
+        assert result["total"] == 2
+        assert result["results"][0]["id"] == "answer"
+        assert result["results"][0]["ok"] is True
+        assert "[E1]" in result["results"][0]["result"]["answer"]
+        assert result["results"][1] == {
+            "id": "bad",
+            "operation": "unknown",
+            "ok": False,
+            "error": "Unsupported batch operation: unknown",
+        }
+
+    asyncio.run(run_test())
+
+
+def test_batch_service_rejects_non_object_arguments():
+    from app.services.batch_service import BatchService
+
+    async def run_test():
+        result = await BatchService(SimpleNamespace(), "user-1").execute(
+            [{"id": "bad-args", "operation": "grounded_answer", "arguments": []}]
+        )
+        assert result == {
+            "results": [
+                {
+                    "id": "bad-args",
+                    "operation": "grounded_answer",
+                    "ok": False,
+                    "error": "arguments must be an object",
+                }
+            ],
+            "total": 1,
+        }
+
+    asyncio.run(run_test())

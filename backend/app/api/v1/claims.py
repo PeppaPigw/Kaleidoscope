@@ -4,7 +4,6 @@ P3 WS-1: §17 (#129-140)
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
@@ -24,6 +23,8 @@ async def extract_claims(
     try:
         result = await svc.extract_claims(paper_id)
         return result
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
         await svc.close()
 

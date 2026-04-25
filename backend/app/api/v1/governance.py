@@ -4,12 +4,22 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
+from app.models.paper import Paper
 from app.services.governance_service import GovernanceService
 
 router = APIRouter(prefix="/governance", tags=["governance"])
+
+
+async def _require_paper(db: AsyncSession, paper_id: str) -> None:
+    result = await db.execute(
+        select(Paper.id).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
 
 
 class SavedSearchCreateRequest(BaseModel):
@@ -125,6 +135,7 @@ async def submit_correction(
     db: AsyncSession = Depends(get_db),
 ):
     """Submit a correction for paper metadata."""
+    await _require_paper(db, str(paper_id))
     svc = GovernanceService(db)
     correction = await svc.submit_correction(
         paper_id=str(paper_id),
@@ -153,6 +164,7 @@ async def log_reproduction(
     db: AsyncSession = Depends(get_db),
 ):
     """Log a reproduction attempt for a paper."""
+    await _require_paper(db, str(paper_id))
     svc = GovernanceService(db)
     reproduction = await svc.log_reproduction(
         paper_id=str(paper_id),

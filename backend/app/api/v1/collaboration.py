@@ -2,12 +2,22 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.models.collection import DEFAULT_USER_ID
+from app.models.paper import Paper
 
 router = APIRouter(prefix="/collaboration", tags=["collaboration"])
+
+
+async def _require_paper(db: AsyncSession, paper_id: str) -> None:
+    result = await db.execute(
+        select(Paper.id).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
 
 
 # ─── Schemas ─────────────────────────────────────────────────────
@@ -50,6 +60,7 @@ class ScreeningCreate(BaseModel):
 async def add_comment(body: CommentCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
 
+    await _require_paper(db, body.paper_id)
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     result = await svc.add_comment(
         paper_id=body.paper_id,
@@ -86,6 +97,7 @@ async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
             status_code=422,
             detail="paper_id is required to persist a task",
         )
+    await _require_paper(db, body.paper_id)
     result = await svc.create_task(
         paper_id=body.paper_id,
         task_type=body.title or body.task_type,
@@ -128,6 +140,7 @@ async def complete_task(
 async def record_screening(body: ScreeningCreate, db: AsyncSession = Depends(get_db)):
     from app.services.collaboration_service import CollaborationService
 
+    await _require_paper(db, body.paper_id)
     svc = CollaborationService(db, user_id=DEFAULT_USER_ID)
     result = await svc.record_screening(
         paper_id=body.paper_id,

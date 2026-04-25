@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
@@ -92,6 +93,9 @@ async def list_methods(
 
 @router.post("/methods")
 async def create_method(body: MethodCreate, db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(Method.id).where(Method.name == body.name))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Method already exists")
     method = Method(
         name=body.name,
         category=body.category,
@@ -99,7 +103,11 @@ async def create_method(body: MethodCreate, db: AsyncSession = Depends(get_db)):
         typical_params=body.typical_params,
     )
     db.add(method)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Method already exists") from exc
     return _ser_method(method)
 
 

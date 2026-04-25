@@ -561,7 +561,7 @@ async def agent_query(body: DeepXivAgentRequest):
         from deepxiv_sdk import Agent, Reader
     except ImportError as exc:
         raise HTTPException(
-            status_code=501,
+            status_code=424,
             detail="Agent feature requires deepxiv-sdk[agent] (openai, langgraph, langchain-core)",
         ) from exc
 

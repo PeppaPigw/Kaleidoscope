@@ -9,9 +9,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import get_db, get_current_user_id
+from app.dependencies import get_current_user_id, get_db
 from app.models.author import PaperAuthor
 from app.models.paper import Paper
+from app.schemas.collection import ReadingStatusUpdate
 from app.schemas.paper import (
     AuthorBrief,
     BatchImportResult,
@@ -22,7 +23,6 @@ from app.schemas.paper import (
     PaperListResponse,
     PaperResponse,
 )
-from app.schemas.collection import ReadingStatusUpdate
 from app.tasks.ingest_tasks import ingest_paper
 
 logger = structlog.get_logger(__name__)
@@ -324,7 +324,19 @@ async def add_tag_to_paper(
     user_id: str = Depends(get_current_user_id),
 ):
     """Add a tag to a paper."""
+    from app.models.collection import Tag
     from app.services.collection_service import TagService
+
+    paper_result = await db.execute(
+        select(Paper.id).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if paper_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    tag_result = await db.execute(
+        select(Tag.id).where(Tag.id == tag_id, Tag.user_id == user_id)
+    )
+    if tag_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
 
     svc = TagService(db, user_id)
     added = await svc.add_tag_to_paper(str(paper_id), str(tag_id))

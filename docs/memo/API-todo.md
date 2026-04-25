@@ -10,7 +10,8 @@ Legend:
 
 Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `docs/memo/API.md`.
 
-- Current explicit endpoints: 313
+- Current checklist endpoint entries: 313
+- Current running OpenAPI operations verified: 308, plus `/health`
 - Proposed/missing endpoint entries from `docs/memo/API.md`: 0
 
 ## Immediate Validation Pass
@@ -21,6 +22,13 @@ Inventory generated from `backend/app/api/v1/*.py`, `backend/app/main.py`, and `
 - [x] Verify every LLM/RAG endpoint returns provenance and sources — new context, evidence, grounded-answer, claim-verification, citation, and workspace-evidence routes include source/citation/provenance fields; legacy writing generators remain prose-first compatibility endpoints.
 - [x] Verify DeepXIV public API parity is complete through Kaleidoscope-owned routes — DeepXIV proxy/parity routes are implemented under `/api/v1/deepxiv/*` and continue to route through Kaleidoscope-owned ports.
 - [x] Verify admin/internal endpoints are not exposed as public product APIs — admin endpoints remain grouped as Admin/internal only in this checklist; public agent routes were added outside `/admin`.
+
+## Runtime Response Smoke Matrix
+
+- [x] Direct HTTP smoke-test newly implemented agent-facing API routes — `backend/app/scripts/smoke_agent_services.py` sent 44 safe in-process HTTP requests and generated `docs/memo/api-smoke-report.md` with `44/44 passed`.
+- [x] Direct HTTP smoke-test every current running OpenAPI operation — `backend/app/scripts/verify_all_api_runtime.py --base-url http://127.0.0.1:8000` sent 309 real HTTP requests (`308` OpenAPI operations plus `/health`) against the `make dev` server and generated `docs/memo/full-api-runtime-report.md` plus `docs/memo/full-api-runtime-report.json` with `309/309 passed`.
+- [x] Harden failures found by runtime HTTP verification — missing collaboration/experiment tables are now migrated; resource-dependent writes return handled `404` instead of FK `500`; duplicate method creation returns `409`; malformed URL import returns `422`; DeepXIV agent dependency absence returns structured `424`; SSE routes are verified as stream headers.
+- [ ] Run production-like curl suite against a deployed server with real API keys, representative papers, DeepXIV token configuration, optional `deepxiv-sdk[agent]` dependencies, and external provider credentials.
 
 ## Current Implemented API Surface
 

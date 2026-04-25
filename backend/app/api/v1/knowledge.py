@@ -3,13 +3,23 @@
 P3 WS-4: §24 (#213-224)
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_current_user_id
+from app.dependencies import get_current_user_id, get_db
+from app.models.paper import Paper
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+
+
+async def _require_paper(db: AsyncSession, paper_id: str) -> None:
+    result = await db.execute(
+        select(Paper.id).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
 
 
 # ─── Pydantic models ─────────────────────────────────────────────
@@ -55,6 +65,7 @@ async def log_reading_event(
     """Log a reading interaction (open, read, annotate, etc.)."""
     from app.services.knowledge.knowledge_service import ReadingLogService
 
+    await _require_paper(db, req.paper_id)
     svc = ReadingLogService(db, user_id)
     result = await svc.log_event(
         req.paper_id, req.event_type, req.duration_seconds, req.metadata
@@ -100,6 +111,7 @@ async def create_annotation(
     """Create a highlight, note, or question on a paper."""
     from app.services.knowledge.knowledge_service import AnnotationService
 
+    await _require_paper(db, req.paper_id)
     svc = AnnotationService(db, user_id)
     result = await svc.create(
         req.paper_id,

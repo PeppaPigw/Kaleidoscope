@@ -337,7 +337,13 @@ class DigestService:
         self.db = db
         self.user_id = user_id
 
-    async def generate_digest(self, period: str = "weekly") -> dict:
+    async def generate_digest(
+        self,
+        period: str = "weekly",
+        *,
+        save: bool = True,
+        use_llm: bool = True,
+    ) -> dict:
         """
         Generate a digest of recent papers.
 
@@ -374,35 +380,37 @@ class DigestService:
                 "content": "No new papers since last digest.",
             }
 
-        # Generate LLM summary
         paper_list = "\n".join(
             f"- {p.title} (citations: {p.citation_count or 0})" for p in papers[:20]
         )
+        fallback_content = f"## New Papers ({len(papers)} total)\n\n{paper_list}"
 
-        try:
-            from app.clients.llm_client import LLMClient
+        content = fallback_content
+        if use_llm:
+            try:
+                from app.clients.llm_client import LLMClient
 
-            llm = LLMClient()
-            prompt = (
-                f"Summarize these {len(papers)} new research papers for a weekly digest. "
-                f"Group by theme, highlight the most impactful ones, and note any trends.\n\n"
-                f"{paper_list}"
+                llm = LLMClient()
+                prompt = (
+                    f"Summarize these {len(papers)} new research papers for a weekly digest. "
+                    f"Group by theme, highlight the most impactful ones, and note any trends.\n\n"
+                    f"{paper_list}"
+                )
+                content = await llm.complete(prompt=prompt, temperature=0.3)
+                await llm.close()
+            except Exception as e:
+                log.error("digest_llm_failed", error=str(e))
+                content = fallback_content
+
+        if save:
+            digest = Digest(
+                user_id=self.user_id,
+                period=period,
+                content=content,
+                paper_ids=[str(p.id) for p in papers],
+                paper_count=len(papers),
             )
-            content = await llm.complete(prompt=prompt, temperature=0.3)
-            await llm.close()
-        except Exception as e:
-            log.error("digest_llm_failed", error=str(e))
-            content = f"## New Papers ({len(papers)} total)\n\n{paper_list}"
-
-        # Store digest
-        digest = Digest(
-            user_id=self.user_id,
-            period=period,
-            content=content,
-            paper_ids=[str(p.id) for p in papers],
-            paper_count=len(papers),
-        )
-        self.db.add(digest)
+            self.db.add(digest)
 
         return {
             "period": period,

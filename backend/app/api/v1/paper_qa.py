@@ -3,12 +3,22 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
+from app.models.paper import Paper
 from app.services.extraction.paper_qa_service import PaperQAService
 
 router = APIRouter(prefix="/paper-qa", tags=["paper-qa"])
+
+
+async def _require_paper(db: AsyncSession, paper_id: str) -> None:
+    result = await db.execute(
+        select(Paper.id).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
 
 
 class ConversationTurn(BaseModel):
@@ -32,6 +42,7 @@ async def get_embedding_status(paper_id: str, db: AsyncSession = Depends(get_db)
 @router.post("/{paper_id}/prepare")
 async def prepare_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
     """Trigger (or reprioritize) the embedding pipeline for a paper."""
+    await _require_paper(db, paper_id)
     svc = PaperQAService(db)
     return await svc.prepare(paper_id)
 

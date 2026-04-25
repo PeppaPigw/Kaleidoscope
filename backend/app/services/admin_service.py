@@ -5,12 +5,31 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
+
+
+def _paper_author_names(paper: Paper) -> list[str]:
+    raw = paper.raw_metadata or {}
+    authors = raw.get("authors") or raw.get("author") or []
+    if isinstance(authors, list):
+        names: list[str] = []
+        for author in authors:
+            if isinstance(author, str):
+                names.append(author)
+            elif isinstance(author, dict):
+                name = author.get("name") or author.get("display_name")
+                if name:
+                    names.append(str(name))
+        return names
+    if isinstance(authors, str):
+        return [authors]
+    return []
+
 
 # ---------------------------------------------------------------------------
 # LLM cost metering — simple in-process counter written to a JSONB table row.
@@ -182,7 +201,7 @@ class AdminService:
             {
                 "paper_id": str(p.id),
                 "title": p.title,
-                "authors": p.authors[:3] if isinstance(p.authors, list) else [],
+                "authors": _paper_author_names(p)[:3],
                 "published_at": str(p.published_at) if p.published_at else None,
                 "citation_count": p.citation_count,
                 "doi": p.doi,

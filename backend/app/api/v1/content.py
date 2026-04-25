@@ -23,16 +23,18 @@ def _fire_analysis_bg(paper_id: str) -> None:
     """Fire-and-forget: deep-analyse a single paper, then auto-generate overview image."""
 
     async def _run():
+        from datetime import datetime, timezone
+
+        from sqlalchemy.orm import selectinload
+
         from app.dependencies import async_session_factory
-        from app.models.paper import Paper
         from app.models.author import PaperAuthor
+        from app.models.paper import Paper
+        from app.services.analysis.overview_image_service import OverviewImageService
         from app.services.analysis.paper_analyst import (
             PaperAnalystService,
             deep_analysis_is_valid,
         )
-        from app.services.analysis.overview_image_service import OverviewImageService
-        from sqlalchemy.orm import selectinload
-        from datetime import datetime, timezone
 
         # ── Step 1: Deep analysis ──────────────────────────────────────────
         paper_title = ""
@@ -259,6 +261,12 @@ async def import_from_url(
     from app.models.paper import Paper
     from app.services.parsing.mineru_service import MinerUParsingService
     from app.utils.doi import extract_doi_from_url
+
+    if not req.url.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=422,
+            detail="url must be an absolute HTTP(S) URL",
+        )
 
     # Try to extract DOI from URL
     doi = extract_doi_from_url(req.url)
@@ -555,10 +563,11 @@ def _fire_overview_image_only_bg(
     """Fire-and-forget: generate overview image only (analysis already done)."""
 
     async def _run():
+        from datetime import datetime, timezone
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.analysis.overview_image_service import OverviewImageService
-        from datetime import datetime, timezone
 
         svc = OverviewImageService()
         try:
@@ -677,10 +686,11 @@ def _fire_links_bg(
     """Fire-and-forget: fetch AI paper links for a newly imported paper."""
 
     async def _run():
+        from datetime import datetime, timezone
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.analysis.links_service import LinksService
-        from datetime import datetime, timezone
 
         if not title.strip():
             return

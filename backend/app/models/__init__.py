@@ -5,6 +5,7 @@ from app.models.api_key import APIKey
 from app.models.author import Author, Institution, PaperAuthor
 from app.models.base import Base
 from app.models.claim import Claim, EvidenceLink
+from app.models.collaboration import PaperComment, ReviewTask, ScreeningDecision
 from app.models.collection import (
     Collection,
     CollectionChatMessage,
@@ -15,6 +16,7 @@ from app.models.collection import (
     Tag,
     UserReadingStatus,
 )
+from app.models.experiment import Dataset, Experiment, Method
 from app.models.feed import RSSFeed
 from app.models.governance import (
     AuditLog,
@@ -63,6 +65,12 @@ __all__ = [
     "Digest",
     # P3 models
     "Claim",
+    "PaperComment",
+    "ReviewTask",
+    "ScreeningDecision",
+    "Experiment",
+    "Method",
+    "Dataset",
     "EvidenceLink",
     "ReadingLog",
     "Annotation",

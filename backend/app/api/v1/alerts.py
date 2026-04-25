@@ -3,11 +3,11 @@
 P2 WS-4: §23 (#201-212) from FeasibilityAnalysis.md
 """
 
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_current_user_id
+from app.dependencies import get_current_user_id, get_db
 from app.services.monitoring.alert_service import AlertService, DigestService
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -191,4 +191,4 @@ async def preview_digest(
     Generates a digest of papers since the last one without saving.
     """
     svc = DigestService(db, user_id)
-    return await svc.generate_digest(period=period)
+    return await svc.generate_digest(period=period, save=False, use_llm=False)

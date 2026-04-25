@@ -1,98 +1,109 @@
 <script setup lang="ts">
-import type { AdminAutoProbeQueue, AdminEndpoint, AdminMethod } from '~/composables/useAdminConsole'
+import type {
+  AdminAutoProbeQueue,
+  AdminEndpoint,
+  AdminMethod,
+} from "~/composables/useAdminConsole";
 
 defineProps<{
-  groupedEndpoints: Record<string, AdminEndpoint[]>
-  totalRoutes: number
-  filteredRoutes: number
-  domainOptions: string[]
-  query: string
-  domain: string
-  method: 'all' | AdminMethod
-  autoProbeQueue: AdminAutoProbeQueue
-  autoProbePending?: boolean
-  selectedEndpointId?: string | null
-}>()
+  groupedEndpoints: Record<string, AdminEndpoint[]>;
+  totalRoutes: number;
+  filteredRoutes: number;
+  domainOptions: string[];
+  query: string;
+  domain: string;
+  method: "all" | AdminMethod;
+  autoProbeQueue: AdminAutoProbeQueue;
+  autoProbePending?: boolean;
+  selectedEndpointId?: string | null;
+}>();
 
 const emit = defineEmits<{
-  'update:query': [value: string]
-  'update:domain': [value: string]
-  'update:method': [value: 'all' | AdminMethod]
-  selectEndpoint: [endpointId: string]
-  probeNextBatch: []
-  probeAll: []
-}>()
+  "update:query": [value: string];
+  "update:domain": [value: string];
+  "update:method": [value: "all" | AdminMethod];
+  selectEndpoint: [endpointId: string];
+  probeNextBatch: [];
+  probeAll: [];
+}>();
 
-const methodOptions: Array<'all' | AdminMethod> = ['all', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+const methodOptions: Array<"all" | AdminMethod> = [
+  "all",
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+];
 
-function probeLabel(mode: AdminEndpoint['probeMode']) {
+function probeLabel(mode: AdminEndpoint["probeMode"]) {
   switch (mode) {
-    case 'safe':
-      return 'auto'
-    case 'mutating':
-      return 'write'
-    case 'stream':
-      return 'stream'
+    case "safe":
+      return "auto";
+    case "mutating":
+      return "write";
+    case "stream":
+      return "stream";
     default:
-      return 'manual'
+      return "manual";
   }
 }
 
-function probeVariant(mode: AdminEndpoint['probeMode']) {
+function probeVariant(mode: AdminEndpoint["probeMode"]) {
   switch (mode) {
-    case 'safe':
-      return 'success'
-    case 'mutating':
-      return 'warning'
-    case 'stream':
-      return 'accent'
+    case "safe":
+      return "success";
+    case "mutating":
+      return "warning";
+    case "stream":
+      return "accent";
     default:
-      return 'neutral'
+      return "neutral";
   }
 }
 
-function methodVariant(method: AdminEndpoint['method']) {
+function methodVariant(method: AdminEndpoint["method"]) {
   switch (method) {
-    case 'GET':
-      return 'success'
-    case 'POST':
-      return 'primary'
-    case 'PUT':
-      return 'accent'
-    case 'PATCH':
-      return 'warning'
-    case 'DELETE':
-      return 'danger'
+    case "GET":
+      return "success";
+    case "POST":
+      return "primary";
+    case "PUT":
+      return "accent";
+    case "PATCH":
+      return "warning";
+    case "DELETE":
+      return "danger";
   }
 }
 
-function probeStatusVariant(status: AdminEndpoint['autoProbeStatus']) {
+function probeStatusVariant(status: AdminEndpoint["autoProbeStatus"]) {
   switch (status) {
-    case 'ok':
-      return 'success'
-    case 'warning':
-      return 'accent'
-    case 'error':
-      return 'danger'
+    case "ok":
+      return "success";
+    case "warning":
+      return "accent";
+    case "error":
+      return "danger";
     default:
-      return 'neutral'
+      return "neutral";
   }
 }
 
 function probeStatusLabel(endpoint: AdminEndpoint) {
-  if (endpoint.probeMode !== 'safe') {
-    return probeLabel(endpoint.probeMode)
+  if (endpoint.probeMode !== "safe") {
+    return probeLabel(endpoint.probeMode);
   }
 
   switch (endpoint.autoProbeStatus) {
-    case 'ok':
-      return 'healthy'
-    case 'warning':
-      return endpoint.autoProbePath ? 'degraded' : 'blocked'
-    case 'error':
-      return 'broken'
+    case "ok":
+      return "healthy";
+    case "warning":
+      return endpoint.autoProbePath ? "degraded" : "blocked";
+    case "error":
+      return "broken";
     default:
-      return endpoint.autoProbePath ? 'pending' : 'awaiting'
+      return endpoint.autoProbePath ? "pending" : "awaiting";
   }
 }
 </script>
@@ -102,7 +113,9 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
     <div class="admin-registry__head">
       <div>
         <p class="ks-type-eyebrow">Full Surface</p>
-        <h2 class="ks-type-section-title admin-registry__title">API Registry</h2>
+        <h2 class="ks-type-section-title admin-registry__title">
+          API Registry
+        </h2>
       </div>
       <p class="ks-type-data admin-registry__meta">
         {{ filteredRoutes }} shown / {{ totalRoutes }} total
@@ -116,15 +129,17 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
         type="search"
         placeholder="Filter by path, summary, tag, or operation id"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
-      >
+      />
 
       <select
         :value="domain"
         class="admin-registry__select"
-        @change="emit('update:domain', ($event.target as HTMLSelectElement).value)"
+        @change="
+          emit('update:domain', ($event.target as HTMLSelectElement).value)
+        "
       >
         <option v-for="option in domainOptions" :key="option" :value="option">
-          {{ option === 'all' ? 'All domains' : option }}
+          {{ option === "all" ? "All domains" : option }}
         </option>
       </select>
 
@@ -147,8 +162,11 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
         <div>
           <p class="ks-type-label">Auto probe queue</p>
           <p class="ks-type-data admin-registry__probe-meta">
-            {{ autoProbeQueue.completedCount }} completed / {{ autoProbeQueue.readyCount }} runnable
-            <template v-if="autoProbeQueue.blockedCount > 0"> · {{ autoProbeQueue.blockedCount }} blocked</template>
+            {{ autoProbeQueue.completedCount }} completed /
+            {{ autoProbeQueue.readyCount }} runnable
+            <template v-if="autoProbeQueue.blockedCount > 0">
+              · {{ autoProbeQueue.blockedCount }} blocked</template
+            >
           </p>
         </div>
         <div class="admin-registry__probe-actions">
@@ -159,7 +177,8 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
             :loading="autoProbePending"
             @click="emit('probeNextBatch')"
           >
-            Probe next {{ autoProbeQueue.nextBatchSize || autoProbeQueue.batchSize }}
+            Probe next
+            {{ autoProbeQueue.nextBatchSize || autoProbeQueue.batchSize }}
           </KsButton>
           <KsButton
             variant="secondary"
@@ -188,7 +207,9 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
       </div>
 
       <div class="admin-registry__probe-stats">
-        <KsTag variant="success">{{ autoProbeQueue.succeededCount }} healthy</KsTag>
+        <KsTag variant="success"
+          >{{ autoProbeQueue.succeededCount }} healthy</KsTag
+        >
         <KsTag variant="danger">{{ autoProbeQueue.failedCount }} broken</KsTag>
         <KsTag variant="neutral">{{ autoProbeQueue.queuedCount }} queued</KsTag>
         <KsTag v-if="autoProbeQueue.inFlightCount > 0" variant="accent">
@@ -218,26 +239,37 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
             :key="endpoint.id"
             type="button"
             class="admin-registry__row"
-            :class="{ 'admin-registry__row--active': endpoint.id === selectedEndpointId }"
+            :class="{
+              'admin-registry__row--active': endpoint.id === selectedEndpointId,
+            }"
             @click="emit('selectEndpoint', endpoint.id)"
           >
             <div class="admin-registry__row-main">
               <div class="admin-registry__row-meta">
-                <KsTag :variant="methodVariant(endpoint.method)">{{ endpoint.method }}</KsTag>
-                <KsTag :variant="probeVariant(endpoint.probeMode)">{{ probeLabel(endpoint.probeMode) }}</KsTag>
+                <KsTag :variant="methodVariant(endpoint.method)">{{
+                  endpoint.method
+                }}</KsTag>
+                <KsTag :variant="probeVariant(endpoint.probeMode)">{{
+                  probeLabel(endpoint.probeMode)
+                }}</KsTag>
                 <KsTag
                   v-if="endpoint.probeMode === 'safe'"
                   :variant="probeStatusVariant(endpoint.autoProbeStatus)"
                 >
                   {{ probeStatusLabel(endpoint) }}
                 </KsTag>
-                <span class="ks-type-data admin-registry__operation">{{ endpoint.operationId }}</span>
+                <span class="ks-type-data admin-registry__operation">{{
+                  endpoint.operationId
+                }}</span>
               </div>
               <div class="admin-registry__path">{{ endpoint.path }}</div>
             </div>
             <div class="admin-registry__summary">
               <span class="ks-type-label">{{ endpoint.summary }}</span>
-              <span v-if="endpoint.description" class="ks-type-body-sm admin-registry__description">
+              <span
+                v-if="endpoint.description"
+                class="ks-type-body-sm admin-registry__description"
+              >
                 {{ endpoint.description }}
               </span>
               <span
@@ -357,12 +389,16 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
   width: 100%;
   height: 10px;
   overflow: hidden;
-  background: rgba(26, 26, 26, 0.06);
+  background: var(--color-overlay-medium);
 }
 
 .admin-registry__probe-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), rgba(13, 115, 119, 0.28));
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    rgba(13, 115, 119, 0.28)
+  );
   transition: width 180ms ease;
 }
 

@@ -11,57 +11,57 @@
  * @slot icon-left — Optional icon before label
  * @slot icon-right — Optional icon after label
  */
-import { Loader2 } from 'lucide-vue-next'
+import { Loader2 } from "lucide-vue-next";
 
 export interface KsButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost'
-  size?: 'sm' | 'md' | 'lg'
-  disabled?: boolean
-  loading?: boolean
+  variant?: "primary" | "secondary" | "ghost";
+  size?: "sm" | "md" | "lg";
+  disabled?: boolean;
+  loading?: boolean;
   /** Render as a different element (e.g. 'a', NuxtLink) */
-  as?: string | object
-  type?: 'button' | 'submit' | 'reset'
+  as?: string | object;
+  type?: "button" | "submit" | "reset";
 }
 
 const props = withDefaults(defineProps<KsButtonProps>(), {
-  variant: 'primary',
-  size: 'md',
+  variant: "primary",
+  size: "md",
   disabled: false,
   loading: false,
-  as: 'button',
-  type: 'button',
-})
+  as: "button",
+  type: "button",
+});
 
 defineEmits<{
-  click: [event: MouseEvent]
-}>()
+  click: [event: MouseEvent];
+}>();
 
-const isButton = computed(() => props.as === 'button')
-const isEffectivelyDisabled = computed(() => props.disabled || props.loading)
+const isButton = computed(() => props.as === "button");
+const isEffectivelyDisabled = computed(() => props.disabled || props.loading);
 
 const rootClasses = computed(() => [
-  'ks-btn',
+  "ks-btn",
   `ks-btn--${props.variant}`,
   `ks-btn--${props.size}`,
   {
-    'ks-btn--loading': props.loading,
-    'ks-btn--disabled': props.disabled,
+    "ks-btn--loading": props.loading,
+    "ks-btn--disabled": props.disabled,
   },
-])
+]);
 
 function handleClick(e: MouseEvent) {
   // For link elements, prevent activation when disabled/loading
   if (isEffectivelyDisabled.value) {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
   }
 }
 
 function handleKeydown(e: KeyboardEvent) {
   // For link elements, prevent Enter/Space when disabled/loading
-  if (isEffectivelyDisabled.value && (e.key === 'Enter' || e.key === ' ')) {
-    e.preventDefault()
-    e.stopPropagation()
+  if (isEffectivelyDisabled.value && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 }
 </script>
@@ -75,7 +75,10 @@ function handleKeydown(e: KeyboardEvent) {
     :aria-disabled="!isButton && isEffectivelyDisabled ? 'true' : undefined"
     :tabindex="!isButton && isEffectivelyDisabled ? -1 : undefined"
     :aria-busy="loading || undefined"
-    @click="handleClick($event); $emit('click', $event)"
+    @click="
+      handleClick($event);
+      $emit('click', $event);
+    "
     @keydown="handleKeydown"
   >
     <!-- Loading spinner -->
@@ -154,6 +157,8 @@ a.ks-btn--disabled,
 }
 
 @keyframes ks-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

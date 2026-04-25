@@ -6,108 +6,120 @@
  * member counts, and quick-action buttons. Users can create new workspaces
  * or navigate into existing ones.
  */
-import type { Collection } from '~/composables/useApi'
+import type { Collection } from "~/composables/useApi";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
-const { t } = useTranslation()
-const api = useApi()
+const { t } = useTranslation();
+const api = useApi();
 
 useHead({
-  title: 'Workspaces — Kaleidoscope',
-  meta: [{ name: 'description', content: 'Manage your research projects, paper collections, and collaboration spaces.' }],
-})
+  title: "Workspaces — Kaleidoscope",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Manage your research projects, paper collections, and collaboration spaces.",
+    },
+  ],
+});
 
 interface Workspace {
-  id: string
-  name: string
-  description: string
-  paperCount: number
-  memberCount: number
-  status: 'active' | 'archived' | 'draft'
-  progress: number
-  lastUpdated: string
-  tags: string[]
+  id: string;
+  name: string;
+  description: string;
+  paperCount: number;
+  memberCount: number;
+  status: "active" | "archived" | "draft";
+  progress: number;
+  lastUpdated: string;
+  tags: string[];
 }
 
 function mapCollectionToWorkspace(collection: Collection): Workspace {
   return {
     id: collection.id,
     name: collection.name,
-    description: collection.description || '',
+    description: collection.description || "",
     paperCount: collection.paper_count ?? 0,
     memberCount: 1,
-    status: 'active',
+    status: "active",
     progress: 0,
     lastUpdated: collection.updated_at
       ? new Date(collection.updated_at).toLocaleDateString()
-      : 'unknown',
+      : "unknown",
     tags: [],
-  }
+  };
 }
 
-const workspaces = ref<Workspace[]>([])
-const isLoading = ref(false)
-const showCreateModal = ref(false)
-const newWsName = ref('')
-const newWsDesc = ref('')
+const workspaces = ref<Workspace[]>([]);
+const isLoading = ref(false);
+const showCreateModal = ref(false);
+const newWsName = ref("");
+const newWsDesc = ref("");
 
-const statusOrder: Record<string, number> = { active: 0, draft: 1, archived: 2 }
+const statusOrder: Record<string, number> = {
+  active: 0,
+  draft: 1,
+  archived: 2,
+};
 const sortedWorkspaces = computed(() =>
-  [...workspaces.value].sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9))
-)
+  [...workspaces.value].sort(
+    (a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9),
+  ),
+);
 
 onMounted(async () => {
-  isLoading.value = true
+  isLoading.value = true;
   try {
-    const collections = await api.listCollections({ kind: 'workspace' })
-    workspaces.value = collections.map(mapCollectionToWorkspace)
+    const collections = await api.listCollections({ kind: "workspace" });
+    workspaces.value = collections.map(mapCollectionToWorkspace);
   } catch {
-    workspaces.value = []
+    workspaces.value = [];
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-})
+});
 
 function handleWorkspaceClick(ws: Workspace) {
-  navigateTo(`/workspaces/${ws.id}`)
+  navigateTo(`/workspaces/${ws.id}`);
 }
 
 async function handleCreateWorkspace() {
-  const name = newWsName.value.trim()
-  const description = newWsDesc.value.trim()
-  if (!name) return
+  const name = newWsName.value.trim();
+  const description = newWsDesc.value.trim();
+  if (!name) return;
 
   try {
     const collection = await api.createCollection({
       name,
       description: description || undefined,
-      kind: 'workspace',
-    })
-    workspaces.value.unshift(mapCollectionToWorkspace(collection))
+      kind: "workspace",
+    });
+    workspaces.value.unshift(mapCollectionToWorkspace(collection));
   } catch {
     workspaces.value.unshift({
       id: `ws-${Date.now()}`,
       name,
-      description: description || 'New research workspace',
+      description: description || "New research workspace",
       paperCount: 0,
       memberCount: 1,
-      status: 'draft',
+      status: "draft",
       progress: 0,
-      lastUpdated: 'just now',
+      lastUpdated: "just now",
       tags: [],
-    })
+    });
   }
 
-  newWsName.value = ''
-  newWsDesc.value = ''
-  showCreateModal.value = false
+  newWsName.value = "";
+  newWsDesc.value = "";
+  showCreateModal.value = false;
 }
 
 function statusColor(status: string) {
-  if (status === 'active') return 'var(--color-primary)'
-  if (status === 'archived') return 'var(--color-secondary)'
-  return 'var(--color-accent)'
+  if (status === "active") return "var(--color-primary)";
+  if (status === "archived") return "var(--color-secondary)";
+  return "var(--color-accent)";
 }
 </script>
 
@@ -118,15 +130,15 @@ function statusColor(status: string) {
     <div class="ks-workspaces__content">
       <!-- Toolbar -->
       <div class="ks-workspaces__toolbar">
-        <p class="ks-type-body-sm" style="color: var(--color-secondary);">
-          {{ workspaces.length }} {{ t('workspaces').toLowerCase() }}
+        <p class="ks-type-body-sm" style="color: var(--color-secondary)">
+          {{ workspaces.length }} {{ t("workspaces").toLowerCase() }}
         </p>
         <button
           type="button"
           class="ks-workspaces__create-btn"
           @click="showCreateModal = true"
         >
-          {{ t('newWorkspace') }}
+          {{ t("newWorkspace") }}
         </button>
       </div>
 
@@ -165,14 +177,22 @@ function statusColor(status: string) {
 
           <!-- Meta row -->
           <div class="ks-workspaces__card-meta">
-            <span class="ks-type-data">{{ ws.paperCount }} {{ t('papers') }}</span>
-            <span class="ks-type-data">{{ ws.memberCount }} {{ t('members') }}</span>
-            <span class="ks-type-data" style="margin-left: auto;">{{ ws.lastUpdated }}</span>
+            <span class="ks-type-data"
+              >{{ ws.paperCount }} {{ t("papers") }}</span
+            >
+            <span class="ks-type-data"
+              >{{ ws.memberCount }} {{ t("members") }}</span
+            >
+            <span class="ks-type-data" style="margin-left: auto">{{
+              ws.lastUpdated
+            }}</span>
           </div>
 
           <!-- Tags -->
           <div class="ks-workspaces__card-tags">
-            <KsTag v-for="tag in ws.tags" :key="tag" variant="neutral">{{ tag }}</KsTag>
+            <KsTag v-for="tag in ws.tags" :key="tag" variant="neutral">{{
+              tag
+            }}</KsTag>
           </div>
         </button>
       </div>
@@ -186,22 +206,27 @@ function statusColor(status: string) {
           class="ks-workspaces__overlay"
           @click.self="showCreateModal = false"
         >
-          <div class="ks-workspaces__modal ks-motion-paper-reveal" role="dialog" aria-modal="true" :aria-label="t('createNewWorkspace')">
-            <h2 class="ks-type-section-title">{{ t('createNewWorkspace') }}</h2>
+          <div
+            class="ks-workspaces__modal ks-motion-paper-reveal"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="t('createNewWorkspace')"
+          >
+            <h2 class="ks-type-section-title">{{ t("createNewWorkspace") }}</h2>
 
             <label class="ks-workspaces__field">
-              <span class="ks-type-eyebrow">{{ t('name') }}</span>
+              <span class="ks-type-eyebrow">{{ t("name") }}</span>
               <input
                 v-model="newWsName"
                 type="text"
                 class="ks-workspaces__input"
                 placeholder="e.g. Clinical Reasoning Review"
                 @keydown.enter="handleCreateWorkspace"
-              >
+              />
             </label>
 
             <label class="ks-workspaces__field">
-              <span class="ks-type-eyebrow">{{ t('description') }}</span>
+              <span class="ks-type-eyebrow">{{ t("description") }}</span>
               <textarea
                 v-model="newWsDesc"
                 class="ks-workspaces__textarea"
@@ -216,7 +241,7 @@ function statusColor(status: string) {
                 class="ks-workspaces__modal-btn ks-workspaces__modal-btn--secondary"
                 @click="showCreateModal = false"
               >
-                {{ t('cancel') }}
+                {{ t("cancel") }}
               </button>
               <button
                 type="button"
@@ -224,7 +249,7 @@ function statusColor(status: string) {
                 :disabled="!newWsName.trim()"
                 @click="handleCreateWorkspace"
               >
-                {{ t('createBtn') }}
+                {{ t("createBtn") }}
               </button>
             </div>
           </div>
@@ -261,8 +286,9 @@ function statusColor(status: string) {
   border-radius: 6px;
   font: 600 0.875rem / 1 var(--font-sans);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-workspaces__create-btn:hover {
@@ -288,8 +314,9 @@ function statusColor(status: string) {
   padding: 24px;
   text-align: left;
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-workspaces__card:hover {
@@ -377,7 +404,7 @@ function statusColor(status: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(26, 26, 26, 0.24);
+  background: var(--color-overlay-dark);
   backdrop-filter: blur(4px);
 }
 
@@ -434,8 +461,9 @@ function statusColor(status: string) {
   border-radius: 6px;
   font: 600 0.875rem / 1 var(--font-sans);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              opacity var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    opacity var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-workspaces__modal-btn--secondary {

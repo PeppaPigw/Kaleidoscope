@@ -2,7 +2,9 @@
 
 import asyncio
 import sys
-sys.path.insert(0, '/Users/pigpeppa/Downloads/Kaleidoscope/backend')
+
+sys.path.insert(0, "/Users/pigpeppa/Downloads/Kaleidoscope/backend")
+
 
 async def verify_deployment():
     """Verify the improved RAG system is working correctly."""
@@ -28,10 +30,10 @@ async def verify_deployment():
                 paper_ids=[
                     "66745585-e20d-440e-9484-38a3a9a56a1c",
                     "4457a5f1-f038-47ad-bb03-5b5f1a4f7357",
-                    "c7d081b9-b4f2-491e-a9d1-3c3c68f95102"
+                    "c7d081b9-b4f2-491e-a9d1-3c3c68f95102",
                 ],
                 top_k=3,
-                min_similarity=0.0
+                min_similarity=0.0,
             )
             print(f"✅ Valid search: Found {len(results)} chunks")
             if results:
@@ -46,7 +48,7 @@ async def verify_deployment():
             await vector_service.search_by_text(
                 query_text="",
                 paper_ids=["66745585-e20d-440e-9484-38a3a9a56a1c"],
-                top_k=3
+                top_k=3,
             )
             print("❌ Empty query validation failed (should have raised error)")
             return False
@@ -58,7 +60,7 @@ async def verify_deployment():
             await vector_service.search_by_text(
                 query_text="test",
                 paper_ids=["66745585-e20d-440e-9484-38a3a9a56a1c"],
-                top_k=200  # > 100
+                top_k=200,  # > 100
             )
             print("❌ Invalid top_k validation failed (should have raised error)")
             return False
@@ -89,7 +91,7 @@ async def verify_deployment():
             results = await vector_service.search_similar_chunks(
                 query_embedding=malicious_embedding,
                 paper_ids=["66745585-e20d-440e-9484-38a3a9a56a1c"],
-                top_k=1
+                top_k=1,
             )
             print("✅ SQL injection protection: Parameterized queries working")
         except Exception as e:
@@ -105,7 +107,7 @@ async def verify_deployment():
             await vector_service.search_similar_chunks(
                 query_embedding=[0.1] * 512,  # Wrong dimension
                 paper_ids=["66745585-e20d-440e-9484-38a3a9a56a1c"],
-                top_k=1
+                top_k=1,
             )
             print("❌ Dimension validation failed (should have raised error)")
             return False
@@ -118,7 +120,7 @@ async def verify_deployment():
                 query_embedding=[0.1] * 1024,
                 paper_ids=["66745585-e20d-440e-9484-38a3a9a56a1c"],
                 top_k=1,
-                min_similarity=2.0  # > 1.0
+                min_similarity=2.0,  # > 1.0
             )
             print("❌ Similarity validation failed (should have raised error)")
             return False
@@ -137,6 +139,7 @@ async def verify_deployment():
         print("  • Parameterized queries for security")
 
         return True
+
 
 if __name__ == "__main__":
     success = asyncio.run(verify_deployment())

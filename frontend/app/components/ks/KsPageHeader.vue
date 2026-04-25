@@ -24,26 +24,30 @@
 
 export interface KsPageHeaderProps {
   /** Page title (left side) */
-  title: string
+  title: string;
   /** Optional section label before the title */
-  section?: string
+  section?: string;
   /** Heading level — defaults to h1, override when nested */
-  headingLevel?: 1 | 2 | 3
+  headingLevel?: 1 | 2 | 3;
 }
 
 const props = withDefaults(defineProps<KsPageHeaderProps>(), {
   section: undefined,
   headingLevel: 1,
-})
+});
 
-const headingTag = computed(() => `h${props.headingLevel}` as 'h1' | 'h2' | 'h3')
+const headingTag = computed(
+  () => `h${props.headingLevel}` as "h1" | "h2" | "h3",
+);
 </script>
 
 <template>
   <header class="ks-page-header">
     <div class="ks-page-header__left">
       <span v-if="section" class="ks-page-header__section">{{ section }}</span>
-      <component :is="headingTag" class="ks-page-header__title">{{ title }}</component>
+      <component :is="headingTag" class="ks-page-header__title">{{
+        title
+      }}</component>
     </div>
     <div class="ks-page-header__right">
       <span v-if="$slots.meta" class="ks-page-header__meta">

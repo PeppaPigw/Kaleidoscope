@@ -8,45 +8,49 @@
  */
 
 export interface SearchResultItem {
-  id: string
-  title: string
-  title_zh?: string
-  authors: string[]
-  venue: string
-  year: number
-  abstract: string
-  abstract_zh?: string
-  score: number
-  tags: string[]
-  cited: number
-  openAccess: boolean
+  id: string;
+  title: string;
+  title_zh?: string;
+  authors: string[];
+  venue: string;
+  year: number;
+  abstract: string;
+  abstract_zh?: string;
+  score: number;
+  tags: string[];
+  cited: number;
+  openAccess: boolean;
 }
 
 export interface ResultStackProps {
-  results: SearchResultItem[]
-  loading?: boolean
+  results: SearchResultItem[];
+  loading?: boolean;
 }
 
-defineProps<ResultStackProps>()
+defineProps<ResultStackProps>();
 
 defineEmits<{
-  'paper-click': [paper: SearchResultItem]
-  'save': [paper: SearchResultItem]
-  'compare': [paper: SearchResultItem]
-  'read': [paper: SearchResultItem]
-}>()
+  "paper-click": [paper: SearchResultItem];
+  save: [paper: SearchResultItem];
+  compare: [paper: SearchResultItem];
+  read: [paper: SearchResultItem];
+}>();
 
-const uid = useId()
-const { t } = useTranslation()
+const uid = useId();
+const { t } = useTranslation();
 </script>
 
 <template>
   <section class="ks-result-stack" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="sr-only">{{ t('searchResults') }}</h2>
+    <h2 :id="`${uid}-title`" class="sr-only">{{ t("searchResults") }}</h2>
 
     <!-- Loading skeletons -->
     <div v-if="loading" class="ks-result-stack__list">
-      <div v-for="i in 4" :key="i" class="ks-card ks-result-stack__card ks-result-stack__card--skeleton">
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="ks-card ks-result-stack__card ks-result-stack__card--skeleton"
+      >
         <KsSkeleton variant="line" width="80%" />
         <KsSkeleton variant="line" width="60%" />
         <KsSkeleton variant="paragraph" :lines="3" />
@@ -71,23 +75,37 @@ const { t } = useTranslation()
             class="ks-result-stack__card-title-link"
             @click="$emit('paper-click', result)"
           >
-            <KsTranslatableTitle :text="result.title" :paper-id="result.id" :title-zh="result.title_zh" tag="h3" title-class="ks-result-stack__card-title" />
+            <KsTranslatableTitle
+              :text="result.title"
+              :paper-id="result.id"
+              :title-zh="result.title_zh"
+              tag="h3"
+              title-class="ks-result-stack__card-title"
+            />
           </NuxtLink>
-          <span class="ks-type-data ks-result-stack__card-score" style="color: var(--color-primary);">
+          <span
+            class="ks-type-data ks-result-stack__card-score"
+            style="color: var(--color-primary)"
+          >
             {{ (result.score * 100).toFixed(0) }}%
           </span>
         </div>
 
         <div class="ks-result-stack__card-authors">
           <span class="ks-type-data">
-            {{ result.authors.slice(0, 3).join(', ') }}
+            {{ result.authors.slice(0, 3).join(", ") }}
             <template v-if="result.authors.length > 3"> et al.</template>
           </span>
           <span class="ks-result-stack__card-dot">·</span>
           <span class="ks-type-data">{{ result.venue }}</span>
           <span class="ks-result-stack__card-dot">·</span>
           <span class="ks-type-data">{{ result.year }}</span>
-          <span v-if="result.openAccess" class="ks-result-stack__card-oa" title="Open Access">🔓</span>
+          <span
+            v-if="result.openAccess"
+            class="ks-result-stack__card-oa"
+            title="Open Access"
+            >🔓</span
+          >
         </div>
 
         <div class="ks-result-stack__card-abstract-wrap">
@@ -100,11 +118,7 @@ const { t } = useTranslation()
         <div class="ks-result-stack__card-footer">
           <div class="ks-result-stack__card-meta">
             <span class="ks-type-data">Cited {{ result.cited }}</span>
-            <KsTag
-              v-for="tag in result.tags"
-              :key="tag"
-              variant="primary"
-            >
+            <KsTag v-for="tag in result.tags" :key="tag" variant="primary">
               {{ tag }}
             </KsTag>
           </div>
@@ -115,7 +129,7 @@ const { t } = useTranslation()
               :aria-label="`${t('save')} ${result.title}`"
               @click="$emit('save', result)"
             >
-              {{ t('save') }}
+              {{ t("save") }}
             </KsButton>
             <KsButton
               variant="secondary"
@@ -123,7 +137,7 @@ const { t } = useTranslation()
               :aria-label="`${t('compare')} ${result.title}`"
               @click="$emit('compare', result)"
             >
-              {{ t('compare') }}
+              {{ t("compare") }}
             </KsButton>
             <KsButton
               variant="primary"
@@ -131,7 +145,7 @@ const { t } = useTranslation()
               :aria-label="`${t('readPaper')} ${result.title}`"
               @click="$emit('read', result)"
             >
-              {{ t('readPaper') }}
+              {{ t("readPaper") }}
             </KsButton>
           </div>
         </div>
@@ -143,8 +157,14 @@ const { t } = useTranslation()
 <style scoped>
 .sr-only {
   position: absolute;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .ks-result-stack__list {
@@ -161,8 +181,9 @@ const { t } = useTranslation()
   flex-direction: column;
   gap: 10px;
   padding: 24px;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-result-stack__card:hover {

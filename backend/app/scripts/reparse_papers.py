@@ -1,13 +1,21 @@
-"""Reparsing script — concurrent re-process of papers without full text.
+"""Reparsing script — concurrent MinerU backfill for legacy arXiv papers.
 
 Usage:
-    cd backend && python -m app.scripts.reparse_papers
+    cd backend && python -m app.scripts.reparse_papers --dry-run --limit 50
 
-Targets papers with ingestion_status='discovered' (never processed) or
-has_full_text=False. Submits all to MinerU concurrently, waits 3 min, then
-polls and updates DB. Concurrency capped by settings.mineru_concurrency.
+Targets arXiv papers that are not yet MinerU-ready.
+Processing is prioritized by oldest local records first so the legacy backlog
+is drained before newer arrivals.
+
+Selection criteria:
+  - parser_version is missing or from a legacy parser
+  - or ingestion_status has not reached parsed/indexed/index_partial
+
+Submits all to MinerU concurrently, waits, then persists markdown back into DB.
+Concurrency capped by settings.mineru_concurrency.
 """
 
+import argparse
 import asyncio
 from datetime import datetime, timezone
 
@@ -49,6 +57,7 @@ async def _reparse_one(
     from sqlalchemy import select
     from app.models.paper import Paper
     from app.clients.mineru_client import MinerUClient, MinerUModel
+    from app.services.parsing.mineru_service import sanitize_mineru_markdown
 
     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
 
@@ -86,7 +95,7 @@ async def _reparse_one(
             counters["failed"] += 1
         return
 
-    markdown = result.markdown or ""
+    markdown = sanitize_mineru_markdown(result.markdown)
     print(f"  ✓ [{arxiv_id}] {len(markdown):,} chars, {len(result.image_urls)} images")
 
     try:
@@ -97,7 +106,7 @@ async def _reparse_one(
                 p_obj.full_text_markdown = markdown
                 p_obj.has_full_text = True
                 p_obj.ingestion_status = "parsed"
-                p_obj.parser_version = "mineru-pdf"
+                p_obj.parser_version = "mineru"
                 p_obj.markdown_provenance = {
                     "source": "mineru",
                     "model_version": "vlm",
@@ -117,9 +126,17 @@ async def _reparse_one(
 
 
 async def reparse_papers(dry_run: bool = False, limit: int = 200) -> None:
-    from sqlalchemy import select, or_
+    from sqlalchemy import and_, not_, or_, select
     from app.models.paper import Paper
     from app.clients.oss_client import OssClient
+
+    mineru_ready = and_(
+        or_(
+            Paper.parser_version == "mineru",
+            Paper.parser_version.like("mineru-%"),
+        ),
+        Paper.ingestion_status.in_(("parsed", "indexed", "index_partial")),
+    )
 
     print("=" * 60)
     print("  Kaleidoscope — Paper Reparser (concurrent, PDF+VLM)")
@@ -131,11 +148,9 @@ async def reparse_papers(dry_run: bool = False, limit: int = 200) -> None:
             .where(
                 Paper.deleted_at.is_(None),
                 Paper.arxiv_id.is_not(None),
-                or_(
-                    Paper.ingestion_status == "discovered",
-                    Paper.has_full_text == False,  # noqa: E712
-                ),
+                not_(mineru_ready),
             )
+            .order_by(Paper.created_at.asc())
             .limit(limit)
         )
         rows = result.all()
@@ -183,4 +198,8 @@ async def reparse_papers(dry_run: bool = False, limit: int = 200) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(reparse_papers())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--limit", type=int, default=200)
+    args = parser.parse_args()
+    asyncio.run(reparse_papers(dry_run=args.dry_run, limit=args.limit))

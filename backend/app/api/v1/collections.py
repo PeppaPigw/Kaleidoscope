@@ -336,30 +336,63 @@ async def ask_collection_thread(
         content=body.content.strip(),
     )
 
-    ragflow = RagflowQueryService(db)
-    answer = await ragflow.ask_workspace(collection_id, body.content.strip(), body.top_k)
+    # Use local RAG service (primary) with RAGFlow fallback
+    from app.services.local_rag_service import LocalRAGService
+    from app.config import settings
 
-    assistant_content = answer.get("answer")
-    if not assistant_content:
-        if answer.get("enabled") is False:
-            assistant_content = "Group chat is unavailable because RAGFlow sync is disabled."
-        elif answer.get("ready") is False or answer.get("message") == "sync_in_progress":
-            assistant_content = "This group is still syncing. Try again shortly."
-        else:
-            assistant_content = "I could not find a synced dataset for this group yet. Add papers or trigger sync, then ask again."
-
-    assistant_message = await chat.create_message(
-        thread_id=thread_id,
-        role="assistant",
-        content=assistant_content,
-        sources={"items": answer.get("sources", [])},
-        metadata_json={
+    if settings.ragflow_sync_enabled:
+        # Use RAGFlow if explicitly enabled
+        ragflow = RagflowQueryService(db)
+        answer = await ragflow.ask_workspace(
+            collection_id, body.content.strip(), body.top_k
+        )
+        assistant_content = answer.get("answer")
+        if not assistant_content:
+            if answer.get("enabled") is False:
+                assistant_content = (
+                    "Group chat is unavailable because RAGFlow sync is disabled."
+                )
+            elif (
+                answer.get("ready") is False
+                or answer.get("message") == "sync_in_progress"
+            ):
+                assistant_content = "This group is still syncing. Try again shortly."
+            else:
+                assistant_content = "I could not find a synced dataset for this group yet. Add papers or trigger sync, then ask again."
+        sources = answer.get("sources", [])
+        metadata = {
             "latency_ms": answer.get("latency_ms"),
             "enabled": answer.get("enabled"),
             "ready": answer.get("ready"),
             "error": answer.get("error"),
             "message": answer.get("message"),
-        },
+            "rag_backend": "ragflow",
+        }
+    else:
+        # Use local RAG service (default)
+        local_rag = LocalRAGService(db)
+        answer = await local_rag.ask_collection(
+            collection_id=collection_id,
+            question=body.content.strip(),
+            top_k=body.top_k,
+        )
+        assistant_content = answer.get(
+            "answer", "I encountered an error processing your question."
+        )
+        sources = answer.get("sources", [])
+        metadata = {
+            "latency_ms": answer.get("latency_ms"),
+            "chunks_found": answer.get("chunks_found"),
+            "error": answer.get("error"),
+            "rag_backend": "local",
+        }
+
+    assistant_message = await chat.create_message(
+        thread_id=thread_id,
+        role="assistant",
+        content=assistant_content,
+        sources={"items": sources},
+        metadata_json=metadata,
     )
 
     return {

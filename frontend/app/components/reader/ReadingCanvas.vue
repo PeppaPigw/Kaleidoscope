@@ -7,21 +7,21 @@
  */
 
 export interface ReadingCanvasProps {
-  documentUrl: string
-  currentPage: number
-  totalPages: number
-  title: string
+  documentUrl: string;
+  currentPage: number;
+  totalPages: number;
+  title: string;
 }
 
-const props = defineProps<ReadingCanvasProps>()
+defineProps<ReadingCanvasProps>();
 defineEmits<{
-  'page-change': [page: number]
-  'zoom-change': [level: number]
-  'toggle-fullscreen': []
-}>()
+  "page-change": [page: number];
+  "zoom-change": [level: number];
+  "toggle-fullscreen": [];
+}>();
 
-const uid = useId()
-const zoomLevel = ref(100)
+const uid = useId();
+const zoomLevel = ref(100);
 </script>
 
 <template>
@@ -50,25 +50,65 @@ const zoomLevel = ref(100)
       </div>
 
       <div class="ks-reading-canvas__zoom">
-        <KsButton variant="secondary" aria-label="Zoom out" @click="zoomLevel = Math.max(50, zoomLevel - 10); $emit('zoom-change', zoomLevel)">−</KsButton>
+        <KsButton
+          variant="secondary"
+          aria-label="Zoom out"
+          @click="
+            zoomLevel = Math.max(50, zoomLevel - 10);
+            $emit('zoom-change', zoomLevel);
+          "
+          >−</KsButton
+        >
         <span class="ks-type-data">{{ zoomLevel }}%</span>
-        <KsButton variant="secondary" aria-label="Zoom in" @click="zoomLevel = Math.min(200, zoomLevel + 10); $emit('zoom-change', zoomLevel)">+</KsButton>
-        <KsButton variant="secondary" aria-label="Toggle fullscreen" @click="$emit('toggle-fullscreen')">⛶</KsButton>
+        <KsButton
+          variant="secondary"
+          aria-label="Zoom in"
+          @click="
+            zoomLevel = Math.min(200, zoomLevel + 10);
+            $emit('zoom-change', zoomLevel);
+          "
+          >+</KsButton
+        >
+        <KsButton
+          variant="secondary"
+          aria-label="Toggle fullscreen"
+          @click="$emit('toggle-fullscreen')"
+          >⛶</KsButton
+        >
       </div>
     </div>
 
     <div class="ks-reading-canvas__viewport">
       <div class="ks-reading-canvas__page-placeholder">
         <div class="ks-reading-canvas__page-icon" aria-hidden="true">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/>
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            opacity="0.2"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+            />
+            <polyline points="14,2 14,8 20,8" />
           </svg>
         </div>
-        <h3 :id="`${uid}-title`" class="ks-reading-canvas__title">{{ title }}</h3>
-        <p class="ks-type-body-sm" style="color: var(--color-secondary); margin-top: 8px;">
+        <h3 :id="`${uid}-title`" class="ks-reading-canvas__title">
+          {{ title }}
+        </h3>
+        <p
+          class="ks-type-body-sm"
+          style="color: var(--color-secondary); margin-top: 8px"
+        >
           PDF rendering will be available with PDF.js integration
         </p>
-        <p class="ks-type-data" style="color: var(--color-primary); margin-top: 16px;">
+        <p
+          class="ks-type-data"
+          style="color: var(--color-primary); margin-top: 16px"
+        >
           {{ documentUrl }}
         </p>
       </div>

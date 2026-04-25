@@ -4,30 +4,37 @@
  */
 
 export interface ParagraphQuestion {
-  id: string
-  question: string
-  answer: string
-  paragraph: number
-  source: string
+  id: string;
+  question: string;
+  answer: string;
+  paragraph: number;
+  source: string;
 }
 
 export interface ParagraphQAProps {
-  questions: ParagraphQuestion[]
+  questions: ParagraphQuestion[];
 }
 
-defineProps<ParagraphQAProps>()
+defineProps<ParagraphQAProps>();
 
-const uid = useId()
-const expandedId = ref<string | null>(null)
+const uid = useId();
+const expandedId = ref<string | null>(null);
 
 function toggle(id: string) {
-  expandedId.value = expandedId.value === id ? null : id
+  expandedId.value = expandedId.value === id ? null : id;
 }
 </script>
 
 <template>
-  <section class="ks-paragraph-qa ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 12px;">
+  <section
+    class="ks-paragraph-qa ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h3
+      :id="`${uid}-title`"
+      class="ks-type-eyebrow"
+      style="color: var(--color-accent); margin-bottom: 12px"
+    >
       Paragraph Q&A
     </h3>
 
@@ -35,7 +42,10 @@ function toggle(id: string) {
       <div
         v-for="q in questions"
         :key="q.id"
-        :class="['ks-paragraph-qa__item', { 'ks-paragraph-qa__item--expanded': expandedId === q.id }]"
+        :class="[
+          'ks-paragraph-qa__item',
+          { 'ks-paragraph-qa__item--expanded': expandedId === q.id },
+        ]"
       >
         <button
           type="button"
@@ -46,7 +56,9 @@ function toggle(id: string) {
         >
           <span class="ks-paragraph-qa__q-icon" aria-hidden="true">Q</span>
           <span class="ks-paragraph-qa__q-text">{{ q.question }}</span>
-          <span class="ks-paragraph-qa__toggle" aria-hidden="true">{{ expandedId === q.id ? '−' : '+' }}</span>
+          <span class="ks-paragraph-qa__toggle" aria-hidden="true">{{
+            expandedId === q.id ? "−" : "+"
+          }}</span>
         </button>
         <div
           v-if="expandedId === q.id"
@@ -57,7 +69,9 @@ function toggle(id: string) {
           <p class="ks-paragraph-qa__a-text">{{ q.answer }}</p>
           <div class="ks-paragraph-qa__a-meta">
             <span class="ks-type-data">¶ {{ q.paragraph }}</span>
-            <span class="ks-type-data" style="color: var(--color-primary);">{{ q.source }}</span>
+            <span class="ks-type-data" style="color: var(--color-primary)">{{
+              q.source
+            }}</span>
           </div>
         </div>
       </div>

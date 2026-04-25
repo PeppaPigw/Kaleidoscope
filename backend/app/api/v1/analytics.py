@@ -338,7 +338,28 @@ async def get_keyword_cloud(
     limit: int = Query(50, ge=10, le=200),
     db: AsyncSession = Depends(get_db),
 ):
-    """Keyword frequency for word-cloud visualization."""
+    """Keyword frequency for word-cloud visualization.
+
+    Returns cached trending keywords from DeepXiv (refreshed every 6 hours).
+    Falls back to local database keywords if cache is empty.
+    """
+    from app.services.cache_service import get_cache_service
+
+    cache = get_cache_service()
+
+    # Try to get from cache first
+    cached = await cache.get("trending_keywords")
+    if cached and isinstance(cached, dict):
+        keywords = cached.get("keywords", [])
+        if keywords:
+            # Limit to requested size
+            limited = keywords[:limit]
+            return KeywordCloudResponse(
+                keywords=[KeywordItem(**k) for k in limited],
+                total_papers_with_keywords=cached.get("total_papers_with_keywords", 0),
+            )
+
+    # Fallback: use local database keywords (arXiv categories)
     rows = (
         await db.execute(
             select(Paper.keywords).where(

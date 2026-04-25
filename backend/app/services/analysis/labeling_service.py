@@ -45,6 +45,25 @@ _TAXONOMY_PATH = Path(__file__).parents[4] / "frontend" / "public" / "labels.jso
 _MAX_TEXT_WORDS = 8000
 
 
+def labels_have_any_values(labels: dict | None) -> bool:
+    """Return True when at least one taxonomy bucket contains a label."""
+    if not isinstance(labels, dict):
+        return False
+
+    meta = labels.get("meta") or {}
+    groups = (
+        labels.get("domain"),
+        labels.get("task"),
+        labels.get("method"),
+        labels.get("data_object"),
+        labels.get("application"),
+        meta.get("paper_type"),
+        meta.get("evaluation_quality"),
+        meta.get("resource_constraint"),
+    )
+    return any(bool(group) for group in groups)
+
+
 def _load_taxonomy() -> dict:
     with open(_TAXONOMY_PATH, encoding="utf-8") as f:
         return json.load(f)
@@ -205,9 +224,14 @@ def _make_default_llm() -> tuple[LLMClient, str]:
 
     if getattr(settings, "translate_api_key", None):
         base = settings.translate_base_url.rstrip("/") + "/v1"
-        return LLMClient(api_key=settings.translate_api_key, base_url=base), settings.translate_model
+        return (
+            LLMClient(api_key=settings.translate_api_key, base_url=base),
+            settings.translate_model,
+        )
 
-    raise RuntimeError("No LLM API credentials configured (llm_api_key or translate_api_key required)")
+    raise RuntimeError(
+        "No LLM API credentials configured (llm_api_key or translate_api_key required)"
+    )
 
 
 class LabelingService:
@@ -247,11 +271,20 @@ class LabelingService:
         log = logger.bind(paper_id=str(paper.id))
 
         if paper.paper_labels and not force:
-            log.info("labeling_skipped", reason="already_labeled")
-            return paper.paper_labels
+            if labels_have_any_values(paper.paper_labels):
+                log.info("labeling_skipped", reason="already_labeled")
+                return paper.paper_labels
+            log.info("labeling_retrying", reason="stale_empty_labels")
 
         taxonomy = self._get_taxonomy()
         fulltext = TextChunker.prepare_paper_text(paper)
+        title = (paper.title or "").strip()
+        source_text = fulltext.strip() or (paper.abstract or "").strip()
+
+        if not title:
+            raise ValueError("Paper title unavailable for labeling")
+        if len(source_text) < 120:
+            raise ValueError("Paper text unavailable for labeling")
 
         prompt = _build_prompt(paper, fulltext, taxonomy)
 
@@ -277,6 +310,10 @@ class LabelingService:
         except Exception as exc:
             log.error("labeling_parse_error", error=str(exc), raw=raw[:300])
             raise
+
+        if not labels_have_any_values(labels):
+            log.warning("labeling_empty_payload")
+            raise ValueError("Labeling produced no taxonomy labels")
 
         paper.paper_labels = labels
         paper.paper_labels_at = datetime.now(timezone.utc)

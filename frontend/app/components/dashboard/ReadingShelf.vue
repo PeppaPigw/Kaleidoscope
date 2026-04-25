@@ -9,100 +9,109 @@
  */
 
 export interface LabelDim {
-  value: string
-  color: string
+  value: string;
+  color: string;
 }
 
 export interface ReadingPick {
-  id: string
-  eyebrow: string
-  title: string
-  venue: string
-  tags: string[]
-  abstract: string
-  labelDims?: LabelDim[]
+  id: string;
+  eyebrow: string;
+  title: string;
+  venue: string;
+  tags: string[];
+  abstract: string;
+  labelDims?: LabelDim[];
   /** Optional tab category to filter by */
-  category?: 'for-you' | 'trending' | 'controversial'
+  category?: "for-you" | "trending" | "controversial";
 }
 
 export interface ReadingShelfProps {
-  picks: ReadingPick[]
+  picks: ReadingPick[];
 }
 
-const props = defineProps<ReadingShelfProps>()
+const props = defineProps<ReadingShelfProps>();
 
 const emit = defineEmits<{
-  'card-click': [pick: ReadingPick]
-  'tab-change': [tab: ShelfTab]
-}>()
+  "card-click": [pick: ReadingPick];
+  "tab-change": [tab: ShelfTab];
+}>();
 
-const { t } = useTranslation()
+const { t } = useTranslation();
 
-type ShelfTab = 'for-you' | 'trending' | 'controversial'
+type ShelfTab = "for-you" | "trending" | "controversial";
 
-const activeTab = ref<ShelfTab>('for-you')
+const activeTab = ref<ShelfTab>("for-you");
 
-const tabLabelKeys: Record<ShelfTab, keyof typeof import('~/composables/useTranslation').UI_LABELS.en> = {
-  'for-you': 'forYou',
-  'trending': 'trending',
-  'controversial': 'controversial',
-}
+const tabLabelKeys: Record<
+  ShelfTab,
+  keyof typeof import("~/composables/useTranslation").UI_LABELS.en
+> = {
+  "for-you": "forYou",
+  trending: "trending",
+  controversial: "controversial",
+};
 
-const tabs: ShelfTab[] = ['for-you', 'trending', 'controversial']
+const tabs: ShelfTab[] = ["for-you", "trending", "controversial"];
 
 // ─── Generate unique IDs for ARIA ──────────────────────────
-const uid = useId()
-const tabId = (key: ShelfTab) => `${uid}-tab-${key}`
-const panelId = (key: ShelfTab) => `${uid}-panel-${key}`
+const uid = useId();
+const tabId = (key: ShelfTab) => `${uid}-tab-${key}`;
+const panelId = (key: ShelfTab) => `${uid}-panel-${key}`;
 
 // ─── Filter picks by active tab ────────────────────────────
 const filteredPicks = computed(() => {
   // If no picks have a category, show all picks for any tab (mock-data friendly)
-  const hasCategories = props.picks.some(p => p.category)
-  if (!hasCategories) return props.picks
+  const hasCategories = props.picks.some((p) => p.category);
+  if (!hasCategories) return props.picks;
 
-  return props.picks.filter(p => p.category === activeTab.value)
-})
+  return props.picks.filter((p) => p.category === activeTab.value);
+});
 
 // ─── Tab keyboard navigation (Arrow Left/Right) ───────────
 function handleTabKeydown(e: KeyboardEvent, idx: number) {
-  let newIdx: number | null = null
+  let newIdx: number | null = null;
 
-  if (e.key === 'ArrowRight') {
-    newIdx = (idx + 1) % tabs.length
-  } else if (e.key === 'ArrowLeft') {
-    newIdx = (idx - 1 + tabs.length) % tabs.length
-  } else if (e.key === 'Home') {
-    newIdx = 0
-  } else if (e.key === 'End') {
-    newIdx = tabs.length - 1
+  if (e.key === "ArrowRight") {
+    newIdx = (idx + 1) % tabs.length;
+  } else if (e.key === "ArrowLeft") {
+    newIdx = (idx - 1 + tabs.length) % tabs.length;
+  } else if (e.key === "Home") {
+    newIdx = 0;
+  } else if (e.key === "End") {
+    newIdx = tabs.length - 1;
   }
 
   if (newIdx !== null) {
-    e.preventDefault()
-    activeTab.value = tabs[newIdx]!
-    emit('tab-change', tabs[newIdx]!)
+    e.preventDefault();
+    activeTab.value = tabs[newIdx]!;
+    emit("tab-change", tabs[newIdx]!);
     // Move focus to the new tab
-    const el = document.getElementById(tabId(tabs[newIdx]!))
-    el?.focus()
+    const el = document.getElementById(tabId(tabs[newIdx]!));
+    el?.focus();
   }
 }
 
 function selectTab(tab: ShelfTab) {
-  activeTab.value = tab
-  emit('tab-change', tab)
+  activeTab.value = tab;
+  emit("tab-change", tab);
 }
 
 function handleCardAction(pick: ReadingPick) {
-  emit('card-click', pick)
+  emit("card-click", pick);
 }
 </script>
 
 <template>
   <section class="ks-reading-shelf" :aria-labelledby="`${uid}-title`">
     <div class="ks-reading-shelf__header">
-      <h3 :id="`${uid}-title`" class="ks-type-section-title">{{ t('recommendedReading') }}</h3>
-      <div class="ks-reading-shelf__tabs" role="tablist" :aria-label="t('recommendedReading')">
+      <h3 :id="`${uid}-title`" class="ks-type-section-title">
+        {{ t("recommendedReading") }}
+      </h3>
+      <div
+        class="ks-reading-shelf__tabs"
+        role="tablist"
+        :aria-label="t('recommendedReading')"
+      >
         <button
           v-for="(tab, idx) in tabs"
           :id="tabId(tab)"
@@ -142,19 +151,27 @@ function handleCardAction(pick: ReadingPick) {
         <span class="ks-type-eyebrow ks-reading-shelf__card-eyebrow">
           {{ pick.eyebrow }}
         </span>
-        <KsTranslatableTitle :text="pick.title" tag="h4" title-class="ks-reading-shelf__card-title" />
+        <KsTranslatableTitle
+          :text="pick.title"
+          tag="h4"
+          title-class="ks-reading-shelf__card-title"
+        />
         <p class="ks-type-body-sm ks-reading-shelf__card-abstract">
           {{ pick.abstract }}
         </p>
         <KsTranslateBtn :text="pick.abstract" />
         <!-- Taxonomy label chips (one per dimension) — shown whenever labels object exists -->
-        <div v-if="pick.labelDims !== undefined" class="ks-reading-shelf__card-labels">
+        <div
+          v-if="pick.labelDims !== undefined"
+          class="ks-reading-shelf__card-labels"
+        >
           <span
             v-for="dim in pick.labelDims"
             :key="dim.value"
             class="ks-reading-shelf__label-chip"
             :style="{ borderColor: dim.color, color: dim.color }"
-          >{{ dim.value }}</span>
+            >{{ dim.value }}</span
+          >
         </div>
         <!-- Fallback meta row only for papers without any labels data -->
         <div v-else class="ks-reading-shelf__card-meta">
@@ -188,8 +205,9 @@ function handleCardAction(pick: ReadingPick) {
   color: var(--color-secondary);
   cursor: pointer;
   border-radius: 4px;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-reading-shelf__tab:hover {

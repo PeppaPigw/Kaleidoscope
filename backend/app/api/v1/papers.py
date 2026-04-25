@@ -4,7 +4,8 @@ import uuid
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from pydantic import BaseModel
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,6 +27,23 @@ from app.tasks.ingest_tasks import ingest_paper
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/papers", tags=["papers"])
+
+
+class PaperResolveByArxivRequest(BaseModel):
+    arxiv_ids: list[str]
+
+
+class PaperResolveByArxivItem(BaseModel):
+    paper_id: str
+    arxiv_id: str
+    ingestion_status: str
+
+
+class PaperResolveByArxivResponse(BaseModel):
+    matches: list[PaperResolveByArxivItem]
+
+
+MINERU_READY_STATUSES = ("parsed", "indexed", "index_partial")
 
 
 @router.post("/import", response_model=ImportResult)
@@ -89,6 +107,47 @@ async def batch_import_papers(
         queued=queued,
         failed=0,
     )
+
+
+@router.post("/resolve-arxiv", response_model=PaperResolveByArxivResponse)
+async def resolve_papers_by_arxiv(
+    request: PaperResolveByArxivRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Resolve DeepXiv arXiv IDs to local paper IDs when the paper already exists.
+
+    Dashboard and discovery surfaces use this to prefer the local analysis page
+    over the raw DeepXiv reader after a paper has entered Kaleidoscope.
+    """
+    normalized_ids = list(
+        dict.fromkeys(aid.strip() for aid in request.arxiv_ids if aid.strip())
+    )
+    if not normalized_ids:
+        return PaperResolveByArxivResponse(matches=[])
+
+    result = await db.execute(
+        select(Paper.id, Paper.arxiv_id, Paper.ingestion_status).where(
+            Paper.deleted_at.is_(None),
+            Paper.arxiv_id.in_(normalized_ids),
+            or_(
+                Paper.parser_version == "mineru",
+                Paper.parser_version.like("mineru-%"),
+            ),
+            Paper.ingestion_status.in_(MINERU_READY_STATUSES),
+        )
+    )
+
+    matches = [
+        PaperResolveByArxivItem(
+            paper_id=str(row.id),
+            arxiv_id=row.arxiv_id,
+            ingestion_status=row.ingestion_status,
+        )
+        for row in result.all()
+        if row.arxiv_id
+    ]
+    return PaperResolveByArxivResponse(matches=matches)
 
 
 @router.get("", response_model=PaperListResponse)

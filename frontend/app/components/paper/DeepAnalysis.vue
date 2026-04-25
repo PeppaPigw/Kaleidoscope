@@ -6,55 +6,74 @@
  * user-content- prefix) so the page-level outline can build accurate links.
  * Scroll / active tracking is fully owned by the parent page.
  */
-import { renderPaperMarkdown } from '~/utils/markdown'
+import { renderPaperMarkdown } from "~/utils/markdown";
 
 export interface AnalysisItem {
-  id: string    // real DOM element id (set by rehypeSlug)
-  title: string
-  level: number // 1–6
+  id: string; // real DOM element id (set by rehypeSlug)
+  title: string;
+  level: number; // 1–6
 }
 
 const props = defineProps<{
-  analysis: string
-}>()
+  analysis: string;
+  badge?: string;
+  showHeader?: boolean;
+}>();
 
 const emit = defineEmits<{
-  analysisItemsReady: [items: AnalysisItem[]]
-}>()
+  analysisItemsReady: [items: AnalysisItem[]];
+}>();
 
-const html = ref('')
-const containerRef = ref<HTMLElement | null>(null)
+const html = ref("");
+const containerRef = ref<HTMLElement | null>(null);
 
 watch(
   () => props.analysis,
   async (text) => {
-    if (!text) return
-    const result = await renderPaperMarkdown(text)
-    html.value = result.html
-    await nextTick()
-    // Query actual headings from the rendered DOM — ids set by rehypeSlug
-    const headingEls = Array.from(
-      containerRef.value?.querySelectorAll<HTMLElement>(
-        'h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]',
-      ) ?? [],
-    )
-    emit(
-      'analysisItemsReady',
-      headingEls.map(el => ({
-        id: el.id,
-        title: el.textContent?.trim() ?? '',
-        level: Number.parseInt(el.tagName[1], 10),
-      })),
-    )
+    if (!text) {
+      html.value = "";
+      emit("analysisItemsReady", []);
+      return;
+    }
+
+    try {
+      const result = await renderPaperMarkdown(text, {
+        includeHeadings: false,
+      });
+      html.value = result.html;
+      await nextTick();
+      // Query actual headings from the rendered DOM — ids set by rehypeSlug
+      const headingEls = Array.from(
+        containerRef.value?.querySelectorAll<HTMLElement>(
+          "h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]",
+        ) ?? [],
+      );
+      emit(
+        "analysisItemsReady",
+        headingEls.map((el) => {
+          const level = Number.parseInt(el.tagName.slice(1), 10);
+          return {
+            id: el.id,
+            title: el.textContent?.trim() ?? "",
+            level: Number.isNaN(level) ? 1 : level,
+          };
+        }),
+      );
+    } catch {
+      html.value = "";
+      emit("analysisItemsReady", []);
+    }
   },
   { immediate: true },
-)
+);
 </script>
 
 <template>
   <section ref="containerRef" class="ks-deep-analysis">
-    <div class="ks-deep-analysis__header">
-      <span class="ks-deep-analysis__badge">Deep Analysis</span>
+    <div v-if="props.showHeader !== false" class="ks-deep-analysis__header">
+      <span class="ks-deep-analysis__badge">{{
+        props.badge || "Deep Analysis"
+      }}</span>
     </div>
     <!-- eslint-disable-next-line vue/no-v-html -->
     <div class="ks-deep-analysis__body markdown-body" v-html="html" />
@@ -97,17 +116,26 @@ watch(
   scroll-margin-top: 88px;
 }
 
-.markdown-body :deep(h1) { font-size: 1.4rem; font-weight: 700; }
+.markdown-body :deep(h1) {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
 .markdown-body :deep(h2) {
   font-size: 1.1rem;
   font-weight: 700;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border);
 }
-.markdown-body :deep(h3) { font-size: 0.97rem; font-weight: 600; }
+.markdown-body :deep(h3) {
+  font-size: 0.97rem;
+  font-weight: 600;
+}
 .markdown-body :deep(h4),
 .markdown-body :deep(h5),
-.markdown-body :deep(h6) { font-size: 0.88rem; font-weight: 600; }
+.markdown-body :deep(h6) {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
 
 .markdown-body :deep(p) {
   font: 400 0.92rem / 1.75 var(--font-sans);

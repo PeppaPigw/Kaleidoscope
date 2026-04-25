@@ -7,50 +7,65 @@
  */
 
 export interface PaperAuthor {
-  id: string
-  name: string
-  affiliation?: string
+  id: string;
+  name: string;
+  affiliation?: string;
 }
 
 export interface PaperFolioProps {
-  paperId?: string
-  title: string
-  titleZh?: string
-  authors: PaperAuthor[]
-  venue: string
-  year: number
-  doi?: string
-  openAccess: boolean
-  abstract: string
-  abstractZh?: string
-  citedBy: number
-  references: number
+  paperId?: string;
+  title: string;
+  titleZh?: string;
+  authors: PaperAuthor[];
+  venue: string;
+  year: number;
+  doi?: string;
+  openAccess: boolean;
+  abstract: string;
+  abstractZh?: string;
+  citedBy: number;
+  references: number;
 }
 
-defineProps<PaperFolioProps>()
+defineProps<PaperFolioProps>();
 
 defineEmits<{
-  'read': []
-  'save': []
-  'cite': []
-  'author-click': [author: PaperAuthor]
-}>()
+  read: [];
+  save: [];
+  cite: [];
+  "author-click": [author: PaperAuthor];
+}>();
 
-const { t } = useTranslation()
-const uid = useId()
+const { t } = useTranslation();
+const uid = useId();
 </script>
 
 <template>
-  <header class="ks-paper-folio ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <header
+    class="ks-paper-folio ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-paper-folio__badges">
       <KsTag v-if="openAccess" variant="primary">Open Access</KsTag>
       <KsTag variant="neutral">{{ venue }} {{ year }}</KsTag>
-      <a v-if="doi" :href="`https://doi.org/${doi}`" target="_blank" rel="noopener" class="ks-paper-folio__doi">
+      <a
+        v-if="doi"
+        :href="`https://doi.org/${doi}`"
+        target="_blank"
+        rel="noopener"
+        class="ks-paper-folio__doi"
+      >
         DOI: {{ doi }}
       </a>
     </div>
 
-    <KsTranslatableTitle :text="title" :paper-id="paperId" :title-zh="titleZh" tag="h1" title-class="ks-paper-folio__title" />
+    <KsTranslatableTitle
+      :text="title"
+      :paper-id="paperId"
+      :title-zh="titleZh"
+      tag="h1"
+      title-class="ks-paper-folio__title"
+    />
 
     <div class="ks-paper-folio__authors">
       <button
@@ -61,23 +76,40 @@ const uid = useId()
         @click="$emit('author-click', author)"
       >
         <span class="ks-paper-folio__author-name">{{ author.name }}</span>
-        <span v-if="author.affiliation" class="ks-type-data">{{ author.affiliation }}</span>
+        <span v-if="author.affiliation" class="ks-type-data">{{
+          author.affiliation
+        }}</span>
       </button>
     </div>
 
     <p class="ks-paper-folio__abstract">{{ abstract }}</p>
-    <KsTranslateBtn v-if="abstract" :text="abstract" :paper-id="paperId" :abstract-zh="abstractZh" />
+    <KsTranslateBtn
+      v-if="abstract"
+      :text="abstract"
+      :paper-id="paperId"
+      :abstract-zh="abstractZh"
+    />
 
     <div class="ks-paper-folio__stats">
-      <span class="ks-type-data"><strong>{{ citedBy }}</strong> citations</span>
+      <span class="ks-type-data"
+        ><strong>{{ citedBy }}</strong> citations</span
+      >
       <span class="ks-paper-folio__stat-dot">·</span>
-      <span class="ks-type-data"><strong>{{ references }}</strong> references</span>
+      <span class="ks-type-data"
+        ><strong>{{ references }}</strong> references</span
+      >
     </div>
 
     <div class="ks-paper-folio__actions">
-      <KsButton variant="primary" @click="$emit('read')">{{ t('readPaper') }}</KsButton>
-      <KsButton variant="secondary" @click="$emit('save')">{{ t('save') }}</KsButton>
-      <KsButton variant="secondary" @click="$emit('cite')">{{ t('cite') }}</KsButton>
+      <KsButton variant="primary" @click="$emit('read')">{{
+        t("readPaper")
+      }}</KsButton>
+      <KsButton variant="secondary" @click="$emit('save')">{{
+        t("save")
+      }}</KsButton>
+      <KsButton variant="secondary" @click="$emit('cite')">{{
+        t("cite")
+      }}</KsButton>
     </div>
   </header>
 </template>
@@ -129,8 +161,9 @@ const uid = useId()
   border-radius: 2px;
   cursor: pointer;
   text-align: left;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              background-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    background-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-paper-folio__author:hover {

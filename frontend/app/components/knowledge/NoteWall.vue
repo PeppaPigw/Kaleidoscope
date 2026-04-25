@@ -4,27 +4,32 @@
  */
 
 export interface NoteCard {
-  id: string
-  title: string
-  excerpt: string
-  tags: string[]
-  backlinkCount: number
-  updatedAt: string
+  id: string;
+  title: string;
+  excerpt: string;
+  tags: string[];
+  backlinkCount: number;
+  updatedAt: string;
 }
 
 export interface NoteWallProps {
-  notes: NoteCard[]
+  notes: NoteCard[];
 }
 
-defineProps<NoteWallProps>()
-defineEmits<{ 'note-click': [note: NoteCard] }>()
+defineProps<NoteWallProps>();
+defineEmits<{ "note-click": [note: NoteCard] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-note-wall ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">Notes ({{ notes.length }})</h2>
+  <section
+    class="ks-note-wall ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      Notes ({{ notes.length }})
+    </h2>
 
     <div class="ks-note-wall__grid">
       <button
@@ -37,10 +42,17 @@ const uid = useId()
         <h3 class="ks-note-wall__title">{{ note.title }}</h3>
         <p class="ks-note-wall__excerpt">{{ note.excerpt }}</p>
         <div class="ks-note-wall__tags">
-          <KsTag v-for="tag in note.tags.slice(0, 3)" :key="tag" variant="neutral">{{ tag }}</KsTag>
+          <KsTag
+            v-for="tag in note.tags.slice(0, 3)"
+            :key="tag"
+            variant="neutral"
+            >{{ tag }}</KsTag
+          >
         </div>
         <div class="ks-note-wall__footer">
-          <span class="ks-type-data" style="color: var(--color-primary);">{{ note.backlinkCount }} links</span>
+          <span class="ks-type-data" style="color: var(--color-primary)"
+            >{{ note.backlinkCount }} links</span
+          >
           <span class="ks-type-data">{{ note.updatedAt }}</span>
         </div>
       </button>
@@ -63,8 +75,9 @@ const uid = useId()
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-note-wall__card:hover {

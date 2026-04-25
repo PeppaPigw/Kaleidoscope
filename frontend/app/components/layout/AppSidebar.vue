@@ -12,7 +12,6 @@ import {
   Flower2,
   Settings,
   ChevronLeft,
-  GraduationCap,
   Bookmark,
   Rss,
 } from "lucide-vue-next";
@@ -49,7 +48,6 @@ const navDefinition: NavItem[] = [
     to: "/discover",
     sectionKey: "explore",
   },
-  { labelKey: "deepxiv", icon: GraduationCap, to: "/deepxiv" },
   { labelKey: "search", icon: Search, to: "/search" },
   { labelKey: "insights", icon: Network, to: "/insights/landscape" },
   {
@@ -113,7 +111,7 @@ function handleNavClick() {
         alt=""
         aria-hidden="true"
         class="ks-sidebar__logo-mark"
-      >
+      />
       <Transition name="ks-fade">
         <span v-if="!collapsed" class="ks-sidebar__logo-text"
           >Kaleidoscope</span
@@ -143,6 +141,7 @@ function handleNavClick() {
 
         <NuxtLink
           :to="item.to"
+          prefetch-on="interaction"
           :class="[
             'ks-sidebar__item',
             { 'ks-sidebar__item--active': isActive(item) },
@@ -165,6 +164,7 @@ function handleNavClick() {
     <div class="ks-sidebar__footer">
       <NuxtLink
         to="/admin"
+        prefetch-on="interaction"
         class="ks-sidebar__item"
         :aria-label="t('admin')"
         @click="handleNavClick"

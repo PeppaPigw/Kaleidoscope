@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { renderRagflowAnswer } from '~/utils/ragflowAnswer'
-import { PAPER_QA_LOADING_STAGES, usePaperQA } from '~/composables/usePaperQA'
+import { renderRagflowAnswer } from "~/utils/ragflowAnswer";
+import { PAPER_QA_LOADING_STAGES, usePaperQA } from "~/composables/usePaperQA";
 
 const props = defineProps<{
-  paperId: string
-  pendingContext?: string | null
-}>()
+  paperId: string;
+  pendingContext?: string | null;
+}>();
 
 const emit = defineEmits<{
-  contextConsumed: []
-}>()
+  contextConsumed: [];
+}>();
 
-const paperId = computed(() => props.paperId)
+const paperId = computed(() => props.paperId);
 
 const {
   status,
@@ -22,167 +22,180 @@ const {
   ask,
   prepare,
   newChat,
-} = usePaperQA(paperId)
+} = usePaperQA(paperId);
 
-const inputText = ref('')
-const inputFocused = ref(false)
-const activeContext = ref<string | null>(null)
+const inputText = ref("");
+const inputFocused = ref(false);
+const activeContext = ref<string | null>(null);
 
 watch(
   () => props.pendingContext,
   (val) => {
-    if (val) activeContext.value = val
+    if (val) activeContext.value = val;
   },
   { immediate: true },
-)
+);
 
 function dismissContext() {
-  activeContext.value = null
-  emit('contextConsumed')
+  activeContext.value = null;
+  emit("contextConsumed");
 }
-const historyRef = ref<HTMLElement | null>(null)
-const renderedAnswers = ref<Record<string, string>>({})
-const expandedSources = ref<Record<string, boolean>>({})
+const historyRef = ref<HTMLElement | null>(null);
+const renderedAnswers = ref<Record<string, string>>({});
+const expandedSources = ref<Record<string, boolean>>({});
 
-type LoadingStage = typeof PAPER_QA_LOADING_STAGES[number]['key']
+type LoadingStage = (typeof PAPER_QA_LOADING_STAGES)[number]["key"];
 
-const isReady = computed(() => status.value === 'completed')
-const isBuilding = computed(() => status.value === 'pending' || status.value === 'running')
-const isFailed = computed(() => status.value === 'failed')
-const canStartNewChat = computed(() => history.value.length > 0 && !asking.value)
+const isReady = computed(() => status.value === "completed");
+const isBuilding = computed(
+  () => status.value === "pending" || status.value === "running",
+);
+const isFailed = computed(() => status.value === "failed");
+const canStartNewChat = computed(
+  () => history.value.length > 0 && !asking.value,
+);
 const inputPlaceholder = computed(() => {
-  if (isBuilding.value || preparing.value) return 'Preparing paper index…'
-  if (isFailed.value) return 'Paper QA unavailable'
-  return 'Ask a question about this paper…'
-})
+  if (isBuilding.value || preparing.value) return "Preparing paper index…";
+  if (isFailed.value) return "Paper QA unavailable";
+  return "Ask a question about this paper…";
+});
 
 const SUGGESTED_QUESTIONS = [
-  'What is the main contribution?',
-  'Explain the methodology',
-  'What are the key results?',
-]
+  "What is the main contribution?",
+  "Explain the methodology",
+  "What are the key results?",
+];
 
 const STAGE_INDEX = Object.fromEntries(
   PAPER_QA_LOADING_STAGES.map((stage, index) => [stage.key, index]),
-) as Record<LoadingStage, number>
+) as Record<LoadingStage, number>;
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function handleSubmit() {
-  const question = inputText.value.trim()
-  if (!question || !isReady.value || asking.value) return
-  inputText.value = ''
-  const ctx = activeContext.value ?? undefined
-  activeContext.value = null
-  emit('contextConsumed')
-  await ask(question, ctx)
+  const question = inputText.value.trim();
+  if (!question || !isReady.value || asking.value) return;
+  inputText.value = "";
+  const ctx = activeContext.value ?? undefined;
+  activeContext.value = null;
+  emit("contextConsumed");
+  await ask(question, ctx);
 }
 
 async function handleSuggestedQuestion(question: string) {
-  inputText.value = question
-  await handleSubmit()
+  inputText.value = question;
+  await handleSubmit();
 }
 
 function handleNewChat() {
-  if (!canStartNewChat.value) return
-  inputText.value = ''
-  renderedAnswers.value = {}
-  expandedSources.value = {}
-  newChat()
+  if (!canStartNewChat.value) return;
+  inputText.value = "";
+  renderedAnswers.value = {};
+  expandedSources.value = {};
+  newChat();
 }
 
 function stageState(stageKey: LoadingStage, currentStage: LoadingStage) {
-  const currentIndex = STAGE_INDEX[currentStage]
-  const stageIndex = STAGE_INDEX[stageKey]
-  if (stageIndex < currentIndex) return 'done'
-  if (stageIndex === currentIndex) return 'active'
-  return 'pending'
+  const currentIndex = STAGE_INDEX[currentStage];
+  const stageIndex = STAGE_INDEX[stageKey];
+  if (stageIndex < currentIndex) return "done";
+  if (stageIndex === currentIndex) return "active";
+  return "pending";
 }
 
 function sourceColor(normalized: string): string {
   const map: Record<string, string> = {
-    abstract: '#6366f1',
-    introduction: '#0ea5e9',
-    method: '#10b981',
-    methodology: '#10b981',
-    experiments: '#f59e0b',
-    evaluation: '#f59e0b',
-    results: '#ec4899',
-    conclusion: '#8b5cf6',
-    appendix: '#64748b',
-  }
+    abstract: "#6366f1",
+    introduction: "#0ea5e9",
+    method: "#10b981",
+    methodology: "#10b981",
+    experiments: "#f59e0b",
+    evaluation: "#f59e0b",
+    results: "#ec4899",
+    conclusion: "#8b5cf6",
+    appendix: "#64748b",
+  };
   for (const [key, color] of Object.entries(map)) {
-    if (normalized.includes(key)) return color
+    if (normalized.includes(key)) return color;
   }
-  return '#94a3b8'
+  return "#94a3b8";
 }
 
 function toggleSources(itemId: string) {
-  expandedSources.value[itemId] = !expandedSources.value[itemId]
+  expandedSources.value[itemId] = !expandedSources.value[itemId];
 }
 
 function sourcesExpanded(itemId: string): boolean {
-  return expandedSources.value[itemId] ?? false
+  return expandedSources.value[itemId] ?? false;
 }
 
 function compactMathExpression(expression: string): string {
   return expression
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([{}[\]()_^=,+\-*/%])\s*/g, '$1')
-    .replace(/([0-9])\s+(?=[0-9])/g, '$1')
-    .replace(/\s+([.,%])/g, '$1')
-    .replace(/\\\s+/g, '\\')
-    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s*([{}[\]()_^=,+\-*/%])\s*/g, "$1")
+    .replace(/([0-9])\s+(?=[0-9])/g, "$1")
+    .replace(/\s+([.,%])/g, "$1")
+    .replace(/\\\s+/g, "\\")
+    .trim();
 }
 
 function normalizeInlineMathSpacing(value: string): string {
   return value
-    .replace(/\$([^$]+)\$/g, (_, expression: string) => `$${compactMathExpression(expression)}$`)
-    .replace(/\\\((.+?)\\\)/g, (_, expression: string) => `\\(${compactMathExpression(expression)}\\)`)
+    .replace(
+      /\$([^$]+)\$/g,
+      (_, expression: string) => `$${compactMathExpression(expression)}$`,
+    )
+    .replace(
+      /\\\((.+?)\\\)/g,
+      (_, expression: string) => `\\(${compactMathExpression(expression)}\\)`,
+    );
 }
 
 function displaySourceSnippet(value: string): string {
-  return normalizeInlineMathSpacing(value)
+  return normalizeInlineMathSpacing(value);
 }
 
 async function scrollHistoryToBottom() {
-  await nextTick()
-  const el = historyRef.value
-  if (!el) return
-  el.scrollTop = el.scrollHeight
+  await nextTick();
+  const el = historyRef.value;
+  if (!el) return;
+  el.scrollTop = el.scrollHeight;
 }
 
 watch(
   history,
   async (items) => {
-    const activeIds = new Set(items.map(item => item.id))
+    const activeIds = new Set(items.map((item) => item.id));
     renderedAnswers.value = Object.fromEntries(
       Object.entries(renderedAnswers.value).filter(([id]) => activeIds.has(id)),
-    )
+    );
     expandedSources.value = Object.fromEntries(
-      Object.entries(expandedSources.value).filter(([id, expanded]) => activeIds.has(id) && expanded),
-    )
+      Object.entries(expandedSources.value).filter(
+        ([id, expanded]) => activeIds.has(id) && expanded,
+      ),
+    );
 
     for (const item of items) {
       if (item.answer && !renderedAnswers.value[item.id]) {
         try {
-          renderedAnswers.value[item.id] = await renderRagflowAnswer(item.answer)
-        }
-        catch {
-          renderedAnswers.value[item.id] = `<p>${escapeHtml(item.answer)}</p>`
+          renderedAnswers.value[item.id] = await renderRagflowAnswer(
+            item.answer,
+          );
+        } catch {
+          renderedAnswers.value[item.id] = `<p>${escapeHtml(item.answer)}</p>`;
         }
       }
     }
 
-    await scrollHistoryToBottom()
+    await scrollHistoryToBottom();
   },
   { deep: true },
-)
+);
 </script>
 
 <template>
@@ -195,7 +208,14 @@ watch(
         @click="handleNewChat"
       >
         <span class="pqa-new-chat-icon" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <circle cx="12" cy="12" r="9" />
             <line x1="12" y1="8" x2="12" y2="16" />
             <line x1="8" y1="12" x2="16" y2="12" />
@@ -217,13 +237,20 @@ watch(
 
     <transition name="qa-slide">
       <div v-if="isFailed" class="pqa-error-card">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <span>{{ errorMessage || 'Indexing failed.' }}</span>
-        <button class="pqa-retry-btn" @click="prepare">
-          Retry
-        </button>
+        <span>{{ errorMessage || "Indexing failed." }}</span>
+        <button class="pqa-retry-btn" @click="prepare">Retry</button>
       </div>
     </transition>
 
@@ -231,8 +258,17 @@ watch(
       <transition name="qa-slide">
         <div v-if="isReady && history.length === 0" class="pqa-empty">
           <div class="pqa-empty-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+              />
             </svg>
           </div>
           <p class="pqa-empty-title">Start a paper chat</p>
@@ -251,16 +287,15 @@ watch(
       </transition>
 
       <transition-group name="qa-item" tag="div" class="pqa-items">
-        <div
-          v-for="item in history"
-          :key="item.id"
-          class="pqa-item"
-        >
+        <div v-for="item in history" :key="item.id" class="pqa-item">
           <div class="pqa-question">
             <span class="pqa-question-text">{{ item.question }}</span>
           </div>
 
-          <div v-if="item.loading && !item.streamingAnswer" class="pqa-progress-card">
+          <div
+            v-if="item.loading && !item.streamingAnswer"
+            class="pqa-progress-card"
+          >
             <div class="pqa-progress-visual">
               <div class="pqa-progress-spinner">
                 <span class="pqa-spinner-orbit pqa-spinner-orbit--one" />
@@ -282,15 +317,29 @@ watch(
             </div>
           </div>
 
-          <div v-else-if="item.loading && item.streamingAnswer" class="pqa-answer-card">
+          <div
+            v-else-if="item.loading && item.streamingAnswer"
+            class="pqa-answer-card"
+          >
             <div class="pqa-answer-body">
-              <div class="pqa-streaming-text">{{ item.streamingAnswer }}<span class="pqa-cursor" /></div>
+              <div class="pqa-streaming-text">
+                {{ item.streamingAnswer }}<span class="pqa-cursor" />
+              </div>
             </div>
           </div>
 
           <div v-else-if="item.error" class="pqa-answer-error">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             {{ item.error }}
           </div>
@@ -298,7 +347,10 @@ watch(
           <div v-else-if="item.answer" class="pqa-answer-card">
             <div class="pqa-answer-body">
               <!-- eslint-disable-next-line vue/no-v-html -->
-              <div class="pqa-answer-rich ks-prose" v-html="renderedAnswers[item.id] || item.answer" />
+              <div
+                class="pqa-answer-rich ks-prose"
+                v-html="renderedAnswers[item.id] || item.answer"
+              />
             </div>
 
             <div v-if="item.sources.length" class="pqa-sources">
@@ -308,10 +360,14 @@ watch(
                 @click="toggleSources(item.id)"
               >
                 <span>Sources</span>
-                <span class="pqa-sources-header-meta">{{ item.sources.length }}</span>
+                <span class="pqa-sources-header-meta">{{
+                  item.sources.length
+                }}</span>
                 <svg
                   class="pqa-sources-caret"
-                  :class="{ 'pqa-sources-caret--open': sourcesExpanded(item.id) }"
+                  :class="{
+                    'pqa-sources-caret--open': sourcesExpanded(item.id),
+                  }"
                   width="14"
                   height="14"
                   viewBox="0 0 24 24"
@@ -333,12 +389,17 @@ watch(
                     <span class="pqa-source-index">[{{ index + 1 }}]</span>
                     <span
                       class="pqa-section-chip"
-                      :style="{ borderColor: sourceColor(src.normalized_section), color: sourceColor(src.normalized_section) }"
+                      :style="{
+                        borderColor: sourceColor(src.normalized_section),
+                        color: sourceColor(src.normalized_section),
+                      }"
                     >
                       {{ src.section_title }}
                     </span>
                   </div>
-                  <p class="pqa-source-snippet">{{ displaySourceSnippet(src.text_snippet) }}</p>
+                  <p class="pqa-source-snippet">
+                    {{ displaySourceSnippet(src.text_snippet) }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -348,16 +409,48 @@ watch(
     </div>
 
     <form class="pqa-form" @submit.prevent="handleSubmit">
-      <div class="pqa-input-wrap" :class="{ 'pqa-input-wrap--focused': inputFocused, 'pqa-input-wrap--has-context': activeContext }">
+      <div
+        class="pqa-input-wrap"
+        :class="{
+          'pqa-input-wrap--focused': inputFocused,
+          'pqa-input-wrap--has-context': activeContext,
+        }"
+      >
         <!-- Context quote row -->
         <div v-if="activeContext" class="pqa-context-row">
-          <svg class="pqa-context-arrow" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="4 6 4 12 12 12" /><line x1="4" y1="12" x2="13" y2="3" />
+          <svg
+            class="pqa-context-arrow"
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="4 6 4 12 12 12" />
+            <line x1="4" y1="12" x2="13" y2="3" />
           </svg>
           <span class="pqa-context-quote">"{{ activeContext }}"</span>
-          <button type="button" class="pqa-context-dismiss" aria-label="Clear context" @click="dismissContext">
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-              <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
+          <button
+            type="button"
+            class="pqa-context-dismiss"
+            aria-label="Clear context"
+            @click="dismissContext"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <line x1="4" y1="4" x2="12" y2="12" />
+              <line x1="12" y1="4" x2="4" y2="12" />
             </svg>
           </button>
         </div>
@@ -366,10 +459,16 @@ watch(
         <!-- Input row -->
         <div class="pqa-input-row">
           <svg
-            class="pqa-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2"
+            class="pqa-input-icon"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
           >
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
             v-model="inputText"
@@ -381,16 +480,27 @@ watch(
             @focus="inputFocused = true"
             @blur="inputFocused = false"
             @keydown.enter.prevent="handleSubmit"
-          >
+          />
           <button
             type="submit"
             class="pqa-submit"
             :disabled="!isReady || asking || !inputText.trim()"
-            :class="{ 'pqa-submit--active': isReady && inputText.trim() && !asking }"
+            :class="{
+              'pqa-submit--active': isReady && inputText.trim() && !asking,
+            }"
             aria-label="Submit question"
           >
-            <svg v-if="!asking" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            <svg
+              v-if="!asking"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
             </svg>
             <span v-else class="pqa-submit-spinner" />
           </button>
@@ -430,14 +540,18 @@ watch(
   gap: 7px;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+  border: 1px solid
+    color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-text);
   font: 600 0.72rem / 1 var(--font-mono, monospace);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .pqa-new-chat-icon {
@@ -450,7 +564,11 @@ watch(
 
 .pqa-new-chat:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary) 44%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 44%,
+    var(--color-border)
+  );
 }
 
 .pqa-new-chat:disabled {
@@ -481,8 +599,12 @@ watch(
 }
 
 @keyframes pulse-slide {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
 }
 
 .pqa-preparing-text {
@@ -584,7 +706,10 @@ watch(
   font: 400 0.8rem / 1.3 var(--font-sans);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .pqa-suggestion-btn:hover {
@@ -627,8 +752,13 @@ watch(
   align-items: center;
   width: min(100%, 320px);
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--color-surface, rgba(30, 41, 59, 0.45)) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+  background: color-mix(
+    in srgb,
+    var(--color-surface, rgba(30, 41, 59, 0.45)) 92%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
   border-radius: 14px 14px 14px 4px;
   backdrop-filter: blur(10px);
 }
@@ -662,7 +792,7 @@ watch(
 }
 
 .pqa-spinner-orbit::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: 50%;
@@ -686,7 +816,9 @@ watch(
 }
 
 @keyframes orbit-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pqa-progress-steps {
@@ -770,8 +902,13 @@ watch(
 }
 
 @keyframes pqa-blink {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .pqa-answer-rich.ks-prose {
@@ -942,12 +1079,15 @@ watch(
   border: 1px solid var(--color-border);
   border-radius: 14px;
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .pqa-input-wrap--focused {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 /* ── Context quote row ─────────────────────────── */
@@ -989,7 +1129,9 @@ watch(
   cursor: pointer;
   border-radius: 50%;
   opacity: 0.55;
-  transition: opacity 0.13s, background 0.13s;
+  transition:
+    opacity 0.13s,
+    background 0.13s;
 }
 
 .pqa-context-dismiss:hover {
@@ -1048,7 +1190,10 @@ watch(
   color: var(--color-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.1s;
 }
 
 .pqa-submit--active {
@@ -1075,11 +1220,15 @@ watch(
 }
 
 @keyframes submit-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .qa-slide-enter-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
 }
 
 .qa-slide-leave-active {

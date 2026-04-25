@@ -46,7 +46,11 @@ class VectorSearchService:
         if not isinstance(top_k, int) or top_k < 1 or top_k > 100:
             raise ValueError("top_k must be an integer between 1 and 100")
 
-        if not isinstance(min_similarity, (int, float)) or min_similarity < 0 or min_similarity > 1:
+        if (
+            not isinstance(min_similarity, (int, float))
+            or min_similarity < 0
+            or min_similarity > 1
+        ):
             raise ValueError("min_similarity must be a number between 0 and 1")
 
         # Calculate cosine similarity: 1 - (cosine_distance / 2)
@@ -77,7 +81,9 @@ class VectorSearchService:
             query = query.where(PaperChunk.paper_id.in_(paper_ids))
 
         # Order by similarity (closest first) and limit
-        query = query.order_by(PaperChunk.embedding.cosine_distance(query_embedding)).limit(top_k)
+        query = query.order_by(
+            PaperChunk.embedding.cosine_distance(query_embedding)
+        ).limit(top_k)
 
         try:
             result = await self.db.execute(query)
@@ -97,16 +103,18 @@ class VectorSearchService:
         for row in rows:
             similarity_score = float(row.similarity)
             if similarity_score >= min_similarity:
-                results.append({
-                    "chunk_id": str(row.chunk_id),
-                    "paper_id": str(row.paper_id),
-                    "section_title": row.section_title,
-                    "content": row.content,
-                    "similarity": similarity_score,
-                    "paper_title": row.paper_title,
-                    "paper_doi": row.paper_doi,
-                    "paper_arxiv_id": row.paper_arxiv_id,
-                })
+                results.append(
+                    {
+                        "chunk_id": str(row.chunk_id),
+                        "paper_id": str(row.paper_id),
+                        "section_title": row.section_title,
+                        "content": row.content,
+                        "similarity": similarity_score,
+                        "paper_title": row.paper_title,
+                        "paper_doi": row.paper_doi,
+                        "paper_arxiv_id": row.paper_arxiv_id,
+                    }
+                )
 
         logger.info(
             "vector_search_complete",

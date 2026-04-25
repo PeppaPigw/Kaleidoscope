@@ -5,66 +5,66 @@
  * Shows a compact translate icon+label. On click, calls the LLM API.
  * Displays loading state and cached result.
  */
-import { Languages } from 'lucide-vue-next'
+import { Languages } from "lucide-vue-next";
 
-const { translate, getCached, setCached, isPending, hasError, isZh, t } = useTranslation()
+const { t, translate, getCached, setCached, isPending } = useTranslation();
 
 const props = defineProps<{
   /** The abstract / text to translate */
-  text: string
+  text: string;
   /** Optional paper ID for persisting translation */
-  paperId?: string
+  paperId?: string;
   /** Pre-loaded translation from database */
-  abstractZh?: string
-}>()
+  abstractZh?: string;
+}>();
 
 const emit = defineEmits<{
-  translated: [result: string]
-}>()
+  translated: [result: string];
+}>();
 
-const translated = ref('')
-const showTranslation = ref(false)
+const translated = ref("");
+const showTranslation = ref(false);
 
-const loading = computed(() => isPending(props.text))
+const loading = computed(() => isPending(props.text));
 
 // Pre-load translation from database if available
 watch(
   () => props.abstractZh,
   (zh) => {
     if (zh && props.text) {
-      setCached(props.text, zh)
-      translated.value = zh
+      setCached(props.text, zh);
+      translated.value = zh;
     }
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
 // Auto-load cached
 watch(
   () => props.text,
   (t) => {
-    const cached = getCached(t)
+    const cached = getCached(t);
     if (cached) {
-      translated.value = cached
+      translated.value = cached;
     }
   },
   { immediate: true },
-)
+);
 
 async function handleTranslate() {
   if (translated.value) {
     // Toggle visibility if already translated
-    showTranslation.value = !showTranslation.value
-    return
+    showTranslation.value = !showTranslation.value;
+    return;
   }
-  showTranslation.value = true
+  showTranslation.value = true;
   const result = await translate(props.text, {
     paperId: props.paperId,
-    fieldType: 'abstract',
-  })
+    fieldType: "abstract",
+  });
   if (result) {
-    translated.value = result
-    emit('translated', result)
+    translated.value = result;
+    emit("translated", result);
   }
 }
 </script>
@@ -78,21 +78,32 @@ async function handleTranslate() {
         'ks-translate-btn--active': showTranslation && translated,
         'ks-translate-btn--loading': loading,
       }"
-      :aria-label="translated ? (showTranslation ? t('hideTranslation') : t('showTranslation')) : t('translateAbstract')"
+      :aria-label="
+        translated
+          ? showTranslation
+            ? t('hideTranslation')
+            : t('showTranslation')
+          : t('translateAbstract')
+      "
       @click.stop.prevent="handleTranslate"
     >
       <Languages :size="13" :stroke-width="2" />
-      <span v-if="loading" class="ks-translate-btn__label">{{ t('translating') }}</span>
-      <span v-else-if="translated && showTranslation" class="ks-translate-btn__label">{{ t('hideTranslation') }}</span>
-      <span v-else class="ks-translate-btn__label">{{ t('translateAbstract') }}</span>
+      <span v-if="loading" class="ks-translate-btn__label">{{
+        t("translating")
+      }}</span>
+      <span
+        v-else-if="translated && showTranslation"
+        class="ks-translate-btn__label"
+        >{{ t("hideTranslation") }}</span
+      >
+      <span v-else class="ks-translate-btn__label">{{
+        t("translateAbstract")
+      }}</span>
     </button>
 
     <!-- Translation result -->
     <Transition name="ks-fade-slide">
-      <div
-        v-if="showTranslation && translated"
-        class="ks-translate-result"
-      >
+      <div v-if="showTranslation && translated" class="ks-translate-result">
         <p class="ks-translate-result__text">{{ translated }}</p>
       </div>
     </Transition>
@@ -147,8 +158,13 @@ async function handleTranslate() {
 }
 
 @keyframes ks-pulse-text {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .ks-translate-result {
@@ -165,10 +181,14 @@ async function handleTranslate() {
 
 /* Transition */
 .ks-fade-slide-enter-active {
-  transition: opacity 0.2s var(--ease-smooth), transform 0.2s var(--ease-smooth);
+  transition:
+    opacity 0.2s var(--ease-smooth),
+    transform 0.2s var(--ease-smooth);
 }
 .ks-fade-slide-leave-active {
-  transition: opacity 0.15s var(--ease-smooth), transform 0.15s var(--ease-smooth);
+  transition:
+    opacity 0.15s var(--ease-smooth),
+    transform 0.15s var(--ease-smooth);
 }
 .ks-fade-slide-enter-from {
   opacity: 0;

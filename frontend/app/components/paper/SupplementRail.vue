@@ -5,40 +5,56 @@
  * Lists linked code repos, datasets, slides, appendices,
  * and external resources for the paper.
  */
-import type { SupplementItem } from './supplements'
+import type { SupplementItem } from "./supplements";
 
 export interface SupplementRailProps {
-  items: SupplementItem[]
+  items: SupplementItem[];
 }
 
-defineProps<SupplementRailProps>()
-const uid = useId()
+defineProps<SupplementRailProps>();
+const uid = useId();
 
-function typeIcon(t: SupplementItem['type']): string {
-  const map: Record<SupplementItem['type'], string> = {
-    code: '⌨',
-    dataset: '📊',
-    weights: '🧠',
-    slides: '📑',
-    appendix: '📎',
-    video: '🎬',
-    demo: '🚀',
-  }
-  return map[t]
+function typeIcon(t: SupplementItem["type"]): string {
+  const map: Record<SupplementItem["type"], string> = {
+    code: "⌨",
+    dataset: "📊",
+    weights: "🧠",
+    slides: "📑",
+    appendix: "📎",
+    video: "🎬",
+    demo: "🚀",
+  };
+  return map[t];
 }
 </script>
 
 <template>
-  <aside class="ks-supplement-rail ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 12px;">
+  <aside
+    class="ks-supplement-rail ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h3
+      :id="`${uid}-title`"
+      class="ks-type-eyebrow"
+      style="color: var(--color-accent); margin-bottom: 12px"
+    >
       Supplementary Materials
     </h3>
     <ul class="ks-supplement-rail__list">
       <li v-for="item in items" :key="item.id">
-        <a :href="item.url" target="_blank" rel="noopener" class="ks-supplement-rail__link">
-          <span class="ks-supplement-rail__icon" aria-hidden="true">{{ typeIcon(item.type) }}</span>
+        <a
+          :href="item.url"
+          target="_blank"
+          rel="noopener"
+          class="ks-supplement-rail__link"
+        >
+          <span class="ks-supplement-rail__icon" aria-hidden="true">{{
+            typeIcon(item.type)
+          }}</span>
           <span class="ks-supplement-rail__label">{{ item.label }}</span>
-          <KsTag variant="neutral" style="font-size: 0.625rem;">{{ item.type }}</KsTag>
+          <KsTag variant="neutral" style="font-size: 0.625rem">{{
+            item.type
+          }}</KsTag>
         </a>
       </li>
     </ul>

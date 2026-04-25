@@ -7,38 +7,46 @@
  */
 
 export interface RelatedPaper {
-  id: string
-  title: string
-  venue: string
-  year: number
-  relationship: 'cites' | 'cited-by' | 'similar' | 'extends' | 'contradicts'
-  similarity: number
+  id: string;
+  title: string;
+  venue: string;
+  year: number;
+  relationship: "cites" | "cited-by" | "similar" | "extends" | "contradicts";
+  similarity: number;
 }
 
 export interface RelatedConstellationProps {
-  papers: RelatedPaper[]
+  papers: RelatedPaper[];
 }
 
-defineProps<RelatedConstellationProps>()
-defineEmits<{ 'paper-click': [paper: RelatedPaper] }>()
+defineProps<RelatedConstellationProps>();
+defineEmits<{ "paper-click": [paper: RelatedPaper] }>();
 
-const uid = useId()
+const uid = useId();
 
-type TagVariant = 'primary' | 'accent' | 'neutral' | 'danger'
+type TagVariant = "primary" | "accent" | "neutral" | "danger";
 
-function relColor(r: RelatedPaper['relationship']): TagVariant {
+function relColor(r: RelatedPaper["relationship"]): TagVariant {
   switch (r) {
-    case 'cites': return 'primary'
-    case 'cited-by': return 'primary'
-    case 'similar': return 'accent'
-    case 'extends': return 'neutral'
-    case 'contradicts': return 'danger'
+    case "cites":
+      return "primary";
+    case "cited-by":
+      return "primary";
+    case "similar":
+      return "accent";
+    case "extends":
+      return "neutral";
+    case "contradicts":
+      return "danger";
   }
 }
 </script>
 
 <template>
-  <section class="ks-related-constellation ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-related-constellation ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Related Papers</h2>
 
     <div class="ks-related-constellation__grid">
@@ -51,12 +59,21 @@ function relColor(r: RelatedPaper['relationship']): TagVariant {
         @click="$emit('paper-click', paper)"
       >
         <div class="ks-related-constellation__card-header">
-          <KsTag :variant="relColor(paper.relationship)">{{ paper.relationship }}</KsTag>
-          <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">
+          <KsTag :variant="relColor(paper.relationship)">{{
+            paper.relationship
+          }}</KsTag>
+          <span
+            class="ks-type-data"
+            style="color: var(--color-primary); font-weight: 700"
+          >
             {{ (paper.similarity * 100).toFixed(0) }}%
           </span>
         </div>
-        <KsTranslatableTitle :text="paper.title" tag="span" title-class="ks-related-constellation__card-title" />
+        <KsTranslatableTitle
+          :text="paper.title"
+          tag="span"
+          title-class="ks-related-constellation__card-title"
+        />
         <span class="ks-type-data">{{ paper.venue }} {{ paper.year }}</span>
       </button>
     </div>
@@ -78,8 +95,9 @@ function relColor(r: RelatedPaper['relationship']): TagVariant {
   padding: 16px;
   text-align: left;
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-related-constellation__card:hover {

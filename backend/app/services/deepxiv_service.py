@@ -41,8 +41,14 @@ class DeepXivService:
         """Run a synchronous Reader method in a thread, translating exceptions."""
         from deepxiv_sdk import (
             APIError as DxAPIError,
+        )
+        from deepxiv_sdk import (
             AuthenticationError as DxAuthError,
+        )
+        from deepxiv_sdk import (
             NotFoundError as DxNotFoundError,
+        )
+        from deepxiv_sdk import (
             RateLimitError as DxRateLimitError,
         )
 
@@ -137,9 +143,22 @@ class DeepXivService:
         result = await self._run(self._reader.raw, arxiv_id)
         return result or ""
 
-    async def preview(self, arxiv_id: str) -> dict:
-        result = await self._run(self._reader.preview, arxiv_id) or {}
+    async def preview(self, arxiv_id: str, characters: int = 10000) -> dict:
+        params = {
+            "arxiv_id": arxiv_id,
+            "type": "preview",
+            "characters": characters,
+        }
+        result = (
+            await self._run(
+                self._reader._make_request,
+                self._reader.arxiv_endpoint,
+                params=params,
+            )
+            or {}
+        )
         result["text"] = self._normalize_preview_text(result)
+        result.setdefault("preview_characters", len(result["text"]))
         return result
 
     async def json(self, arxiv_id: str) -> dict:
@@ -155,6 +174,26 @@ class DeepXivService:
 
     async def pmc_full(self, pmc_id: str) -> dict:
         return await self._run(self._reader.pmc_full, pmc_id) or {}
+
+    async def usage(self, days: int = 7) -> dict:
+        if not getattr(self._reader, "token", None):
+            return {
+                "supported": True,
+                "configured": False,
+                "requires_token": True,
+                "days": days,
+                "usage": None,
+                "message": (
+                    "DeepXIV usage statistics require DEEPXIV_TOKEN on "
+                    "the Kaleidoscope server."
+                ),
+            }
+        result = await self._run(
+            self._reader._make_request,
+            f"{self._reader.base_url}/stats/usage",
+            params={"days": days},
+        )
+        return result or {"days": days, "usage": None}
 
     # ── Trending / social ──────────────────────────────
 

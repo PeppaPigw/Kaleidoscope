@@ -246,9 +246,14 @@ def acquire_fulltext(self, paper_id: str):
     """
     Acquire full-text for a paper through priority cascade.
 
-    On success: commits pdf_path + has_full_text, then queues parse_fulltext_task.
-    On failure: commits metadata-only status, then queues index_paper_task
-                (so at least metadata gets indexed).
+    For remote papers, parsing now prefers MinerU whenever we can resolve
+    a stable source URL. The older local parser path is kept only as a
+    fallback for records that have downloaded content but no parseable URL.
+
+    On success: commits pdf_path + has_full_text, then queues MinerU (preferred)
+    or parse_fulltext_task (fallback).
+    On failure: tries MinerU from a known remote URL; otherwise queues
+                index_paper_task so at least metadata gets indexed.
     """
     log = logger.bind(paper_id=paper_id, task_id=self.request.id)
     log.info("acquire_fulltext_start")
@@ -270,6 +275,24 @@ def acquire_fulltext(self, paper_id: str):
             if not paper:
                 log.error("paper_not_found")
                 return {"status": "error", "message": "Paper not found"}
+
+            def resolve_mineru_target() -> tuple[str | None, bool]:
+                if paper.remote_urls:
+                    stored = next(
+                        (u for u in paper.remote_urls if u.get("url")),
+                        None,
+                    )
+                    if stored and stored.get("url"):
+                        return stored["url"], stored.get("type") == "html"
+
+                if paper.arxiv_id:
+                    aid = paper.arxiv_id.replace("arxiv:", "")
+                    return f"https://arxiv.org/pdf/{aid}.pdf", False
+
+                if paper.doi:
+                    return f"https://doi.org/{paper.doi}", True
+
+                return None, False
 
             arxiv = ArxivClient()
             unpaywall = UnpaywallClient(email=settings.unpaywall_email)
@@ -297,42 +320,22 @@ def acquire_fulltext(self, paper_id: str):
             await unpaywall.close()
             await s2.close()
 
-            if acq_result.success:
-                # Chain: parse will queue index after it finishes
+            mineru_url, mineru_is_html = resolve_mineru_target()
+
+            if mineru_url:
+                log.info(
+                    "queue_parse_via_mineru",
+                    url=mineru_url[:80],
+                    is_html=mineru_is_html,
+                    acquired_pdf=acq_result.success,
+                )
+                parse_via_mineru.delay(paper_id, mineru_url, is_html=mineru_is_html)
+            elif acq_result.success:
+                # No remote URL available, so fall back to local parsing.
                 parse_fulltext_task.delay(paper_id, acq_result.content_type)
             else:
-                # No full-text via traditional path — try MinerU if we have a URL
-                mineru_url = None
-                mineru_is_html = False
-
-                if paper.remote_urls:
-                    stored = next(
-                        (u for u in paper.remote_urls if u.get("url")),
-                        None,
-                    )
-                    if stored:
-                        mineru_url = stored["url"]
-                        mineru_is_html = stored.get("type") == "html"
-                elif paper.arxiv_id:
-                    # Canonical arXiv PDF URL
-                    aid = paper.arxiv_id.replace("arxiv:", "")
-                    mineru_url = f"https://arxiv.org/pdf/{aid}.pdf"
-                    mineru_is_html = False
-                elif paper.doi:
-                    # DOI resolves to a landing page (HTML)
-                    mineru_url = f"https://doi.org/{paper.doi}"
-                    mineru_is_html = True
-
-                if mineru_url:
-                    log.info(
-                        "fallback_to_mineru",
-                        url=mineru_url[:80],
-                        is_html=mineru_is_html,
-                    )
-                    parse_via_mineru.delay(paper_id, mineru_url, is_html=mineru_is_html)
-                else:
-                    # No URL, just index metadata
-                    index_paper_task.delay(paper_id)
+                # No parseable source URL and no acquired content — index metadata only.
+                index_paper_task.delay(paper_id)
 
             return {
                 "status": "acquired" if acq_result.success else "not_available",
@@ -768,14 +771,17 @@ def index_paper_task(self, paper_id: str):
                 # ── Auto deep-analyse newly indexed paper ─────────
                 _analysis_ok = False
                 try:
-                    from app.services.analysis.paper_analyst import PaperAnalystService
+                    from app.services.analysis.paper_analyst import (
+                        PaperAnalystService,
+                        deep_analysis_is_valid,
+                    )
 
                     analyst = PaperAnalystService(session)
                     await analyst.analyse_and_persist(paper, session)
                     await session.commit()
                     await analyst.close()
                     log.info("paper_analysed_on_index")
-                    _analysis_ok = (paper.deep_analysis or {}).get("status") == "ok"
+                    _analysis_ok = deep_analysis_is_valid(paper.deep_analysis)
                 except Exception as e:
                     log.warning("paper_analysis_on_index_failed", error=str(e))
 
@@ -799,7 +805,9 @@ def index_paper_task(self, paper_id: str):
                                 paper.overview_image = {
                                     "status": "ok",
                                     "url": url,
-                                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                                    "generated_at": datetime.now(
+                                        timezone.utc
+                                    ).isoformat(),
                                 }
                             except Exception as img_e:
                                 paper.overview_image = {
@@ -807,7 +815,8 @@ def index_paper_task(self, paper_id: str):
                                     "error": str(img_e)[:300],
                                 }
                                 log.warning(
-                                    "overview_image_on_index_failed", error=str(img_e)[:120]
+                                    "overview_image_on_index_failed",
+                                    error=str(img_e)[:120],
                                 )
                             finally:
                                 await img_svc.close()
@@ -819,7 +828,9 @@ def index_paper_task(self, paper_id: str):
                                 status=paper.overview_image.get("status"),
                             )
                     except Exception as e:
-                        log.warning("overview_image_on_index_outer_failed", error=str(e))
+                        log.warning(
+                            "overview_image_on_index_outer_failed", error=str(e)
+                        )
 
             log.info("index_paper_complete", meili=meili_ok, qdrant=qdrant_ok)
             return {
@@ -953,4 +964,367 @@ def fetch_paper_links_task(self, paper_id: str):
         try:
             raise self.retry(exc=exc, countdown=2**self.request.retries * 60)
         except MaxRetriesExceededError:
+            raise
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=300)
+def auto_discover_papers(self):
+    """
+    Periodic task: Automatically discover and ingest trending papers.
+
+    This task runs periodically to:
+    1. Fetch trending papers from DeepXiv (7-day, 14-day, 30-day windows)
+    2. Search for high-impact papers in key categories
+    3. Queue new papers for ingestion
+
+    Scheduled by Celery Beat to continuously expand the database.
+    """
+    log = logger.bind(task="auto_discover_papers")
+    log.info("auto_discover_start")
+
+    async def _discover():
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.deepxiv_service import get_deepxiv_service
+        from sqlalchemy import select
+
+        deepxiv = get_deepxiv_service()
+        total_queued = 0
+        total_skipped = 0
+
+        # 1. Fetch trending papers from multiple time windows
+        for days in [7, 14, 30]:
+            try:
+                trending_resp = await deepxiv.trending(days=days, limit=50)
+                papers_list = trending_resp.get("papers", [])
+                arxiv_ids = [p["arxiv_id"] for p in papers_list if p.get("arxiv_id")]
+
+                if arxiv_ids:
+                    async with async_session_factory() as session:
+                        result = await session.execute(
+                            select(Paper.arxiv_id).where(Paper.arxiv_id.in_(arxiv_ids))
+                        )
+                        existing_ids = {row[0] for row in result.fetchall()}
+                        new_ids = [aid for aid in arxiv_ids if aid not in existing_ids]
+
+                        for arxiv_id in new_ids:
+                            try:
+                                ingest_paper.delay(arxiv_id, "arxiv")
+                                total_queued += 1
+                            except Exception:
+                                log.warning("failed_to_queue", arxiv_id=arxiv_id)
+
+                        total_skipped += len(existing_ids)
+                        log.info(
+                            "trending_batch_done",
+                            days=days,
+                            queued=len(new_ids),
+                            skipped=len(existing_ids),
+                        )
+            except Exception as e:
+                log.warning("trending_fetch_failed", days=days, error=str(e)[:200])
+
+        # 2. Search for high-impact papers in key categories
+        categories = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
+        for category in categories:
+            try:
+                search_resp = await deepxiv.search(
+                    q="",
+                    size=20,
+                    offset=0,
+                    search_mode="hybrid",
+                    bm25_weight=0.5,
+                    vector_weight=0.5,
+                    categories=[category],
+                    authors=None,
+                    min_citation=10,
+                    date_from=None,
+                    date_to=None,
+                )
+
+                results = search_resp.get("results", [])
+                arxiv_ids = [r.get("arxiv_id") for r in results if r.get("arxiv_id")]
+
+                if arxiv_ids:
+                    async with async_session_factory() as session:
+                        result = await session.execute(
+                            select(Paper.arxiv_id).where(Paper.arxiv_id.in_(arxiv_ids))
+                        )
+                        existing_ids = {row[0] for row in result.fetchall()}
+                        new_ids = [aid for aid in arxiv_ids if aid not in existing_ids]
+
+                        for arxiv_id in new_ids:
+                            try:
+                                ingest_paper.delay(arxiv_id, "arxiv")
+                                total_queued += 1
+                            except Exception:
+                                log.warning("failed_to_queue", arxiv_id=arxiv_id)
+
+                        total_skipped += len(existing_ids)
+                        log.info(
+                            "category_batch_done",
+                            category=category,
+                            queued=len(new_ids),
+                            skipped=len(existing_ids),
+                        )
+            except Exception as e:
+                log.warning(
+                    "category_search_failed", category=category, error=str(e)[:200]
+                )
+
+        log.info(
+            "auto_discover_complete",
+            total_queued=total_queued,
+            total_skipped=total_skipped,
+        )
+        return {"queued": total_queued, "skipped": total_skipped}
+
+    try:
+        return _run_async(_discover())
+    except Exception as exc:
+        log.error("auto_discover_failed", error=str(exc))
+        try:
+            raise self.retry(exc=exc, countdown=300)
+        except MaxRetriesExceededError:
+            log.error("auto_discover_max_retries_exceeded")
+            raise
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=300)
+def refresh_trending_keywords(self):
+    """
+    Periodic task: Refresh trending keywords cache from local database.
+
+    Extracts meaningful research keywords from paper titles and abstracts.
+    Focuses on multi-word technical terms and research concepts.
+    """
+    log = logger.bind(task="refresh_trending_keywords")
+    log.info("refresh_keywords_start")
+
+    async def _refresh():
+        import re
+        from collections import Counter
+        from datetime import datetime, timedelta
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.cache_service import get_cache_service
+        from sqlalchemy import select, desc
+
+        cache = get_cache_service()
+
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=30)
+
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(Paper.title, Paper.abstract)
+                    .where(
+                        Paper.deleted_at.is_(None),
+                        Paper.title.isnot(None),
+                        Paper.created_at >= cutoff_date,
+                    )
+                    .order_by(desc(Paper.citation_count), desc(Paper.created_at))
+                    .limit(200)
+                )
+                papers = result.all()
+
+            if not papers:
+                log.warning("no_papers_found")
+                return {"keywords": [], "papers_processed": 0}
+
+            log.info("fetched_papers", count=len(papers))
+
+            # Extract multi-word phrases and technical terms
+            keyword_freq: Counter = Counter()
+
+            # Stop words - generic terms to exclude
+            stop_words = {
+                "model",
+                "models",
+                "method",
+                "methods",
+                "approach",
+                "approaches",
+                "paper",
+                "study",
+                "research",
+                "analysis",
+                "system",
+                "systems",
+                "performance",
+                "results",
+                "evaluation",
+                "experiments",
+                "data",
+                "using",
+                "based",
+                "novel",
+                "improved",
+                "efficient",
+                "effective",
+                "propose",
+                "proposed",
+                "present",
+                "presented",
+                "show",
+                "demonstrate",
+                "across",
+                "while",
+                "through",
+                "within",
+                "between",
+                "among",
+                "framework",
+                "frameworks",
+                "technique",
+                "techniques",
+            }
+
+            # Multi-word patterns to extract (research methods, architectures, concepts)
+            bigram_patterns = [
+                r"\b(deep learning|machine learning|reinforcement learning|transfer learning|meta learning|few shot learning|zero shot learning)\b",
+                r"\b(neural network|convolutional neural|recurrent neural|graph neural|attention mechanism)\b",
+                r"\b(large language model|language model|vision transformer|diffusion model|generative model)\b",
+                r"\b(natural language|computer vision|speech recognition|image generation|text generation)\b",
+                r"\b(self supervised|semi supervised|unsupervised learning|supervised learning|contrastive learning)\b",
+                r"\b(prompt engineering|in context learning|chain of thought|retrieval augmented)\b",
+                r"\b(knowledge graph|graph convolution|message passing|graph attention)\b",
+                r"\b(object detection|semantic segmentation|instance segmentation|image classification)\b",
+                r"\b(question answering|information retrieval|document understanding|reading comprehension)\b",
+                r"\b(multi modal|cross modal|vision language|audio visual)\b",
+                r"\b(adversarial training|adversarial attack|robust optimization|domain adaptation)\b",
+                r"\b(neural architecture|architecture search|model compression|knowledge distillation)\b",
+                r"\b(time series|sequence modeling|temporal modeling|video understanding)\b",
+                r"\b(federated learning|distributed training|parallel computing|edge computing)\b",
+                r"\b(quantum computing|quantum machine|quantum algorithm)\b",
+            ]
+
+            # Single technical terms (specific architectures, algorithms, concepts)
+            technical_terms = {
+                "transformer",
+                "bert",
+                "gpt",
+                "llama",
+                "clip",
+                "vit",
+                "resnet",
+                "unet",
+                "diffusion",
+                "gan",
+                "vae",
+                "autoencoder",
+                "lstm",
+                "gru",
+                "attention",
+                "embedding",
+                "tokenization",
+                "fine-tuning",
+                "pretraining",
+                "reasoning",
+                "planning",
+                "grounding",
+                "alignment",
+                "hallucination",
+                "multimodal",
+                "cross-modal",
+                "retrieval",
+                "ranking",
+                "reranking",
+                "optimization",
+                "regularization",
+                "normalization",
+                "dropout",
+                "backpropagation",
+                "gradient",
+                "convergence",
+                "overfitting",
+                "classification",
+                "regression",
+                "clustering",
+                "segmentation",
+                "detection",
+                "tracking",
+                "recognition",
+                "generation",
+                "synthesis",
+                "quantum",
+                "probabilistic",
+                "bayesian",
+                "stochastic",
+                "deterministic",
+            }
+
+            papers_processed = 0
+            for title, abstract in papers:
+                papers_processed += 1
+                text = (title or "") + " " + (abstract or "")
+                text_lower = text.lower()
+
+                # Extract multi-word phrases (higher weight)
+                for pattern in bigram_patterns:
+                    matches = re.findall(pattern, text_lower, re.IGNORECASE)
+                    for match in matches:
+                        keyword_freq[match] += 5
+
+                # Extract single technical terms (medium weight)
+                words = re.findall(r"\b[a-z]{4,}\b", text_lower)
+                for word in words:
+                    if word in technical_terms:
+                        keyword_freq[word] += 2
+
+            # Remove duplicates (singular/plural, hyphen variations)
+            normalized_freq: Counter = Counter()
+            seen_roots = set()
+
+            for keyword, count in keyword_freq.most_common(100):
+                # Normalize: remove hyphens, get root form
+                normalized = keyword.replace("-", " ").strip()
+                root = normalized.rstrip("s").rstrip("ing").rstrip("ed")
+
+                # Skip if we've seen a similar root
+                if root in seen_roots:
+                    continue
+
+                seen_roots.add(root)
+                normalized_freq[normalized] = count
+
+            # Get top 80 keywords with significant frequency differences
+            top_keywords = [
+                {"keyword": kw, "count": count}
+                for kw, count in normalized_freq.most_common(80)
+                if count >= 2  # Only include keywords that appear at least twice
+            ]
+
+            # Cache for 6 hours
+            cache_data = {
+                "keywords": top_keywords,
+                "total_papers_with_keywords": papers_processed,
+                "updated_at": None,
+            }
+
+            await cache.set("trending_keywords", cache_data, ttl=21600)
+
+            log.info(
+                "refresh_keywords_complete",
+                keywords_count=len(top_keywords),
+                papers_processed=papers_processed,
+            )
+
+            return {
+                "keywords": top_keywords,
+                "papers_processed": papers_processed,
+            }
+
+        except Exception as e:
+            log.error("refresh_keywords_error", error=str(e)[:200])
+            raise
+
+    try:
+        return _run_async(_refresh())
+    except Exception as exc:
+        log.error("refresh_keywords_failed", error=str(exc))
+        try:
+            raise self.retry(exc=exc, countdown=300)
+        except MaxRetriesExceededError:
+            log.error("refresh_keywords_max_retries_exceeded")
             raise

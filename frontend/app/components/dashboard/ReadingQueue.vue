@@ -7,23 +7,23 @@
  */
 
 export interface QueueItem {
-  id: string
-  title: string
-  time: string
-  mode: string
+  id: string;
+  title: string;
+  time: string;
+  mode: string;
 }
 
 export interface ReadingQueueProps {
-  items: QueueItem[]
+  items: QueueItem[];
 }
 
-defineProps<ReadingQueueProps>()
+defineProps<ReadingQueueProps>();
 
 defineEmits<{
-  'item-click': [item: QueueItem]
-}>()
+  "item-click": [item: QueueItem];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
@@ -31,14 +31,9 @@ const uid = useId()
     class="ks-reading-queue ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-4"
     :aria-labelledby="`${uid}-title`"
   >
-
     <h3 :id="`${uid}-title`" class="ks-type-section-title">Reading Queue</h3>
     <ol class="ks-reading-queue__list" :aria-labelledby="`${uid}-title`">
-      <li
-        v-for="item in items"
-        :key="item.id"
-        class="ks-reading-queue__li"
-      >
+      <li v-for="item in items" :key="item.id" class="ks-reading-queue__li">
         <a
           :href="`/reader/${item.id}`"
           class="ks-reading-queue__item"
@@ -50,8 +45,20 @@ const uid = useId()
               <circle cx="6" cy="2" r="1.5" fill="currentColor" opacity="0.3" />
               <circle cx="2" cy="7" r="1.5" fill="currentColor" opacity="0.3" />
               <circle cx="6" cy="7" r="1.5" fill="currentColor" opacity="0.3" />
-              <circle cx="2" cy="12" r="1.5" fill="currentColor" opacity="0.3" />
-              <circle cx="6" cy="12" r="1.5" fill="currentColor" opacity="0.3" />
+              <circle
+                cx="2"
+                cy="12"
+                r="1.5"
+                fill="currentColor"
+                opacity="0.3"
+              />
+              <circle
+                cx="6"
+                cy="12"
+                r="1.5"
+                fill="currentColor"
+                opacity="0.3"
+              />
             </svg>
           </div>
           <div class="ks-reading-queue__item-info">
@@ -92,8 +99,9 @@ const uid = useId()
   cursor: grab;
   text-decoration: none;
   color: inherit;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-normal) var(--ease-spring);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-normal) var(--ease-spring);
 }
 
 .ks-reading-queue__item:hover {

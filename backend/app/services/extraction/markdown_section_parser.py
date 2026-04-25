@@ -188,8 +188,7 @@ def parse_markdown_sections(markdown: str) -> list[ParsedSection]:
 
     # Find all headings
     raw_headings = [
-        (len(m.group(1)), m.group(2).strip())
-        for m in _HEADING_RE.finditer(markdown)
+        (len(m.group(1)), m.group(2).strip()) for m in _HEADING_RE.finditer(markdown)
     ]
 
     if not raw_headings:
@@ -202,7 +201,9 @@ def parse_markdown_sections(markdown: str) -> list[ParsedSection]:
         corrected_headings = raw_headings
 
     # Build a corrected markdown (replace heading markers)
-    corrected_md = _apply_heading_corrections(markdown, raw_headings, corrected_headings)
+    corrected_md = _apply_heading_corrections(
+        markdown, raw_headings, corrected_headings
+    )
 
     # Split on H1 boundaries
     sections = _split_on_h1(corrected_md)
@@ -216,8 +217,13 @@ def parse_markdown_sections(markdown: str) -> list[ParsedSection]:
         norm = _normalize(title)
 
         # Detect appendix transition
-        if norm in {"appendix", "appendices", "supplementary", "supplementary material",
-                    "supplemental material"}:
+        if norm in {
+            "appendix",
+            "appendices",
+            "supplementary",
+            "supplementary material",
+            "supplemental material",
+        }:
             in_appendix = True
 
         is_refs = norm in {"references", "bibliography"}

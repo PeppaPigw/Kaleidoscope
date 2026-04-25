@@ -5,319 +5,326 @@
  * Renders pre-fetched paper markdown through a full remark/rehype pipeline.
  * The page owns the API request so content is fetched once.
  */
-import type { PaperContent } from '~/composables/useApi'
-import type { RenderedMarkdownHeading } from '../../utils/markdown'
-import { renderPaperMarkdown } from '../../utils/markdown'
-import type { Note } from '~/utils/notes'
+import type { PaperContent } from "~/composables/useApi";
+import type { RenderedMarkdownHeading } from "../../utils/markdown";
+import { renderPaperMarkdown } from "../../utils/markdown";
+import type { Note } from "~/utils/notes";
 
 export interface MarkdownCanvasProps {
-  title: string
-  content: PaperContent | null
-  pending?: boolean
-  error?: string | null
-  noteHighlights?: Note[]
+  title: string;
+  content: PaperContent | null;
+  pending?: boolean;
+  error?: string | null;
+  noteHighlights?: Note[];
 }
 
-const props = defineProps<MarkdownCanvasProps>()
+const props = defineProps<MarkdownCanvasProps>();
 const emit = defineEmits<{
-  outlineChange: [headings: RenderedMarkdownHeading[]]
-  activeHeadingChange: [headingId: string | null]
-  addHighlight: [text: string]
-  textSelected: [text: string]
-  askAi: [text: string]
-}>()
+  outlineChange: [headings: RenderedMarkdownHeading[]];
+  activeHeadingChange: [headingId: string | null];
+  addHighlight: [text: string];
+  textSelected: [text: string];
+  askAi: [text: string];
+}>();
 
-const fontSize = ref(16)
-const content = computed(() => props.content)
-const pending = computed(() => props.pending ?? false)
-const errorMessage = computed(() => props.error ?? null)
-const renderPending = ref(false)
-const renderError = ref<string | null>(null)
-const renderedHtml = ref('')
-const contentFormat = computed(() => content.value?.format ?? 'unknown')
-const displayError = computed(() => errorMessage.value || renderError.value)
-const busy = computed(() => pending.value || renderPending.value)
-const contentRef = ref<HTMLElement | null>(null)
-const renderedRef = ref<HTMLElement | null>(null)
+const fontSize = ref(16);
+const content = computed(() => props.content);
+const pending = computed(() => props.pending ?? false);
+const errorMessage = computed(() => props.error ?? null);
+const renderPending = ref(false);
+const renderError = ref<string | null>(null);
+const renderedHtml = ref("");
+const contentFormat = computed(() => content.value?.format ?? "unknown");
+const displayError = computed(() => errorMessage.value || renderError.value);
+const busy = computed(() => pending.value || renderPending.value);
+const contentRef = ref<HTMLElement | null>(null);
+const renderedRef = ref<HTMLElement | null>(null);
 
 // ─── Text-selection floating menu ────────────────────────────
-const selMenu = ref({ visible: false, x: 0, y: 0, text: '' })
+const selMenu = ref({ visible: false, x: 0, y: 0, text: "" });
 
 function handleContentMouseup() {
-  const sel = window.getSelection()
+  const sel = window.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-    selMenu.value.visible = false
-    return
+    selMenu.value.visible = false;
+    return;
   }
-  const text = sel.toString().trim()
+  const text = sel.toString().trim();
   if (text.length < 2) {
-    selMenu.value.visible = false
-    return
+    selMenu.value.visible = false;
+    return;
   }
-  const range = sel.getRangeAt(0)
-  const rect = range.getBoundingClientRect()
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
   selMenu.value = {
     visible: true,
     x: rect.left + rect.width / 2,
     y: rect.bottom + 8,
     text,
-  }
+  };
 }
 
 function hideSelMenu() {
-  selMenu.value.visible = false
+  selMenu.value.visible = false;
 }
 
 function handleHighlightClick() {
-  emit('addHighlight', selMenu.value.text)
-  window.getSelection()?.removeAllRanges()
-  hideSelMenu()
+  emit("addHighlight", selMenu.value.text);
+  window.getSelection()?.removeAllRanges();
+  hideSelMenu();
 }
 
 function handleAnnotateClick() {
-  emit('textSelected', selMenu.value.text)
-  window.getSelection()?.removeAllRanges()
-  hideSelMenu()
+  emit("textSelected", selMenu.value.text);
+  window.getSelection()?.removeAllRanges();
+  hideSelMenu();
 }
 
 function handleAskAiClick() {
-  emit('askAi', selMenu.value.text)
-  window.getSelection()?.removeAllRanges()
-  hideSelMenu()
+  emit("askAi", selMenu.value.text);
+  window.getSelection()?.removeAllRanges();
+  hideSelMenu();
 }
 
 function handleDocMousedown(e: MouseEvent) {
-  const menu = document.getElementById('ks-mc-sel-menu')
-  if (menu && menu.contains(e.target as Node)) return
-  hideSelMenu()
+  const menu = document.getElementById("ks-mc-sel-menu");
+  if (menu && menu.contains(e.target as Node)) return;
+  hideSelMenu();
 }
 
 // ─── Note highlight injection ─────────────────────────────────
 function applyNoteHighlights() {
-  const container = renderedRef.value
-  if (!container) return
+  const container = renderedRef.value;
+  if (!container) return;
 
   // Remove existing note marks and normalize
-  for (const el of Array.from(container.querySelectorAll('.ks-note-hl'))) {
-    const parent = el.parentNode
-    if (!parent) continue
-    while (el.firstChild) parent.insertBefore(el.firstChild, el)
-    parent.removeChild(el)
-    parent.normalize()
+  for (const el of Array.from(container.querySelectorAll(".ks-note-hl"))) {
+    const parent = el.parentNode;
+    if (!parent) continue;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+    parent.normalize();
   }
 
   // Inject new marks
-  for (const note of (props.noteHighlights ?? [])) {
-    if (!note.selectedText) continue
-    wrapFirstOccurrence(container, note.selectedText, note.id, note.type)
+  for (const note of props.noteHighlights ?? []) {
+    if (!note.selectedText) continue;
+    wrapFirstOccurrence(container, note.selectedText, note.id, note.type);
   }
 }
 
-function wrapFirstOccurrence(root: HTMLElement, searchText: string, noteId: string, type: string) {
+function wrapFirstOccurrence(
+  root: HTMLElement,
+  searchText: string,
+  noteId: string,
+  type: string,
+) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       // skip already-marked nodes
-      if ((node.parentElement as HTMLElement | null)?.closest('.ks-note-hl')) {
-        return NodeFilter.FILTER_REJECT
+      if ((node.parentElement as HTMLElement | null)?.closest(".ks-note-hl")) {
+        return NodeFilter.FILTER_REJECT;
       }
-      return NodeFilter.FILTER_ACCEPT
+      return NodeFilter.FILTER_ACCEPT;
     },
-  })
+  });
 
-  let node: Text | null
+  let node: Text | null;
   while ((node = walker.nextNode() as Text | null)) {
-    const text = node.textContent ?? ''
-    const idx = text.indexOf(searchText)
+    const text = node.textContent ?? "";
+    const idx = text.indexOf(searchText);
     if (idx >= 0) {
-      const parent = node.parentNode!
-      const mark = document.createElement('mark')
-      mark.className = `ks-note-hl ks-note-hl--${type}`
-      mark.dataset.noteId = noteId
-      mark.textContent = text.slice(idx, idx + searchText.length)
+      const parent = node.parentNode!;
+      const mark = document.createElement("mark");
+      mark.className = `ks-note-hl ks-note-hl--${type}`;
+      mark.dataset.noteId = noteId;
+      mark.textContent = text.slice(idx, idx + searchText.length);
 
-      const before = text.slice(0, idx)
-      const after = text.slice(idx + searchText.length)
+      const before = text.slice(0, idx);
+      const after = text.slice(idx + searchText.length);
 
-      if (before) parent.insertBefore(document.createTextNode(before), node)
-      parent.insertBefore(mark, node)
-      if (after) parent.insertBefore(document.createTextNode(after), node)
-      parent.removeChild(node)
-      return
+      if (before) parent.insertBefore(document.createTextNode(before), node);
+      parent.insertBefore(mark, node);
+      if (after) parent.insertBefore(document.createTextNode(after), node);
+      parent.removeChild(node);
+      return;
     }
   }
 }
 
 /** Scroll to the DOM mark for a note. Called by the parent page. */
 function scrollToNote(noteId: string) {
-  const el = renderedRef.value?.querySelector<HTMLElement>(`[data-note-id="${CSS.escape(noteId)}"]`)
+  const el = renderedRef.value?.querySelector<HTMLElement>(
+    `[data-note-id="${CSS.escape(noteId)}"]`,
+  );
   if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
 
-defineExpose({ scrollToNote })
+defineExpose({ scrollToNote });
 
-let trackedScrollContainer: HTMLElement | null = null
-let syncFrameId: number | null = null
+let trackedScrollContainer: HTMLElement | null = null;
+let syncFrameId: number | null = null;
 
 function getHeadingElements(): HTMLElement[] {
   return Array.from(
-    renderedRef.value?.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]') ?? [],
-  )
+    renderedRef.value?.querySelectorAll<HTMLElement>(
+      "h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]",
+    ) ?? [],
+  );
 }
 
 function syncActiveHeading() {
-  syncFrameId = null
+  syncFrameId = null;
 
   if (busy.value || !contentRef.value) {
-    emit('activeHeadingChange', null)
-    return
+    emit("activeHeadingChange", null);
+    return;
   }
 
-  const headings = getHeadingElements()
+  const headings = getHeadingElements();
   if (headings.length === 0) {
-    emit('activeHeadingChange', null)
-    return
+    emit("activeHeadingChange", null);
+    return;
   }
 
-  const containerTop = contentRef.value.getBoundingClientRect().top
-  const activationOffset = 96
-  let activeHeading = headings[0] ?? null
+  const containerTop = contentRef.value.getBoundingClientRect().top;
+  const activationOffset = 96;
+  let activeHeading = headings[0] ?? null;
 
   for (const heading of headings) {
-    const offsetFromTop = heading.getBoundingClientRect().top - containerTop
-    if (offsetFromTop <= activationOffset)
-      activeHeading = heading
-    else
-      break
+    const offsetFromTop = heading.getBoundingClientRect().top - containerTop;
+    if (offsetFromTop <= activationOffset) activeHeading = heading;
+    else break;
   }
 
-  emit('activeHeadingChange', activeHeading?.id ?? null)
+  emit("activeHeadingChange", activeHeading?.id ?? null);
 }
 
 function scheduleActiveHeadingSync() {
-  if (syncFrameId !== null)
-    return
+  if (syncFrameId !== null) return;
 
-  syncFrameId = window.requestAnimationFrame(syncActiveHeading)
+  syncFrameId = window.requestAnimationFrame(syncActiveHeading);
 }
 
 function detachScrollTracking() {
   if (trackedScrollContainer) {
-    trackedScrollContainer.removeEventListener('scroll', scheduleActiveHeadingSync)
-    trackedScrollContainer = null
+    trackedScrollContainer.removeEventListener(
+      "scroll",
+      scheduleActiveHeadingSync,
+    );
+    trackedScrollContainer = null;
   }
 }
 
 function attachScrollTracking() {
-  detachScrollTracking()
+  detachScrollTracking();
 
-  if (!contentRef.value || busy.value)
-    return
+  if (!contentRef.value || busy.value) return;
 
-  trackedScrollContainer = contentRef.value
-  trackedScrollContainer.addEventListener('scroll', scheduleActiveHeadingSync, { passive: true })
+  trackedScrollContainer = contentRef.value;
+  trackedScrollContainer.addEventListener("scroll", scheduleActiveHeadingSync, {
+    passive: true,
+  });
 }
 
 watch(
   () => ({
-    markdown: content.value?.markdown ?? '',
+    markdown: content.value?.markdown ?? "",
     sections: content.value?.sections ?? [],
   }),
   async (payload, _previous, onCleanup) => {
-    let cancelled = false
+    let cancelled = false;
     onCleanup(() => {
-      cancelled = true
-    })
+      cancelled = true;
+    });
 
     if (!content.value) {
-      renderedHtml.value = ''
-      renderError.value = null
-      emit('outlineChange', [])
-      return
+      renderedHtml.value = "";
+      renderError.value = null;
+      emit("outlineChange", []);
+      return;
     }
 
-    renderPending.value = true
-    renderError.value = null
+    renderPending.value = true;
+    renderError.value = null;
 
     try {
       const rendered = await renderPaperMarkdown(payload.markdown, {
         title: props.title,
         sections: payload.sections,
-      })
+      });
 
-      if (cancelled)
-        return
+      if (cancelled) return;
 
-      renderedHtml.value = rendered.html
-      emit('outlineChange', rendered.headings)
-    }
-    catch (error) {
-      if (cancelled)
-        return
+      renderedHtml.value = rendered.html;
+      emit("outlineChange", rendered.headings);
+    } catch (error) {
+      if (cancelled) return;
 
-      renderedHtml.value = ''
-      renderError.value = error instanceof Error
-        ? error.message
-        : 'Failed to render paper content'
-      emit('outlineChange', [])
-    }
-    finally {
-      if (!cancelled)
-        renderPending.value = false
+      renderedHtml.value = "";
+      renderError.value =
+        error instanceof Error
+          ? error.message
+          : "Failed to render paper content";
+      emit("outlineChange", []);
+    } finally {
+      if (!cancelled) renderPending.value = false;
     }
   },
   { immediate: true, deep: true },
-)
+);
 
 watch(
   () => renderedHtml.value,
   async () => {
-    await nextTick()
-    attachScrollTracking()
-    scheduleActiveHeadingSync()
-    applyNoteHighlights()
+    await nextTick();
+    attachScrollTracking();
+    scheduleActiveHeadingSync();
+    applyNoteHighlights();
   },
-  { flush: 'post' },
-)
+  { flush: "post" },
+);
 
 // Re-apply highlights whenever the notes list changes
 watch(
   () => props.noteHighlights,
-  () => { applyNoteHighlights() },
+  () => {
+    applyNoteHighlights();
+  },
   { deep: true },
-)
+);
 
 watch(fontSize, async () => {
-  await nextTick()
-  scheduleActiveHeadingSync()
-})
+  await nextTick();
+  scheduleActiveHeadingSync();
+});
 
 watch(busy, async (isBusy) => {
   if (isBusy) {
-    detachScrollTracking()
-    emit('activeHeadingChange', null)
-    return
+    detachScrollTracking();
+    emit("activeHeadingChange", null);
+    return;
   }
 
-  await nextTick()
-  attachScrollTracking()
-  scheduleActiveHeadingSync()
-})
+  await nextTick();
+  attachScrollTracking();
+  scheduleActiveHeadingSync();
+});
 
 onMounted(() => {
-  window.addEventListener('resize', scheduleActiveHeadingSync)
-  document.addEventListener('mousedown', handleDocMousedown)
-})
+  window.addEventListener("resize", scheduleActiveHeadingSync);
+  document.addEventListener("mousedown", handleDocMousedown);
+});
 
 onBeforeUnmount(() => {
-  detachScrollTracking()
-  window.removeEventListener('resize', scheduleActiveHeadingSync)
-  document.removeEventListener('mousedown', handleDocMousedown)
+  detachScrollTracking();
+  window.removeEventListener("resize", scheduleActiveHeadingSync);
+  document.removeEventListener("mousedown", handleDocMousedown);
 
-  if (syncFrameId !== null)
-    window.cancelAnimationFrame(syncFrameId)
-})
+  if (syncFrameId !== null) window.cancelAnimationFrame(syncFrameId);
+});
 </script>
 
 <template>
@@ -326,13 +333,31 @@ onBeforeUnmount(() => {
     <div class="ks-mc__toolbar">
       <div class="ks-mc__meta">
         <span class="ks-mc__badge" :title="contentFormat">
-          {{ contentFormat === 'markdown' ? '✦ Full text' : contentFormat === 'abstract_only' ? '◇ Abstract' : '○ Metadata' }}
+          {{
+            contentFormat === "markdown"
+              ? "✦ Full text"
+              : contentFormat === "abstract_only"
+                ? "◇ Abstract"
+                : "○ Metadata"
+          }}
         </span>
       </div>
       <div class="ks-mc__controls">
-        <button class="ks-mc__btn" aria-label="Decrease font" @click="fontSize = Math.max(12, fontSize - 1)">A−</button>
+        <button
+          class="ks-mc__btn"
+          aria-label="Decrease font"
+          @click="fontSize = Math.max(12, fontSize - 1)"
+        >
+          A−
+        </button>
         <span class="ks-type-data">{{ fontSize }}px</span>
-        <button class="ks-mc__btn" aria-label="Increase font" @click="fontSize = Math.min(24, fontSize + 1)">A+</button>
+        <button
+          class="ks-mc__btn"
+          aria-label="Increase font"
+          @click="fontSize = Math.min(24, fontSize + 1)"
+        >
+          A+
+        </button>
       </div>
     </div>
 
@@ -374,18 +399,57 @@ onBeforeUnmount(() => {
         class="ks-mc-sel-menu"
         :style="{ left: `${selMenu.x}px`, top: `${selMenu.y}px` }"
       >
-        <button class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--hl" @mousedown.prevent="handleHighlightClick">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13 3a1 1 0 0 0-1.4 0L5 9.6 6.4 11l6.6-6.6A1 1 0 0 0 13 3zm-8 8L2.5 13.5l1.5.5L6.4 11 5 11z"/></svg>
+        <button
+          class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--hl"
+          @mousedown.prevent="handleHighlightClick"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M13 3a1 1 0 0 0-1.4 0L5 9.6 6.4 11l6.6-6.6A1 1 0 0 0 13 3zm-8 8L2.5 13.5l1.5.5L6.4 11 5 11z"
+            />
+          </svg>
           Highlight
         </button>
         <div class="ks-mc-sel-menu__sep" />
-        <button class="ks-mc-sel-menu__btn" @mousedown.prevent="handleAnnotateClick">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12V14h2l7-7-2-2-7 7z"/><path d="M11.5 3.5l1 1"/></svg>
+        <button
+          class="ks-mc-sel-menu__btn"
+          @mousedown.prevent="handleAnnotateClick"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          >
+            <path d="M2 12V14h2l7-7-2-2-7 7z" />
+            <path d="M11.5 3.5l1 1" />
+          </svg>
           Add Note
         </button>
         <div class="ks-mc-sel-menu__sep" />
-        <button class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--ai" @mousedown.prevent="handleAskAiClick">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6 6.5C6 5.67 6.67 5 7.5 5h.5c.83 0 1.5.67 1.5 1.5 0 .6-.35 1.12-.86 1.37L8 8.5V9.5"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/></svg>
+        <button
+          class="ks-mc-sel-menu__btn ks-mc-sel-menu__btn--ai"
+          @mousedown.prevent="handleAskAiClick"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="8" cy="8" r="6" />
+            <path
+              d="M6 6.5C6 5.67 6.67 5 7.5 5h.5c.83 0 1.5.67 1.5 1.5 0 .6-.35 1.12-.86 1.37L8 8.5V9.5"
+            />
+            <circle cx="8" cy="11.5" r=".5" fill="currentColor" />
+          </svg>
           Ask AI
         </button>
       </div>
@@ -592,14 +656,14 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--color-border);
 }
 
-.ks-mc__rendered :deep(mjx-container[jax='SVG']:not([display='true'])) {
+.ks-mc__rendered :deep(mjx-container[jax="SVG"]:not([display="true"])) {
   display: inline-block;
   margin: 0;
   white-space: nowrap;
   overflow-x: visible;
 }
 
-.ks-mc__rendered :deep(mjx-container[jax='SVG'][display='true']) {
+.ks-mc__rendered :deep(mjx-container[jax="SVG"][display="true"]) {
   display: block;
   margin: 1.25rem 0;
   overflow-x: auto;
@@ -677,7 +741,7 @@ onBeforeUnmount(() => {
   border: none;
   background: none;
   color: var(--color-text, #f1f5f9);
-  font: 500 0.78rem / 1 var(--font-sans, 'Inter', sans-serif);
+  font: 500 0.78rem / 1 var(--font-sans, "Inter", sans-serif);
   cursor: pointer;
   transition: background 0.13s;
 }
@@ -702,7 +766,14 @@ onBeforeUnmount(() => {
 }
 
 .ks-mc-sel-fade-enter-active,
-.ks-mc-sel-fade-leave-active { transition: opacity 0.1s, transform 0.1s; }
+.ks-mc-sel-fade-leave-active {
+  transition:
+    opacity 0.1s,
+    transform 0.1s;
+}
 .ks-mc-sel-fade-enter-from,
-.ks-mc-sel-fade-leave-to    { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+.ks-mc-sel-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+}
 </style>

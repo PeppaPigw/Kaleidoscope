@@ -252,13 +252,15 @@ class LocalRAGService:
         """Format chunks as source citations."""
         sources = []
         for chunk in chunks:
-            sources.append({
-                "paper_id": chunk.get("paper_id"),
-                "paper_title": chunk.get("paper_title"),
-                "section_title": chunk.get("section_title"),
-                "text_snippet": chunk.get("content", "")[:300],  # First 300 chars
-                "similarity": chunk.get("similarity"),
-                "doi": chunk.get("paper_doi"),
-                "arxiv_id": chunk.get("paper_arxiv_id"),
-            })
+            sources.append(
+                {
+                    "paper_id": chunk.get("paper_id"),
+                    "paper_title": chunk.get("paper_title"),
+                    "section_title": chunk.get("section_title"),
+                    "text_snippet": chunk.get("content", "")[:300],  # First 300 chars
+                    "similarity": chunk.get("similarity"),
+                    "doi": chunk.get("paper_doi"),
+                    "arxiv_id": chunk.get("paper_arxiv_id"),
+                }
+            )
         return sources

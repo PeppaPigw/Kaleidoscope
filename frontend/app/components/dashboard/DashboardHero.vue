@@ -9,34 +9,36 @@
  */
 
 export interface HeroStat {
-  label: string
-  value: string
+  label: string;
+  value: string;
 }
 
 export interface DashboardHeroProps {
   /** Section eyebrow (e.g. "Today's Research Theme") */
-  eyebrow?: string
+  eyebrow?: string;
   /** Date label */
-  date: string
+  date: string;
   /** Headline */
-  title: string
+  title: string;
   /** Lead paragraph */
-  lead: string
+  lead: string;
   /** Quick stat chips */
-  stats?: HeroStat[]
+  stats?: HeroStat[];
 }
 
 const props = withDefaults(defineProps<DashboardHeroProps>(), {
-  eyebrow: '',
+  eyebrow: "",
   stats: () => [],
-})
+});
 
-defineEmits<{ click: [] }>()
+defineEmits<{ click: [] }>();
 
-const uid = useId()
-const { t } = useTranslation()
+const uid = useId();
+const { t } = useTranslation();
 
-const resolvedEyebrow = computed(() => props.eyebrow || t('todaysResearchTheme'))
+const resolvedEyebrow = computed(
+  () => props.eyebrow || t("todaysResearchTheme"),
+);
 </script>
 
 <template>
@@ -54,14 +56,23 @@ const resolvedEyebrow = computed(() => props.eyebrow || t('todaysResearchTheme')
       <span class="ks-type-eyebrow ks-dashboard-hero__eyebrow">
         {{ resolvedEyebrow }}
       </span>
-      <KsTranslatableTitle :text="title" tag="h2" title-class="ks-type-cover ks-dashboard-hero__title" />
+      <KsTranslatableTitle
+        :text="title"
+        tag="h2"
+        title-class="ks-type-cover ks-dashboard-hero__title"
+      />
       <p class="ks-type-lead ks-dashboard-hero__lead">
         {{ lead }}
       </p>
       <span class="ks-type-data">{{ date }}</span>
       <slot />
     </div>
-    <div v-if="stats.length > 0" class="ks-dashboard-hero__stats" role="list" aria-label="Daily statistics">
+    <div
+      v-if="stats.length > 0"
+      class="ks-dashboard-hero__stats"
+      role="list"
+      aria-label="Daily statistics"
+    >
       <div
         v-for="stat in stats"
         :key="stat.label"
@@ -89,7 +100,11 @@ const resolvedEyebrow = computed(() => props.eyebrow || t('todaysResearchTheme')
 .ks-dashboard-hero__gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(13, 115, 119, 0.08) 0%, rgba(196, 163, 90, 0.05) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(13, 115, 119, 0.08) 0%,
+    rgba(196, 163, 90, 0.05) 100%
+  );
   pointer-events: none;
 }
 

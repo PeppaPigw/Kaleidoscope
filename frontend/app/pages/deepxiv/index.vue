@@ -4,9 +4,9 @@
  */
 definePageMeta({
   middleware: defineNuxtRouteMiddleware(() => {
-    return navigateTo('/discover', { redirectCode: 301 })
+    return navigateTo("/discover", { redirectCode: 301 });
   }),
-})
+});
 </script>
 
 <template>

@@ -124,3 +124,95 @@ def test_get_paper_content_tolerates_legacy_figures_dict():
         ]
     finally:
         app.dependency_overrides.clear()
+
+
+def test_get_paper_labels_rejects_stale_empty_payloads():
+    from app.dependencies import get_db
+    from app.main import app
+
+    paper_id = uuid4()
+    paper = MagicMock()
+    paper.id = paper_id
+    paper.deleted_at = None
+    paper.has_full_text = True
+    paper.abstract = "Abstract"
+    paper.paper_labels = {
+        "domain": [],
+        "task": [],
+        "method": [],
+        "data_object": [],
+        "application": [],
+        "meta": {
+            "paper_type": [],
+            "evaluation_quality": [],
+            "resource_constraint": [],
+        },
+    }
+    paper.paper_labels_at = datetime(2026, 4, 19, 12, 0, tzinfo=timezone.utc)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = paper
+
+    async def mock_db():
+        db = MagicMock()
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = mock_db
+    try:
+
+        async def run_test():
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                return await client.get(f"/api/v1/papers/{paper_id}/labels")
+
+        response = asyncio.run(run_test())
+        assert response.status_code == 404
+        payload = response.json()
+        message = payload.get("detail") or payload.get("message") or ""
+        assert message.startswith("Labels not generated yet")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_deep_analysis_rejects_empty_prompt_artifacts():
+    from app.dependencies import get_db
+    from app.main import app
+
+    paper_id = uuid4()
+    paper = MagicMock()
+    paper.id = paper_id
+    paper.deleted_at = None
+    paper.deep_analysis = {
+        "status": "ok",
+        "analysis": "[EXT] *Note: As the prompt provided empty fields for the paper's Abstract and Full Text...",
+        "fulltext_chars": 0,
+    }
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = paper
+
+    async def mock_db():
+        db = MagicMock()
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = mock_db
+    try:
+
+        async def run_test():
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                return await client.get(f"/api/v1/papers/{paper_id}/deep-analysis")
+
+        response = asyncio.run(run_test())
+        assert response.status_code == 404
+        payload = response.json()
+        message = payload.get("detail") or payload.get("message") or ""
+        assert message == "Deep analysis not available"
+    finally:
+        app.dependency_overrides.clear()

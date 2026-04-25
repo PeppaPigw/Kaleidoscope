@@ -7,27 +7,27 @@
  */
 
 export interface WorkspaceSummary {
-  id: string
-  name: string
-  progress: number
-  detail: string
+  id: string;
+  name: string;
+  progress: number;
+  detail: string;
 }
 
 export interface ActiveWorkspacePanelProps {
-  workspaces: WorkspaceSummary[]
+  workspaces: WorkspaceSummary[];
 }
 
-defineProps<ActiveWorkspacePanelProps>()
+defineProps<ActiveWorkspacePanelProps>();
 
 defineEmits<{
-  'workspace-click': [ws: WorkspaceSummary]
-}>()
+  "workspace-click": [ws: WorkspaceSummary];
+}>();
 
-const uid = useId()
+const uid = useId();
 
 /** Clamp progress to 0–100 range for safe ARIA and CSS */
 function clampedProgress(p: number): number {
-  return Math.max(0, Math.min(100, p))
+  return Math.max(0, Math.min(100, p));
 }
 </script>
 
@@ -36,7 +36,9 @@ function clampedProgress(p: number): number {
     class="ks-workspace-panel ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-3"
     :aria-labelledby="`${uid}-title`"
   >
-    <h3 :id="`${uid}-title`" class="ks-type-section-title">Active Workspaces</h3>
+    <h3 :id="`${uid}-title`" class="ks-type-section-title">
+      Active Workspaces
+    </h3>
     <div class="ks-workspace-panel__list">
       <button
         v-for="ws in workspaces"
@@ -47,7 +49,9 @@ function clampedProgress(p: number): number {
       >
         <div class="ks-workspace-panel__item-header">
           <span class="ks-workspace-panel__item-name">{{ ws.name }}</span>
-          <span class="ks-type-stat" style="color: var(--color-primary);">{{ clampedProgress(ws.progress) }}%</span>
+          <span class="ks-type-stat" style="color: var(--color-primary)"
+            >{{ clampedProgress(ws.progress) }}%</span
+          >
         </div>
         <div
           class="ks-workspace-panel__progress"
@@ -59,7 +63,9 @@ function clampedProgress(p: number): number {
         >
           <div
             class="ks-workspace-panel__progress-fill"
-            :style="{ transform: `scaleX(${clampedProgress(ws.progress) / 100})` }"
+            :style="{
+              transform: `scaleX(${clampedProgress(ws.progress) / 100})`,
+            }"
           />
         </div>
         <span class="ks-type-data">{{ ws.detail }}</span>
@@ -91,8 +97,9 @@ function clampedProgress(p: number): number {
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: transform var(--duration-fast) var(--ease-spring),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-workspace-panel__item:hover {

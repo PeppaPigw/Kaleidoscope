@@ -7,16 +7,16 @@
  */
 
 export interface DayRangeSelectorProps {
-  modelValue: number
+  modelValue: number;
 }
 
-defineProps<DayRangeSelectorProps>()
+defineProps<DayRangeSelectorProps>();
 
 defineEmits<{
-  'update:modelValue': [value: number]
-}>()
+  "update:modelValue": [value: number];
+}>();
 
-const options = [7, 14, 30] as const
+const options = [7, 14, 30] as const;
 </script>
 
 <template>
@@ -52,8 +52,9 @@ const options = [7, 14, 30] as const
   background: var(--color-surface);
   border: none;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-day-range__btn + .ks-day-range__btn {

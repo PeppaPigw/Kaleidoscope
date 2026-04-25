@@ -7,26 +7,29 @@
  */
 
 export interface SignaturePaper {
-  id: string
-  title: string
-  venue: string
-  year: number
-  citations: number
-  highlight?: string
+  id: string;
+  title: string;
+  venue: string;
+  year: number;
+  citations: number;
+  highlight?: string;
 }
 
 export interface SignatureShelfProps {
-  papers: SignaturePaper[]
+  papers: SignaturePaper[];
 }
 
-defineProps<SignatureShelfProps>()
-defineEmits<{ 'paper-click': [paper: SignaturePaper] }>()
+defineProps<SignatureShelfProps>();
+defineEmits<{ "paper-click": [paper: SignaturePaper] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-signature-shelf ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-signature-shelf ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Signature Papers</h2>
 
     <ol class="ks-signature-shelf__list">
@@ -35,7 +38,9 @@ const uid = useId()
         :key="paper.id"
         class="ks-signature-shelf__item"
       >
-        <span class="ks-signature-shelf__rank" aria-hidden="true">{{ i + 1 }}</span>
+        <span class="ks-signature-shelf__rank" aria-hidden="true">{{
+          i + 1
+        }}</span>
         <button
           type="button"
           class="ks-signature-shelf__body"
@@ -45,11 +50,16 @@ const uid = useId()
           <h3 class="ks-signature-shelf__title">{{ paper.title }}</h3>
           <div class="ks-signature-shelf__meta">
             <span class="ks-type-data">{{ paper.venue }} {{ paper.year }}</span>
-            <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">
+            <span
+              class="ks-type-data"
+              style="color: var(--color-primary); font-weight: 700"
+            >
               {{ paper.citations.toLocaleString() }} citations
             </span>
           </div>
-          <p v-if="paper.highlight" class="ks-signature-shelf__highlight">{{ paper.highlight }}</p>
+          <p v-if="paper.highlight" class="ks-signature-shelf__highlight">
+            {{ paper.highlight }}
+          </p>
         </button>
       </li>
     </ol>

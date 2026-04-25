@@ -7,24 +7,27 @@
  */
 
 export interface PaperFigure {
-  id: string
-  number: number
-  caption: string
-  imageUrl: string
+  id: string;
+  number: number;
+  caption: string;
+  imageUrl: string;
 }
 
 export interface FigureGalleryProps {
-  figures: PaperFigure[]
+  figures: PaperFigure[];
 }
 
-defineProps<FigureGalleryProps>()
-defineEmits<{ 'figure-click': [figure: PaperFigure] }>()
+defineProps<FigureGalleryProps>();
+defineEmits<{ "figure-click": [figure: PaperFigure] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-figure-gallery ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-figure-gallery ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Figures</h2>
 
     <div class="ks-figure-gallery__grid">
@@ -38,11 +41,25 @@ const uid = useId()
       >
         <div class="ks-figure-gallery__img-wrap">
           <div class="ks-figure-gallery__placeholder" aria-hidden="true">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              opacity="0.3"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
           </div>
         </div>
         <div class="ks-figure-gallery__caption">
-          <span class="ks-type-eyebrow" style="color: var(--color-accent);">Fig. {{ fig.number }}</span>
+          <span class="ks-type-eyebrow" style="color: var(--color-accent)"
+            >Fig. {{ fig.number }}</span
+          >
           <span class="ks-type-body-sm">{{ fig.caption }}</span>
         </div>
       </button>
@@ -68,8 +85,9 @@ const uid = useId()
   padding: 0;
   cursor: pointer;
   overflow: hidden;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-figure-gallery__item:hover {

@@ -185,15 +185,15 @@ python -m app.scripts.seed_feeds     # Load 65 RSS feed sources
 
 ## Makefile Commands
 
-| Command        | Description                             |
-| -------------- | --------------------------------------- |
+| Command        | Description                                                 |
+| -------------- | ----------------------------------------------------------- |
 | `make dev`     | Bootstrap infra + migrations, then start backend + frontend |
-| `make infra`   | Start all Docker infrastructure services |
-| `make seed`    | Run arXiv seeder (50 papers)            |
-| `make migrate` | Run Alembic migrations                  |
-| `make lint`    | Lint backend (ruff) + frontend (eslint) |
-| `make test`    | Run all tests                           |
-| `make clean`   | Remove caches and build artifacts       |
+| `make infra`   | Start all Docker infrastructure services                    |
+| `make seed`    | Run arXiv seeder (50 papers)                                |
+| `make migrate` | Run Alembic migrations                                      |
+| `make lint`    | Lint backend (ruff) + frontend (eslint)                     |
+| `make test`    | Run all tests                                               |
+| `make clean`   | Remove caches and build artifacts                           |
 
 ---
 

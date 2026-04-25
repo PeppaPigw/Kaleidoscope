@@ -22,14 +22,14 @@
 
 export interface KsEmptyStateProps {
   /** Headline */
-  title: string
+  title: string;
   /** Supporting description */
-  description?: string
+  description?: string;
 }
 
 withDefaults(defineProps<KsEmptyStateProps>(), {
   description: undefined,
-})
+});
 </script>
 
 <template>
@@ -37,9 +37,27 @@ withDefaults(defineProps<KsEmptyStateProps>(), {
     <div class="ks-empty-state__icon">
       <slot name="icon">
         <!-- Default: decorative circle with center dot -->
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <circle cx="24" cy="24" r="22" stroke="var(--color-border)" stroke-width="1.5" />
-          <circle cx="24" cy="24" r="3" fill="var(--color-accent)" opacity="0.6" />
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 48 48"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            cx="24"
+            cy="24"
+            r="22"
+            stroke="var(--color-border)"
+            stroke-width="1.5"
+          />
+          <circle
+            cx="24"
+            cy="24"
+            r="3"
+            fill="var(--color-accent)"
+            opacity="0.6"
+          />
         </svg>
       </slot>
     </div>

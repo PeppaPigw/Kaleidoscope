@@ -4,28 +4,34 @@
  */
 
 export interface BurstTopic {
-  id: string
-  topic: string
-  paperCount: number
-  growth: number
-  period: string
-  trending: boolean
+  id: string;
+  topic: string;
+  paperCount: number;
+  growth: number;
+  period: string;
+  trending: boolean;
 }
 
 export interface BurstMomentsProps {
-  topics: BurstTopic[]
+  topics: BurstTopic[];
 }
 
-defineProps<BurstMomentsProps>()
-defineEmits<{ 'topic-click': [topic: BurstTopic] }>()
+defineProps<BurstMomentsProps>();
+defineEmits<{ "topic-click": [topic: BurstTopic] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-burst-moments ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-burst-moments ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Burst Moments</h2>
-    <p class="ks-type-body-sm" style="color: var(--color-secondary); margin-bottom: 16px;">
+    <p
+      class="ks-type-body-sm"
+      style="color: var(--color-secondary); margin-bottom: 16px"
+    >
       Topics experiencing sudden research interest
     </p>
 
@@ -34,7 +40,10 @@ const uid = useId()
         v-for="t in topics"
         :key="t.id"
         type="button"
-        :class="['ks-card ks-burst-moments__item', { 'ks-burst-moments__item--trending': t.trending }]"
+        :class="[
+          'ks-card ks-burst-moments__item',
+          { 'ks-burst-moments__item--trending': t.trending },
+        ]"
         @click="$emit('topic-click', t)"
       >
         <div class="ks-burst-moments__header">
@@ -43,10 +52,17 @@ const uid = useId()
         </div>
         <div class="ks-burst-moments__stats">
           <span class="ks-type-data">{{ t.paperCount }} papers</span>
-          <span class="ks-type-data" :style="{ color: t.growth > 0 ? 'var(--color-primary)' : '#B54A4A' }">
-            {{ t.growth > 0 ? '+' : '' }}{{ t.growth }}%
+          <span
+            class="ks-type-data"
+            :style="{
+              color: t.growth > 0 ? 'var(--color-primary)' : '#B54A4A',
+            }"
+          >
+            {{ t.growth > 0 ? "+" : "" }}{{ t.growth }}%
           </span>
-          <span class="ks-type-data" style="color: var(--color-secondary);">{{ t.period }}</span>
+          <span class="ks-type-data" style="color: var(--color-secondary)">{{
+            t.period
+          }}</span>
         </div>
       </button>
     </div>
@@ -64,8 +80,9 @@ const uid = useId()
   padding: 14px 16px;
   text-align: left;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    transform var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-burst-moments__item:hover {

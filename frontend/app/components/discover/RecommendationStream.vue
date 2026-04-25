@@ -8,33 +8,33 @@
  */
 
 export interface RecommendedPaper {
-  id: string
+  id: string;
   /** Optional custom navigation target — defaults to /papers/:id */
-  href?: string
-  eyebrow: string
-  title: string
-  abstract: string
-  tldr?: string
-  venue: string
-  score: number
-  tags: string[]
+  href?: string;
+  eyebrow: string;
+  title: string;
+  abstract: string;
+  tldr?: string;
+  venue: string;
+  score: number;
+  tags: string[];
   /** Whether the paper has extra emphasis (teal top border) */
-  strong: boolean
+  strong: boolean;
 }
 
 export interface RecommendationStreamProps {
-  papers: RecommendedPaper[]
+  papers: RecommendedPaper[];
 }
 
-defineProps<RecommendationStreamProps>()
+defineProps<RecommendationStreamProps>();
 
 defineEmits<{
-  'paper-click': [paper: RecommendedPaper]
-  'save': [paper: RecommendedPaper]
-  'compare': [paper: RecommendedPaper]
-}>()
+  "paper-click": [paper: RecommendedPaper];
+  save: [paper: RecommendedPaper];
+  compare: [paper: RecommendedPaper];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
@@ -54,28 +54,31 @@ const uid = useId()
         @click.prevent="$emit('paper-click', paper)"
       >
         <div class="ks-recommendation-stream__card-header">
-          <span class="ks-type-eyebrow" style="color: var(--color-accent);">
+          <span class="ks-type-eyebrow" style="color: var(--color-accent)">
             {{ paper.eyebrow }}
           </span>
-          <span class="ks-type-data" style="color: var(--color-primary);">
+          <span class="ks-type-data" style="color: var(--color-primary)">
             {{ (paper.score * 100).toFixed(0) }}%
           </span>
         </div>
-        <KsTranslatableTitle :text="paper.title" tag="h4" title-class="ks-recommendation-stream__card-title" />
+        <KsTranslatableTitle
+          :text="paper.title"
+          tag="h4"
+          title-class="ks-recommendation-stream__card-title"
+        />
         <p v-if="paper.tldr" class="ks-recommendation-stream__card-tldr">
           {{ paper.tldr }}
         </p>
-        <p v-else class="ks-type-body-sm ks-recommendation-stream__card-abstract">
+        <p
+          v-else
+          class="ks-type-body-sm ks-recommendation-stream__card-abstract"
+        >
           {{ paper.abstract }}
         </p>
         <KsTranslateBtn :text="paper.tldr ?? paper.abstract" />
         <div class="ks-recommendation-stream__card-meta">
           <span class="ks-type-data">{{ paper.venue }}</span>
-          <KsTag
-            v-for="tag in paper.tags"
-            :key="tag"
-            variant="primary"
-          >
+          <KsTag v-for="tag in paper.tags" :key="tag" variant="primary">
             {{ tag }}
           </KsTag>
         </div>
@@ -137,7 +140,7 @@ const uid = useId()
 
 .ks-recommendation-stream__card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 24px rgba(26, 26, 26, 0.06);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .ks-recommendation-stream__card-header {
@@ -164,21 +167,11 @@ const uid = useId()
 
 .ks-recommendation-stream__card-abstract {
   color: var(--color-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .ks-recommendation-stream__card-tldr {
   font: 400 0.8125rem / 1.55 var(--font-sans);
   color: var(--color-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   padding: 6px 10px;
   background: var(--color-primary-light);
   border-left: 2px solid var(--color-primary);
@@ -202,7 +195,8 @@ const uid = useId()
 }
 
 .ks-recommendation-stream__card:hover .ks-recommendation-stream__card-actions,
-.ks-recommendation-stream__card:focus-within .ks-recommendation-stream__card-actions {
+.ks-recommendation-stream__card:focus-within
+  .ks-recommendation-stream__card-actions {
   opacity: 1;
 }
 

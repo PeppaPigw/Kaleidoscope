@@ -6,24 +6,24 @@
  * notes before they evaporate. Actions to save to Notes or a Workspace.
  */
 
-const captureText = ref('')
-const uid = useId()
+const captureText = ref("");
+const uid = useId();
 
 const emit = defineEmits<{
-  'save-note': [text: string]
-  'save-workspace': [text: string]
-}>()
+  "save-note": [text: string];
+  "save-workspace": [text: string];
+}>();
 
 function handleSaveNote() {
-  if (!captureText.value.trim()) return
-  emit('save-note', captureText.value.trim())
-  captureText.value = ''
+  if (!captureText.value.trim()) return;
+  emit("save-note", captureText.value.trim());
+  captureText.value = "";
 }
 
 function handleSaveWorkspace() {
-  if (!captureText.value.trim()) return
-  emit('save-workspace', captureText.value.trim())
-  captureText.value = ''
+  if (!captureText.value.trim()) return;
+  emit("save-workspace", captureText.value.trim());
+  captureText.value = "";
 }
 </script>
 

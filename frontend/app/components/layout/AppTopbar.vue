@@ -16,6 +16,7 @@ import { useEventListener } from "@vueuse/core";
 
 const { isZh, t, toggleLocale } = useTranslation();
 const { isMobile, mobileOpen, sidebarCollapsed, toggleSidebar } = useAppShell();
+const { isDark, toggleTheme } = useTheme();
 
 const route = useRoute();
 
@@ -87,17 +88,10 @@ function markAllRead() {
 
 // ─── Profile state ──────────────────────────────────────────
 const showProfile = ref(false);
-const isDarkMode = ref(false);
 
 function handleProfileNavigate(path: string) {
   showProfile.value = false;
   navigateTo(path);
-}
-
-function toggleTheme() {
-  isDarkMode.value = !isDarkMode.value;
-  // Theme switching stub — will be connected to CSS custom properties later
-  document.documentElement.classList.toggle("ks-dark", isDarkMode.value);
 }
 
 function handleSignOut() {
@@ -148,9 +142,13 @@ function handleSearchKeydown(e: KeyboardEvent) {
 }
 
 function handleSearchSubmit() {
-  if (!searchInput.value.trim()) return;
+  const query = searchInput.value.trim();
+  if (!query) return;
   showSearch.value = false;
-  navigateTo(`/search?q=${encodeURIComponent(searchInput.value.trim())}`);
+  navigateTo({
+    path: "/discover",
+    query: { tab: "search", q: query },
+  });
   searchInput.value = "";
 }
 
@@ -318,11 +316,11 @@ watch(showSearch, (open) => {
               @click="toggleTheme"
             >
               <component
-                :is="isDarkMode ? Sun : Moon"
+                :is="isDark ? Sun : Moon"
                 :size="16"
                 :stroke-width="1.8"
               />
-              {{ isDarkMode ? t("lightMode") : t("darkMode") }}
+              {{ isDark ? t("lightMode") : t("darkMode") }}
             </button>
             <button
               type="button"
@@ -377,7 +375,7 @@ watch(showSearch, (open) => {
                 placeholder="Search anything…"
                 @keydown="handleSearchKeydown"
                 @keydown.enter="handleSearchSubmit"
-              >
+              />
             </div>
             <div class="ks-topbar__search-hint">
               <span class="ks-type-data"
@@ -713,7 +711,7 @@ watch(showSearch, (open) => {
   align-items: flex-start;
   justify-content: center;
   padding-top: 20vh;
-  background: rgba(26, 26, 26, 0.24);
+  background: var(--color-overlay-dark);
   backdrop-filter: blur(4px);
 }
 

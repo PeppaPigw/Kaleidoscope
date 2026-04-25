@@ -2,104 +2,106 @@
 /**
  * Collections — manage paper groups (bookmarked papers).
  */
-import { Bookmark, Plus, Trash2, FolderOpen, FileText } from 'lucide-vue-next'
+import { Bookmark, Plus, Trash2, FolderOpen, FileText } from "lucide-vue-next";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
 useHead({
-  title: 'Collections — Kaleidoscope',
-  meta: [{ name: 'description', content: 'Manage your bookmarked paper groups.' }],
-})
+  title: "Collections — Kaleidoscope",
+  meta: [
+    { name: "description", content: "Manage your bookmarked paper groups." },
+  ],
+});
 
-const config = useRuntimeConfig()
-const apiBase = config.public.apiUrl as string
+const config = useRuntimeConfig();
+const apiBase = config.public.apiUrl as string;
 
 interface Group {
-  id: string
-  name: string
-  description: string | null
-  paper_count: number
-  created_at: string
-  updated_at: string | null
+  id: string;
+  name: string;
+  description: string | null;
+  paper_count: number;
+  created_at: string;
+  updated_at: string | null;
 }
 
-const groups = ref<Group[]>([])
-const loading = ref(true)
-const showCreateModal = ref(false)
-const newGroupName = ref('')
-const newGroupDesc = ref('')
-const creating = ref(false)
-const deleteTarget = ref<string | null>(null)
+const groups = ref<Group[]>([]);
+const loading = ref(true);
+const showCreateModal = ref(false);
+const newGroupName = ref("");
+const newGroupDesc = ref("");
+const creating = ref(false);
+const deleteTarget = ref<string | null>(null);
 
-function _authHeaders() {
-  const token = import.meta.client ? localStorage.getItem('ks_access_token') : null
-  if (token && token !== 'single-user-mode') {
-    return { Authorization: `Bearer ${token}` }
+function _authHeaders(): Record<string, string> | undefined {
+  const token = import.meta.client
+    ? localStorage.getItem("ks_access_token")
+    : null;
+  if (token && token !== "single-user-mode") {
+    return { Authorization: `Bearer ${token}` };
   }
-  return {}
+  return undefined;
 }
 
-onMounted(loadGroups)
+onMounted(loadGroups);
 
 async function loadGroups() {
-  loading.value = true
+  loading.value = true;
   try {
     const data = await $fetch<Group[]>(`${apiBase}/api/v1/collections`, {
-      params: { kind: 'paper_group' },
+      params: { kind: "paper_group" },
       headers: _authHeaders(),
-    })
-    groups.value = data
-  }
-  catch (e) {
-    console.error('[collections] load failed', e)
-  }
-  finally {
-    loading.value = false
+    });
+    groups.value = data;
+  } catch (e) {
+    console.error("[collections] load failed", e);
+  } finally {
+    loading.value = false;
   }
 }
 
 async function createGroup() {
-  const name = newGroupName.value.trim()
-  if (!name) return
-  creating.value = true
+  const name = newGroupName.value.trim();
+  if (!name) return;
+  creating.value = true;
   try {
     const created = await $fetch<Group>(`${apiBase}/api/v1/collections`, {
-      method: 'POST',
-      body: { name, description: newGroupDesc.value.trim() || undefined, kind: 'paper_group' },
+      method: "POST",
+      body: {
+        name,
+        description: newGroupDesc.value.trim() || undefined,
+        kind: "paper_group",
+      },
       headers: _authHeaders(),
-    })
-    groups.value.push(created)
-    showCreateModal.value = false
-    newGroupName.value = ''
-    newGroupDesc.value = ''
-  }
-  catch (e) {
-    console.error('[collections] create failed', e)
-  }
-  finally {
-    creating.value = false
+    });
+    groups.value.push(created);
+    showCreateModal.value = false;
+    newGroupName.value = "";
+    newGroupDesc.value = "";
+  } catch (e) {
+    console.error("[collections] create failed", e);
+  } finally {
+    creating.value = false;
   }
 }
 
 async function deleteGroup(id: string) {
-  deleteTarget.value = id
+  deleteTarget.value = id;
   try {
     await $fetch(`${apiBase}/api/v1/collections/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: _authHeaders(),
-    })
-    groups.value = groups.value.filter(g => g.id !== id)
-  }
-  catch (e) {
-    console.error('[collections] delete failed', e)
-  }
-  finally {
-    deleteTarget.value = null
+    });
+    groups.value = groups.value.filter((g) => g.id !== id);
+  } catch (e) {
+    console.error("[collections] delete failed", e);
+  } finally {
+    deleteTarget.value = null;
   }
 }
 
 function formatDate(dt: string) {
-  return new Date(dt).toLocaleDateString()
+  return new Date(dt).toLocaleDateString();
 }
 </script>
 
@@ -112,24 +114,35 @@ function formatDate(dt: string) {
           <Bookmark :size="12" :stroke-width="2" /> COLLECTIONS
         </p>
         <h1 class="ks-col__title">Paper Groups</h1>
-        <p class="ks-col__desc">Organize bookmarked papers into named groups for easy retrieval and AI chat.</p>
+        <p class="ks-col__desc">
+          Organize bookmarked papers into named groups for easy retrieval and AI
+          chat.
+        </p>
       </div>
-      <button type="button" class="ks-btn-primary" @click="showCreateModal = true">
+      <button
+        type="button"
+        class="ks-btn-primary"
+        @click="showCreateModal = true"
+      >
         <Plus :size="14" :stroke-width="2.5" /> New Group
       </button>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="ks-col__loading">
-      Loading collections…
-    </div>
+    <div v-if="loading" class="ks-col__loading">Loading collections…</div>
 
     <!-- Empty state -->
     <div v-else-if="groups.length === 0" class="ks-col__empty">
       <FolderOpen :size="40" :stroke-width="1.2" class="ks-col__empty-icon" />
       <p class="ks-col__empty-title">No groups yet</p>
-      <p class="ks-col__empty-desc">Save papers from DeepXiv search and reader using the bookmark icon.</p>
-      <button type="button" class="ks-btn-primary" @click="showCreateModal = true">
+      <p class="ks-col__empty-desc">
+        Save papers from DeepXiv search and reader using the bookmark icon.
+      </p>
+      <button
+        type="button"
+        class="ks-btn-primary"
+        @click="showCreateModal = true"
+      >
         <Plus :size="14" /> Create your first group
       </button>
     </div>
@@ -147,12 +160,17 @@ function formatDate(dt: string) {
         </div>
         <div class="ks-col__card-body">
           <h3 class="ks-col__card-name">{{ group.name }}</h3>
-          <p v-if="group.description" class="ks-col__card-desc">{{ group.description }}</p>
+          <p v-if="group.description" class="ks-col__card-desc">
+            {{ group.description }}
+          </p>
           <div class="ks-col__card-meta">
             <span class="ks-col__card-count">
-              <FileText :size="12" :stroke-width="2" /> {{ group.paper_count }} papers
+              <FileText :size="12" :stroke-width="2" />
+              {{ group.paper_count }} papers
             </span>
-            <span class="ks-col__card-date">{{ formatDate(group.created_at) }}</span>
+            <span class="ks-col__card-date">{{
+              formatDate(group.created_at)
+            }}</span>
           </div>
         </div>
         <button
@@ -170,7 +188,12 @@ function formatDate(dt: string) {
     <!-- Create modal -->
     <Teleport v-if="showCreateModal" to="body">
       <div class="ks-col-modal-overlay" @click.self="showCreateModal = false">
-        <div class="ks-col-modal" role="dialog" aria-modal="true" aria-label="Create group">
+        <div
+          class="ks-col-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create group"
+        >
           <h2 class="ks-col-modal-title">New Paper Group</h2>
           <div class="ks-col-modal-fields">
             <div class="ks-col-modal-field">
@@ -183,7 +206,7 @@ function formatDate(dt: string) {
                 :disabled="creating"
                 autofocus
                 @keydown.enter="createGroup"
-              >
+              />
             </div>
             <div class="ks-col-modal-field">
               <label class="ks-col-modal-label">Description (optional)</label>
@@ -193,13 +216,24 @@ function formatDate(dt: string) {
                 class="ks-col-modal-input"
                 placeholder="Brief description…"
                 :disabled="creating"
-              >
+              />
             </div>
           </div>
           <div class="ks-col-modal-actions">
-            <button type="button" class="ks-btn-ghost" @click="showCreateModal = false">Cancel</button>
-            <button type="button" class="ks-btn-primary" :disabled="!newGroupName.trim() || creating" @click="createGroup">
-              {{ creating ? 'Creating…' : 'Create' }}
+            <button
+              type="button"
+              class="ks-btn-ghost"
+              @click="showCreateModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="ks-btn-primary"
+              :disabled="!newGroupName.trim() || creating"
+              @click="createGroup"
+            >
+              {{ creating ? "Creating…" : "Create" }}
             </button>
           </div>
         </div>
@@ -300,7 +334,10 @@ function formatDate(dt: string) {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   text-decoration: none;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .ks-col__card:hover {
@@ -383,7 +420,10 @@ function formatDate(dt: string) {
   color: var(--color-secondary);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s,
+    color 0.15s;
 }
 
 .ks-col__card:hover .ks-col__card-delete {

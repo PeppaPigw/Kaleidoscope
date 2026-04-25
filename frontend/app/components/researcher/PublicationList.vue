@@ -10,78 +10,92 @@
  */
 
 export interface PaperEntry {
-  id: string
-  title: string
-  doi?: string | null
-  arxiv_id?: string | null
-  s2_paper_id?: string | null
-  abstract?: string | null
-  keywords?: string[]
-  published_at?: string | null
-  year?: number | null
-  citation_count: number
-  venue?: string | null
-  in_library?: boolean
-  library_paper_id?: string | null
-  has_full_text?: boolean
-  author_position?: number | null
-  is_corresponding?: boolean
+  id: string;
+  title: string;
+  doi?: string | null;
+  arxiv_id?: string | null;
+  s2_paper_id?: string | null;
+  abstract?: string | null;
+  keywords?: string[];
+  published_at?: string | null;
+  year?: number | null;
+  citation_count: number;
+  venue?: string | null;
+  in_library?: boolean;
+  library_paper_id?: string | null;
+  has_full_text?: boolean;
+  author_position?: number | null;
+  is_corresponding?: boolean;
 }
 
 interface Props {
-  papers: PaperEntry[]
+  papers: PaperEntry[];
 }
 
-const props = defineProps<Props>()
-defineEmits<{ 'paper-click': [paper: PaperEntry] }>()
+const props = defineProps<Props>();
+defineEmits<{ "paper-click": [paper: PaperEntry] }>();
 
-const uid = useId()
+const uid = useId();
 
-type SortKey = 'year_desc' | 'year_asc' | 'citations_desc'
-const sortKey = ref<SortKey>('year_desc')
-const query = ref('')
-const expandedIds = ref<Set<string>>(new Set())
+type SortKey = "year_desc" | "year_asc" | "citations_desc";
+const sortKey = ref<SortKey>("year_desc");
+const query = ref("");
+const expandedIds = ref<Set<string>>(new Set());
 
 function toggleExpand(id: string) {
-  const s = new Set(expandedIds.value)
-  s.has(id) ? s.delete(id) : s.add(id)
-  expandedIds.value = s
+  const s = new Set(expandedIds.value);
+  if (s.has(id)) {
+    s.delete(id);
+  } else {
+    s.add(id);
+  }
+  expandedIds.value = s;
 }
 
 const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  let list = props.papers
+  const q = query.value.trim().toLowerCase();
+  let list = props.papers;
   if (q) {
-    list = list.filter(p =>
-      p.title.toLowerCase().includes(q) ||
-      (p.keywords ?? []).some(k => k.toLowerCase().includes(q)) ||
-      (p.abstract ?? '').toLowerCase().includes(q) ||
-      (p.venue ?? '').toLowerCase().includes(q)
-    )
+    list = list.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        (p.keywords ?? []).some((k) => k.toLowerCase().includes(q)) ||
+        (p.abstract ?? "").toLowerCase().includes(q) ||
+        (p.venue ?? "").toLowerCase().includes(q),
+    );
   }
   return [...list].sort((a, b) => {
-    if (sortKey.value === 'citations_desc') return b.citation_count - a.citation_count
-    const ya = a.year ?? 0, yb = b.year ?? 0
-    return sortKey.value === 'year_asc' ? ya - yb : yb - ya
-  })
-})
+    if (sortKey.value === "citations_desc")
+      return b.citation_count - a.citation_count;
+    const ya = a.year ?? 0,
+      yb = b.year ?? 0;
+    return sortKey.value === "year_asc" ? ya - yb : yb - ya;
+  });
+});
 
-const inLibraryCount = computed(() => props.papers.filter(p => p.in_library).length)
+const inLibraryCount = computed(
+  () => props.papers.filter((p) => p.in_library).length,
+);
 
 function positionLabel(pos: number) {
-  if (pos === 0) return '1st author'
-  if (pos === 1) return '2nd author'
-  if (pos === 2) return '3rd author'
-  return `${pos + 1}th author`
+  if (pos === 0) return "1st author";
+  if (pos === 1) return "2nd author";
+  if (pos === 2) return "3rd author";
+  return `${pos + 1}th author`;
 }
 </script>
 
 <template>
-  <section class="ks-pub-list ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-pub-list ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-pub-list__header">
       <h2 :id="`${uid}-title`" class="ks-type-section-title">
         Publications
-        <span class="ks-pub-list__count ks-type-data">{{ filtered.length }} / {{ papers.length }}</span>
+        <span class="ks-pub-list__count ks-type-data"
+          >{{ filtered.length }} / {{ papers.length }}</span
+        >
         <span v-if="inLibraryCount" class="ks-pub-list__lib-badge">
           {{ inLibraryCount }} in library
         </span>
@@ -94,8 +108,12 @@ function positionLabel(pos: number) {
           placeholder="Search title, keyword…"
           class="ks-pub-list__search"
           :aria-label="'Filter publications'"
+        />
+        <select
+          v-model="sortKey"
+          class="ks-pub-list__sort"
+          aria-label="Sort order"
         >
-        <select v-model="sortKey" class="ks-pub-list__sort" aria-label="Sort order">
           <option value="year_desc">Newest first</option>
           <option value="year_asc">Oldest first</option>
           <option value="citations_desc">Most cited</option>
@@ -118,12 +136,18 @@ function positionLabel(pos: number) {
         }"
       >
         <!-- Library indicator stripe -->
-        <div v-if="paper.in_library" class="ks-pub-list__lib-stripe" aria-hidden="true" />
+        <div
+          v-if="paper.in_library"
+          class="ks-pub-list__lib-stripe"
+          aria-hidden="true"
+        />
 
         <!-- Main row -->
         <div class="ks-pub-list__row">
           <div class="ks-pub-list__meta-left">
-            <span class="ks-pub-list__year ks-type-data">{{ paper.year ?? '—' }}</span>
+            <span class="ks-pub-list__year ks-type-data">{{
+              paper.year ?? "—"
+            }}</span>
           </div>
 
           <div class="ks-pub-list__body">
@@ -139,28 +163,46 @@ function positionLabel(pos: number) {
             <a
               v-else-if="paper.arxiv_id"
               :href="`https://arxiv.org/abs/${paper.arxiv_id}`"
-              target="_blank" rel="noopener"
+              target="_blank"
+              rel="noopener"
               class="ks-pub-list__title-link"
-            >{{ paper.title }}</a>
-            <span v-else class="ks-pub-list__title-plain">{{ paper.title }}</span>
+              >{{ paper.title }}</a
+            >
+            <span v-else class="ks-pub-list__title-plain">{{
+              paper.title
+            }}</span>
 
             <!-- Venue -->
-            <span v-if="paper.venue" class="ks-pub-list__venue ks-type-data">{{ paper.venue }}</span>
+            <span v-if="paper.venue" class="ks-pub-list__venue ks-type-data">{{
+              paper.venue
+            }}</span>
 
             <div class="ks-pub-list__chips">
               <!-- Library status badges -->
-              <span v-if="paper.in_library && paper.has_full_text" class="ks-pub-list__chip ks-pub-list__chip--library">
+              <span
+                v-if="paper.in_library && paper.has_full_text"
+                class="ks-pub-list__chip ks-pub-list__chip--library"
+              >
                 ✓ In Library · Full Text
               </span>
-              <span v-else-if="paper.in_library" class="ks-pub-list__chip ks-pub-list__chip--library-meta">
+              <span
+                v-else-if="paper.in_library"
+                class="ks-pub-list__chip ks-pub-list__chip--library-meta"
+              >
                 ✓ In Library
               </span>
 
               <!-- Author role (only for library papers) -->
-              <span v-if="paper.in_library && paper.author_position != null" class="ks-pub-list__chip ks-pub-list__chip--role">
+              <span
+                v-if="paper.in_library && paper.author_position != null"
+                class="ks-pub-list__chip ks-pub-list__chip--role"
+              >
                 {{ positionLabel(paper.author_position!) }}
               </span>
-              <span v-if="paper.is_corresponding" class="ks-pub-list__chip ks-pub-list__chip--corr">
+              <span
+                v-if="paper.is_corresponding"
+                class="ks-pub-list__chip ks-pub-list__chip--corr"
+              >
                 Corresponding
               </span>
 
@@ -168,7 +210,8 @@ function positionLabel(pos: number) {
               <a
                 v-if="paper.arxiv_id && !paper.in_library"
                 :href="`https://arxiv.org/abs/${paper.arxiv_id}`"
-                target="_blank" rel="noopener"
+                target="_blank"
+                rel="noopener"
                 class="ks-pub-list__chip ks-pub-list__chip--arxiv"
                 @click.stop
               >
@@ -180,13 +223,18 @@ function positionLabel(pos: number) {
                 v-for="kw in (paper.keywords ?? []).slice(0, 3)"
                 :key="kw"
                 class="ks-pub-list__chip ks-pub-list__chip--kw"
-              >{{ kw }}</span>
+                >{{ kw }}</span
+              >
             </div>
           </div>
 
           <div class="ks-pub-list__meta-right">
-            <span v-if="paper.citation_count > 0" class="ks-pub-list__cite ks-type-data">
-              {{ paper.citation_count.toLocaleString() }} <span class="ks-pub-list__cite-label">cited</span>
+            <span
+              v-if="paper.citation_count > 0"
+              class="ks-pub-list__cite ks-type-data"
+            >
+              {{ paper.citation_count.toLocaleString() }}
+              <span class="ks-pub-list__cite-label">cited</span>
             </span>
             <button
               v-if="paper.abstract"
@@ -196,7 +244,7 @@ function positionLabel(pos: number) {
               :aria-controls="`${uid}-abs-${paper.id}`"
               @click="toggleExpand(paper.id)"
             >
-              {{ expandedIds.has(paper.id) ? '▲' : '▼' }}
+              {{ expandedIds.has(paper.id) ? "▲" : "▼" }}
             </button>
           </div>
         </div>
@@ -210,12 +258,16 @@ function positionLabel(pos: number) {
           <p>{{ paper.abstract }}</p>
           <div class="ks-pub-list__abstract-footer">
             <KsTranslateBtn :text="paper.abstract" />
-            <div v-if="(paper.keywords ?? []).length" class="ks-pub-list__kw-all">
+            <div
+              v-if="(paper.keywords ?? []).length"
+              class="ks-pub-list__kw-all"
+            >
               <span
                 v-for="kw in paper.keywords"
                 :key="kw"
                 class="ks-pub-list__chip ks-pub-list__chip--kw"
-              >{{ kw }}</span>
+                >{{ kw }}</span
+              >
             </div>
           </div>
         </div>
@@ -382,7 +434,9 @@ function positionLabel(pos: number) {
   text-decoration: none;
   transition: color 0.12s;
 }
-.ks-pub-list__title-link:hover { color: var(--color-primary); }
+.ks-pub-list__title-link:hover {
+  color: var(--color-primary);
+}
 
 .ks-pub-list__title-plain {
   font: 600 0.9375rem / 1.45 var(--font-serif, serif);
@@ -415,7 +469,11 @@ function positionLabel(pos: number) {
   font-weight: 600;
 }
 .ks-pub-list__chip--corr {
-  background: color-mix(in srgb, var(--color-accent-decorative, #c4a35a) 15%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-accent-decorative, #c4a35a) 15%,
+    transparent
+  );
   color: color-mix(in srgb, var(--color-accent-decorative, #c4a35a) 90%, #000);
   font-weight: 600;
 }
@@ -476,7 +534,9 @@ function positionLabel(pos: number) {
   border-radius: 3px;
   transition: color 0.12s;
 }
-.ks-pub-list__expand-btn:hover { color: var(--color-primary); }
+.ks-pub-list__expand-btn:hover {
+  color: var(--color-primary);
+}
 .ks-pub-list__expand-btn:focus-visible {
   outline: 2px solid var(--color-primary);
 }
@@ -504,8 +564,14 @@ function positionLabel(pos: number) {
 }
 
 @media (max-width: 600px) {
-  .ks-pub-list__header { flex-direction: column; }
-  .ks-pub-list__abstract { padding-left: 24px; }
-  .ks-pub-list__search { width: 100%; }
+  .ks-pub-list__header {
+    flex-direction: column;
+  }
+  .ks-pub-list__abstract {
+    padding-left: 24px;
+  }
+  .ks-pub-list__search {
+    width: 100%;
+  }
 }
 </style>

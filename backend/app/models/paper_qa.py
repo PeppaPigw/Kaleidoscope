@@ -41,9 +41,7 @@ class PaperChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_references: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     token_estimate: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    __table_args__ = (
-        Index("ix_paper_chunks_paper_order", "paper_id", "order_index"),
-    )
+    __table_args__ = (Index("ix_paper_chunks_paper_order", "paper_id", "order_index"),)
 
 
 class PaperEmbeddingJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -70,7 +68,9 @@ class PaperEmbeddingJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
-    __table_args__ = (UniqueConstraint("paper_id", name="uq_paper_embedding_jobs_paper_id"),)
+    __table_args__ = (
+        UniqueConstraint("paper_id", name="uq_paper_embedding_jobs_paper_id"),
+    )
 
 
 class QAMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):

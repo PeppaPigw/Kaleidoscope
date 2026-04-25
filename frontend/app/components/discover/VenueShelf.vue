@@ -7,25 +7,25 @@
  */
 
 export interface VenueItem {
-  id: string
-  name: string
-  count: number
+  id: string;
+  name: string;
+  count: number;
 }
 
 export interface VenueShelfProps {
-  venues: VenueItem[]
-  title?: string
+  venues: VenueItem[];
+  title?: string;
 }
 
 const props = withDefaults(defineProps<VenueShelfProps>(), {
-  title: 'Top Venues',
-})
+  title: "Top Venues",
+});
 
 defineEmits<{
-  'venue-click': [venue: VenueItem]
-}>()
+  "venue-click": [venue: VenueItem];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
@@ -33,20 +33,21 @@ const uid = useId()
     class="ks-venue-shelf ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-2"
     :aria-labelledby="`${uid}-title`"
   >
-    <h4 :id="`${uid}-title`" class="ks-type-section-title">{{ props.title }}</h4>
+    <h4 :id="`${uid}-title`" class="ks-type-section-title">
+      {{ props.title }}
+    </h4>
     <ul class="ks-venue-shelf__list">
-      <li
-        v-for="(v, i) in venues"
-        :key="v.id"
-        class="ks-venue-shelf__li"
-      >
+      <li v-for="(v, i) in venues" :key="v.id" class="ks-venue-shelf__li">
         <button
           type="button"
-          :class="['ks-venue-shelf__item', { 'ks-venue-shelf__item--hot': i === 0 }]"
+          :class="[
+            'ks-venue-shelf__item',
+            { 'ks-venue-shelf__item--hot': i === 0 },
+          ]"
           @click="$emit('venue-click', v)"
         >
           <span class="ks-venue-shelf__item-name">{{ v.name }}</span>
-          <span class="ks-type-data" style="color: var(--color-primary);">
+          <span class="ks-type-data" style="color: var(--color-primary)">
             {{ v.count }} papers
           </span>
         </button>

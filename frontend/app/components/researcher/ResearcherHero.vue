@@ -7,30 +7,53 @@
  */
 
 export interface ResearcherHeroProps {
-  name: string
-  affiliation: string
-  title: string
-  hIndex: number
-  totalPapers: number
-  totalCitations: number
-  orcid?: string
-  homepage?: string
-  scholarUrl?: string
-  imageUrl?: string
+  name: string;
+  affiliation: string;
+  title: string;
+  hIndex: number;
+  totalPapers: number;
+  totalCitations: number;
+  orcid?: string;
+  homepage?: string;
+  scholarUrl?: string;
+  imageUrl?: string;
 }
 
-defineProps<ResearcherHeroProps>()
-defineEmits<{ 'follow': [] }>()
+defineProps<ResearcherHeroProps>();
+defineEmits<{ follow: [] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <header class="ks-researcher-hero ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <header
+    class="ks-researcher-hero ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-researcher-hero__avatar">
-      <img v-if="imageUrl" :src="imageUrl" :alt="`Photo of ${name}`" class="ks-researcher-hero__avatar-img" >
-      <div v-else class="ks-researcher-hero__avatar-placeholder" aria-hidden="true">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <img
+        v-if="imageUrl"
+        :src="imageUrl"
+        :alt="`Photo of ${name}`"
+        class="ks-researcher-hero__avatar-img"
+      />
+      <div
+        v-else
+        class="ks-researcher-hero__avatar-placeholder"
+        aria-hidden="true"
+      >
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          opacity="0.3"
+        >
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
       </div>
     </div>
 
@@ -49,24 +72,46 @@ const uid = useId()
           <span class="ks-type-data">papers</span>
         </div>
         <div class="ks-researcher-hero__stat">
-          <span class="ks-researcher-hero__stat-value">{{ totalCitations.toLocaleString() }}</span>
+          <span class="ks-researcher-hero__stat-value">{{
+            totalCitations.toLocaleString()
+          }}</span>
           <span class="ks-type-data">citations</span>
         </div>
       </div>
 
       <div class="ks-researcher-hero__links">
-        <a v-if="orcid" :href="`https://orcid.org/${orcid}`" target="_blank" rel="noopener" class="ks-researcher-hero__link">
+        <a
+          v-if="orcid"
+          :href="`https://orcid.org/${orcid}`"
+          target="_blank"
+          rel="noopener"
+          class="ks-researcher-hero__link"
+        >
           ORCID: {{ orcid }}
         </a>
-        <a v-if="homepage" :href="homepage" target="_blank" rel="noopener" class="ks-researcher-hero__link">
+        <a
+          v-if="homepage"
+          :href="homepage"
+          target="_blank"
+          rel="noopener"
+          class="ks-researcher-hero__link"
+        >
           Homepage ↗
         </a>
-        <a v-if="scholarUrl" :href="scholarUrl" target="_blank" rel="noopener" class="ks-researcher-hero__link">
+        <a
+          v-if="scholarUrl"
+          :href="scholarUrl"
+          target="_blank"
+          rel="noopener"
+          class="ks-researcher-hero__link"
+        >
           Google Scholar ↗
         </a>
       </div>
 
-      <KsButton variant="secondary" @click="$emit('follow')">Follow Researcher</KsButton>
+      <KsButton variant="secondary" @click="$emit('follow')"
+        >Follow Researcher</KsButton
+      >
     </div>
   </header>
 </template>

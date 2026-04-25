@@ -20,7 +20,11 @@
   margin: clamp(1.75rem, 4vw, 3.5rem) auto;
   padding: 1rem 0 1rem 1.5rem;
   border-left: 3px solid var(--color-accent-decorative);
-  background: linear-gradient(90deg, rgba(196, 163, 90, 0.08), rgba(196, 163, 90, 0));
+  background: linear-gradient(
+    90deg,
+    rgba(196, 163, 90, 0.08),
+    rgba(196, 163, 90, 0)
+  );
   font-family: var(--font-display);
   font-size: clamp(1.4rem, 2.4vw, 2rem);
   line-height: 1.45;
@@ -96,7 +100,12 @@
 .ks-section-divider::after {
   content: "";
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border),
+    transparent
+  );
 }
 
 .ks-section-divider > span {
@@ -142,8 +151,12 @@
 }
 
 @keyframes ks-skeleton-pulse {
-  from { opacity: var(--ks-skeleton-pulse-from); }
-  to   { opacity: var(--ks-skeleton-pulse-to); }
+  from {
+    opacity: var(--ks-skeleton-pulse-from);
+  }
+  to {
+    opacity: var(--ks-skeleton-pulse-to);
+  }
 }
 
 /* ─── Card surface ─────────────────────────────────────── */
@@ -151,9 +164,10 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  transition: box-shadow var(--duration-normal) var(--ease-smooth),
-              transform var(--duration-normal) var(--ease-spring),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    transform var(--duration-normal) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-card:hover {
@@ -207,9 +221,10 @@
   border-radius: var(--radius-btn);
   font: 500 0.875rem / 1 var(--font-sans);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
   white-space: nowrap;
 }
 

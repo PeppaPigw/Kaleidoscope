@@ -9,69 +9,70 @@
 
 export interface TrendSnapshotProps {
   /** Topic name */
-  topic: string
+  topic: string;
   /** Percentage change (e.g. "+36%") */
-  change: string
+  change: string;
   /** Period label (e.g. "30-day trend") */
-  period: string
+  period: string;
   /** Description text */
-  description: string
+  description: string;
   /** Related topic labels */
-  relatedTopics?: string[]
+  relatedTopics?: string[];
   /** Sparkline data points (0-100 normalized) */
-  sparklineData?: number[]
+  sparklineData?: number[];
 }
 
 const props = withDefaults(defineProps<TrendSnapshotProps>(), {
   relatedTopics: () => [],
   sparklineData: () => [10, 15, 22, 18, 35, 42, 38, 55, 62, 58, 72, 78, 82, 88],
-})
+});
 
-defineEmits<{ click: [] }>()
+defineEmits<{ click: [] }>();
 
 /**
  * Convert data points to SVG polyline points string.
  * Maps to a 264×112 viewBox.
  */
-const uid = useId()
+const uid = useId();
 
 const sparklinePoints = computed(() => {
-  const data = props.sparklineData
-  if (data.length < 2) return ''
+  const data = props.sparklineData;
+  if (data.length < 2) return "";
 
-  const viewW = 264
-  const viewH = 112
-  const padding = 8
-  const maxVal = Math.max(...data)
-  const minVal = Math.min(...data)
-  const range = maxVal - minVal || 1
+  const viewW = 264;
+  const viewH = 112;
+  const padding = 8;
+  const maxVal = Math.max(...data);
+  const minVal = Math.min(...data);
+  const range = maxVal - minVal || 1;
 
   return data
     .map((val, i) => {
-      const x = (i / Math.max(data.length - 1, 1)) * viewW
-      const y = viewH - padding - ((val - minVal) / range) * (viewH - padding * 2)
-      return `${x.toFixed(1)},${y.toFixed(1)}`
+      const x = (i / Math.max(data.length - 1, 1)) * viewW;
+      const y =
+        viewH - padding - ((val - minVal) / range) * (viewH - padding * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
-    .join(' ')
-})
+    .join(" ");
+});
 
 const endPoint = computed(() => {
-  const data = props.sparklineData
-  if (data.length < 2) return { x: 0, y: 0 }
+  const data = props.sparklineData;
+  if (data.length < 2) return { x: 0, y: 0 };
 
-  const viewW = 264
-  const viewH = 112
-  const padding = 8
-  const maxVal = Math.max(...data)
-  const minVal = Math.min(...data)
-  const range = maxVal - minVal || 1
+  const viewW = 264;
+  const viewH = 112;
+  const padding = 8;
+  const maxVal = Math.max(...data);
+  const minVal = Math.min(...data);
+  const range = maxVal - minVal || 1;
 
-  const lastVal = data[data.length - 1]!
+  const lastVal = data[data.length - 1]!;
   return {
     x: viewW,
     y: viewH - padding - ((lastVal - minVal) / range) * (viewH - padding * 2),
-  }
-})
+  };
+});
 </script>
 
 <template>
@@ -89,7 +90,11 @@ const endPoint = computed(() => {
 
     <!-- Sparkline -->
     <div class="ks-trend-snapshot__chart">
-      <svg viewBox="0 0 264 112" class="ks-trend-snapshot__sparkline" aria-hidden="true">
+      <svg
+        viewBox="0 0 264 112"
+        class="ks-trend-snapshot__sparkline"
+        aria-hidden="true"
+      >
         <polyline
           fill="none"
           stroke="var(--color-primary)"
@@ -110,19 +115,17 @@ const endPoint = computed(() => {
     <!-- Change stat -->
     <div class="ks-trend-snapshot__value">
       <span class="ks-type-stat-lg">{{ change }}</span>
-      <span class="ks-type-label" style="color: var(--color-primary);">{{ period }}</span>
+      <span class="ks-type-label" style="color: var(--color-primary)">{{
+        period
+      }}</span>
     </div>
-    <p class="ks-type-body-sm" style="color: var(--color-secondary);">
+    <p class="ks-type-body-sm" style="color: var(--color-secondary)">
       {{ description }}
     </p>
 
     <!-- Related topics -->
     <div v-if="relatedTopics.length > 0" class="ks-trend-snapshot__pills">
-      <KsTag
-        v-for="rt in relatedTopics"
-        :key="rt"
-        variant="primary"
-      >
+      <KsTag v-for="rt in relatedTopics" :key="rt" variant="primary">
         {{ rt }}
       </KsTag>
     </div>
@@ -135,9 +138,12 @@ const endPoint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  box-sizing: border-box;
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-trend-snapshot:hover {

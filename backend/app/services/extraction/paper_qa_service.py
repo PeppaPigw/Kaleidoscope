@@ -308,7 +308,10 @@ class PaperQAService:
                 context=context_str,
                 history=history_str,
                 reframed_question=model_question,
-                validation_errors="The previous answer incorrectly stated the information was not covered, or it was a refusal.",
+                validation_errors=(
+                    "The previous answer incorrectly stated the information "
+                    "was not covered, or it was a refusal."
+                ),
                 previous_answer=answer_text,
             )
             answer_text = await complete_with_prompt(retry_prompt)
@@ -443,7 +446,7 @@ class PaperQAService:
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """Fast pure-Python cosine similarity (avoids numpy import for small vectors)."""
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = sum(x * x for x in a) ** 0.5
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a < 1e-9 or norm_b < 1e-9:
@@ -459,9 +462,12 @@ def _cosine_recall(
     """Score all chunks by cosine similarity and return top_k."""
     scored: list[tuple[float, PaperChunk]] = []
     for chunk in chunks:
-        if not chunk.embedding:
+        embedding = chunk.embedding
+        if embedding is None:
             continue
-        sim = _cosine_similarity(q_vec, chunk.embedding)
+        if hasattr(embedding, "__len__") and len(embedding) == 0:
+            continue
+        sim = _cosine_similarity(q_vec, embedding)
         # Penalty for appendix sections
         if chunk.is_appendix:
             sim *= 0.8
@@ -487,7 +493,7 @@ def _format_chat_history(history: list[dict[str, str]]) -> str:
 
 
 def _sanitize_history_answer(answer: str) -> str:
-    """Strip inline citations from prior answers so old source ids don't leak into follow-up turns."""
+    """Strip inline citations so old source ids do not leak into follow-up turns."""
     cleaned = SECTION_CITATION_RE.sub("", answer)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     return cleaned.strip()
@@ -512,7 +518,7 @@ def _needs_full_context_fallback(answer: str) -> bool:
 
 
 def _looks_like_not_covered(answer: str) -> bool:
-    """Detect overly conservative 'not covered' answers so we can retry on the full paper context."""
+    """Detect overly conservative answers so we can retry on full-paper context."""
     normalized = " ".join(answer.strip().lower().split())
     if not normalized:
         return True
@@ -582,7 +588,7 @@ def _normalize_source_citations(answer: str, sources: list[dict]) -> str:
 def _compact_sources_to_citations(
     answer: str, sources: list[dict]
 ) -> tuple[str, list[dict]]:
-    """Keep only sources cited in the answer and renumber citations to match visible source order."""
+    """Keep cited sources only and renumber citations to match visible source order."""
     citation_order: list[int] = []
     for match in NUMERIC_CITATION_RE.finditer(answer):
         index = int(match.group(1))
@@ -638,7 +644,9 @@ def _build_snippet_header(context_snippet: str | None) -> str:
         return ""
     truncated = context_snippet.strip()[:800]
     return (
-        f"The user has highlighted the following passage from the paper as context for their question:\n\n"
-        f'> {truncated}\n\n'
-        f"Keep this passage in mind when answering, but still ground your answer in the retrieved passages below.\n\n"
+        "The user has highlighted the following passage from the paper as "
+        "context for their question:\n\n"
+        f"> {truncated}\n\n"
+        "Keep this passage in mind when answering, but still ground your "
+        "answer in the retrieved passages below.\n\n"
     )

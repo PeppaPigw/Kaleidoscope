@@ -25,6 +25,34 @@ logger = structlog.get_logger(__name__)
 
 MAX_FULLTEXT_CHARS = 60_000
 
+_EMPTY_PROMPT_PREFIXES = (
+    "[EXT] *Note: As the prompt provided empty fields",
+    "*[SYSTEM NOTE: The user prompt provided an empty paper template",
+)
+
+
+def deep_analysis_is_valid(payload: dict | None) -> bool:
+    """Return True when a stored deep-analysis payload contains usable content."""
+    if not isinstance(payload, dict) or payload.get("status") != "ok":
+        return False
+
+    analysis_text = (payload.get("analysis") or "").strip()
+    if not analysis_text:
+        return False
+
+    if analysis_text.startswith(_EMPTY_PROMPT_PREFIXES):
+        return False
+
+    raw_chars = payload.get("fulltext_chars")
+    if raw_chars is not None:
+        try:
+            if int(raw_chars) <= 0:
+                return False
+        except (TypeError, ValueError):
+            pass
+
+    return True
+
 
 def _format_authors(authors: list[str] | None) -> str:
     if not authors:
@@ -72,7 +100,8 @@ class PaperAnalystService:
         Works directly with a Paper ORM object (no DB lookup needed).
         Returns a dict that can be stored in Paper.deep_analysis.
         """
-        log = logger.bind(paper_id=str(paper.id), title=paper.title[:80])
+        paper_title = (paper.title or "").strip()
+        log = logger.bind(paper_id=str(paper.id), title=paper_title[:80])
 
         # Build inputs
         # paper.authors is a list of PaperAuthor (junction) objects, not Author objects directly.
@@ -110,6 +139,10 @@ class PaperAnalystService:
         authors_str = _format_authors(author_names)
         year = _extract_year(paper)
         fulltext = (paper.full_text_markdown or paper.abstract or "").strip()
+        if not paper_title:
+            raise ValueError("Paper title unavailable for analysis")
+        if len(fulltext) < 120:
+            raise ValueError("Paper text unavailable for analysis")
         if len(fulltext) > MAX_FULLTEXT_CHARS:
             fulltext = (
                 fulltext[:MAX_FULLTEXT_CHARS]
@@ -117,7 +150,7 @@ class PaperAnalystService:
             )
 
         prompt = PAPER_ANALYST_PROMPT.format(
-            title=paper.title,
+            title=paper_title,
             authors=authors_str,
             year=year,
             abstract=paper.abstract or "(not available)",

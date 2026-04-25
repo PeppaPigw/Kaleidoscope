@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { WritingDocument } from '~/composables/useApi'
-import type { RenderedMarkdownHeading } from '~/utils/markdown'
+import type { WritingDocument } from "~/composables/useApi";
+import type { RenderedMarkdownHeading } from "~/utils/markdown";
 import {
   BookText,
   FilePlus2,
@@ -9,24 +9,25 @@ import {
   NotebookPen,
   RefreshCw,
   Trash2,
-} from 'lucide-vue-next'
+} from "lucide-vue-next";
 import {
   buildWritingExcerpt,
   countMarkdownWords,
   sortWritingDocumentsByUpdatedAt,
-} from '~/utils/writing'
+} from "~/utils/writing";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
 useHead({
-  title: 'Writing Studio — Kaleidoscope',
+  title: "Writing Studio — Kaleidoscope",
   meta: [
     {
-      name: 'description',
-      content: 'Write rich documents with Tiptap while persisting canonical Markdown and uploaded image URLs.',
+      name: "description",
+      content:
+        "Write rich documents with Tiptap while persisting canonical Markdown and uploaded image URLs.",
     },
   ],
-})
+});
 
 const {
   listWritingDocuments,
@@ -35,139 +36,143 @@ const {
   updateWritingDocument,
   deleteWritingDocument,
   uploadWritingImage,
-} = useApi()
+} = useApi();
 
-const documents = ref<WritingDocument[]>([])
-const selectedDocumentId = ref<string | null>(null)
-const draftTitle = ref('')
-const draftMarkdown = ref('')
-const editorWordCount = ref(0)
-const pagePending = ref(true)
-const documentPending = ref(false)
-const createPending = ref(false)
-const deletePending = ref(false)
-const pageError = ref<string | null>(null)
-const saveError = ref<string | null>(null)
-const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
-const lastSavedAt = ref<string | null>(null)
-const hydratingDraft = ref(false)
-const rightRailMode = ref<'outline' | 'preview'>('outline')
-const outlineSections = ref<RenderedMarkdownHeading[]>([])
-const activeOutlineSectionId = ref<string | null>(null)
+const documents = ref<WritingDocument[]>([]);
+const selectedDocumentId = ref<string | null>(null);
+const draftTitle = ref("");
+const draftMarkdown = ref("");
+const editorWordCount = ref(0);
+const pagePending = ref(true);
+const documentPending = ref(false);
+const createPending = ref(false);
+const deletePending = ref(false);
+const pageError = ref<string | null>(null);
+const saveError = ref<string | null>(null);
+const saveState = ref<"idle" | "saving" | "saved" | "error">("idle");
+const lastSavedAt = ref<string | null>(null);
+const hydratingDraft = ref(false);
+const rightRailMode = ref<"outline" | "preview">("outline");
+const outlineSections = ref<RenderedMarkdownHeading[]>([]);
+const activeOutlineSectionId = ref<string | null>(null);
 
-const persistedTitle = ref('')
-const persistedMarkdown = ref('')
-const writingEditorRef = ref<{ scrollToHeading: (headingId: string) => void } | null>(null)
+const persistedTitle = ref("");
+const persistedMarkdown = ref("");
+const writingEditorRef = ref<{
+  scrollToHeading: (headingId: string) => void;
+} | null>(null);
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-let activeSavePromise: Promise<boolean> | null = null
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let activeSavePromise: Promise<boolean> | null = null;
 
-const sortedDocuments = computed(() => sortWritingDocumentsByUpdatedAt(documents.value))
-const selectedDocument = computed(() =>
-  documents.value.find(document => document.id === selectedDocumentId.value) ?? null,
-)
+const sortedDocuments = computed(() =>
+  sortWritingDocumentsByUpdatedAt(documents.value),
+);
+const selectedDocument = computed(
+  () =>
+    documents.value.find(
+      (document) => document.id === selectedDocumentId.value,
+    ) ?? null,
+);
 const currentWordCount = computed(() =>
   Math.max(editorWordCount.value, countMarkdownWords(draftMarkdown.value)),
-)
+);
 const formulaCount = computed(() => {
-  const blockCount = (draftMarkdown.value.match(/\$\$/g) || []).length / 2
-  const inlineCount = (draftMarkdown.value.match(/(?<!\$)\$(?!\$)/g) || []).length / 2
-  return blockCount + inlineCount
-})
+  const blockCount = (draftMarkdown.value.match(/\$\$/g) || []).length / 2;
+  const inlineCount =
+    (draftMarkdown.value.match(/(?<!\$)\$(?!\$)/g) || []).length / 2;
+  return blockCount + inlineCount;
+});
 const hasDirtyChanges = computed(() =>
   Boolean(
-    selectedDocumentId.value
-    && (draftTitle.value !== persistedTitle.value || draftMarkdown.value !== persistedMarkdown.value),
+    selectedDocumentId.value &&
+    (draftTitle.value !== persistedTitle.value ||
+      draftMarkdown.value !== persistedMarkdown.value),
   ),
-)
+);
 const saveLabel = computed(() => {
-  if (saveState.value === 'saving')
-    return 'Saving'
-  if (saveState.value === 'saved')
-    return 'Saved'
-  if (saveState.value === 'error')
-    return 'Save failed'
-  return 'Ready'
-})
-const editorDisabled = computed(() =>
-  pagePending.value || documentPending.value || !selectedDocumentId.value,
-)
+  if (saveState.value === "saving") return "Saving";
+  if (saveState.value === "saved") return "Saved";
+  if (saveState.value === "error") return "Save failed";
+  return "Ready";
+});
+const editorDisabled = computed(
+  () => pagePending.value || documentPending.value || !selectedDocumentId.value,
+);
 const headerMeta = computed(() => {
   const parts = [
-    `${sortedDocuments.value.length} ${sortedDocuments.value.length === 1 ? 'document' : 'documents'}`,
+    `${sortedDocuments.value.length} ${sortedDocuments.value.length === 1 ? "document" : "documents"}`,
     `${currentWordCount.value} words`,
     saveLabel.value,
-  ]
-  return parts.join(' · ')
-})
+  ];
+  return parts.join(" · ");
+});
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error)
-    return error.message
+  if (error instanceof Error) return error.message;
 
-  return 'The writing studio request failed.'
+  return "The writing studio request failed.";
 }
 
 function formatTimestamp(value?: string | null): string {
-  if (!value)
-    return 'Not saved yet'
+  if (!value) return "Not saved yet";
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime()))
-    return 'Not saved yet'
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not saved yet";
 
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function clearSaveTimer() {
   if (saveTimer !== null) {
-    clearTimeout(saveTimer)
-    saveTimer = null
+    clearTimeout(saveTimer);
+    saveTimer = null;
   }
 }
 
 function upsertDocument(document: WritingDocument) {
-  const next = documents.value.some(entry => entry.id === document.id)
-    ? documents.value.map(entry => entry.id === document.id ? document : entry)
-    : [document, ...documents.value]
+  const next = documents.value.some((entry) => entry.id === document.id)
+    ? documents.value.map((entry) =>
+        entry.id === document.id ? document : entry,
+      )
+    : [document, ...documents.value];
 
-  documents.value = sortWritingDocumentsByUpdatedAt(next)
+  documents.value = sortWritingDocumentsByUpdatedAt(next);
 }
 
 function setDraftFromDocument(document: WritingDocument) {
-  hydratingDraft.value = true
-  selectedDocumentId.value = document.id
-  draftTitle.value = document.title
-  draftMarkdown.value = document.markdown_content
-  editorWordCount.value = document.word_count || countMarkdownWords(document.markdown_content)
-  persistedTitle.value = document.title
-  persistedMarkdown.value = document.markdown_content
-  lastSavedAt.value = document.updated_at ?? document.created_at
-  saveError.value = null
-  saveState.value = 'saved'
+  hydratingDraft.value = true;
+  selectedDocumentId.value = document.id;
+  draftTitle.value = document.title;
+  draftMarkdown.value = document.markdown_content;
+  editorWordCount.value =
+    document.word_count || countMarkdownWords(document.markdown_content);
+  persistedTitle.value = document.title;
+  persistedMarkdown.value = document.markdown_content;
+  lastSavedAt.value = document.updated_at ?? document.created_at;
+  saveError.value = null;
+  saveState.value = "saved";
 
   nextTick(() => {
-    hydratingDraft.value = false
-  })
+    hydratingDraft.value = false;
+  });
 }
 
 function optimisticallyUpdateSelectedDocument() {
-  if (!selectedDocumentId.value)
-    return
+  if (!selectedDocumentId.value) return;
 
-  const optimisticUpdatedAt = new Date().toISOString()
-  const optimisticTitle = draftTitle.value.trim() || 'Untitled'
-  const optimisticWordCount = countMarkdownWords(draftMarkdown.value)
+  const optimisticUpdatedAt = new Date().toISOString();
+  const optimisticTitle = draftTitle.value.trim() || "Untitled";
+  const optimisticWordCount = countMarkdownWords(draftMarkdown.value);
 
   documents.value = sortWritingDocumentsByUpdatedAt(
     documents.value.map((document) => {
-      if (document.id !== selectedDocumentId.value)
-        return document
+      if (document.id !== selectedDocumentId.value) return document;
 
       return {
         ...document,
@@ -176,256 +181,239 @@ function optimisticallyUpdateSelectedDocument() {
         plain_text_excerpt: buildWritingExcerpt(draftMarkdown.value),
         word_count: optimisticWordCount,
         updated_at: optimisticUpdatedAt,
-      }
+      };
     }),
-  )
+  );
 }
 
 async function persistActiveDocument(): Promise<boolean> {
-  if (!selectedDocumentId.value)
-    return true
+  if (!selectedDocumentId.value) return true;
 
   if (!hasDirtyChanges.value) {
-    if (saveState.value === 'saving')
-      saveState.value = 'saved'
-    return true
+    if (saveState.value === "saving") saveState.value = "saved";
+    return true;
   }
 
-  if (activeSavePromise)
-    return activeSavePromise
+  if (activeSavePromise) return activeSavePromise;
 
-  const documentId = selectedDocumentId.value
-  const titleToSave = draftTitle.value.trim() || 'Untitled'
-  const markdownToSave = draftMarkdown.value
+  const documentId = selectedDocumentId.value;
+  const titleToSave = draftTitle.value.trim() || "Untitled";
+  const markdownToSave = draftMarkdown.value;
 
   activeSavePromise = (async () => {
     try {
       const saved = await updateWritingDocument(documentId, {
         title: titleToSave,
         markdown_content: markdownToSave,
-      })
+      });
 
-      upsertDocument(saved)
+      upsertDocument(saved);
 
       if (selectedDocumentId.value === documentId) {
-        persistedTitle.value = saved.title
-        persistedMarkdown.value = saved.markdown_content
-        lastSavedAt.value = saved.updated_at ?? saved.created_at
+        persistedTitle.value = saved.title;
+        persistedMarkdown.value = saved.markdown_content;
+        lastSavedAt.value = saved.updated_at ?? saved.created_at;
 
-        if (!draftTitle.value.trim())
-          draftTitle.value = saved.title
+        if (!draftTitle.value.trim()) draftTitle.value = saved.title;
 
-        if (draftTitle.value === persistedTitle.value && draftMarkdown.value === persistedMarkdown.value) {
-          saveState.value = 'saved'
-          saveError.value = null
-        }
-        else {
-          saveState.value = 'saving'
-          scheduleSave()
+        if (
+          draftTitle.value === persistedTitle.value &&
+          draftMarkdown.value === persistedMarkdown.value
+        ) {
+          saveState.value = "saved";
+          saveError.value = null;
+        } else {
+          saveState.value = "saving";
+          scheduleSave();
         }
       }
 
-      return true
+      return true;
+    } catch (error) {
+      saveState.value = "error";
+      saveError.value = getErrorMessage(error);
+      return false;
+    } finally {
+      activeSavePromise = null;
     }
-    catch (error) {
-      saveState.value = 'error'
-      saveError.value = getErrorMessage(error)
-      return false
-    }
-    finally {
-      activeSavePromise = null
-    }
-  })()
+  })();
 
-  return activeSavePromise
+  return activeSavePromise;
 }
 
 function scheduleSave() {
-  if (hydratingDraft.value || !selectedDocumentId.value)
-    return
+  if (hydratingDraft.value || !selectedDocumentId.value) return;
 
-  clearSaveTimer()
-  saveState.value = 'saving'
-  saveError.value = null
+  clearSaveTimer();
+  saveState.value = "saving";
+  saveError.value = null;
   saveTimer = window.setTimeout(() => {
-    saveTimer = null
-    void persistActiveDocument()
-  }, 1200)
+    saveTimer = null;
+    void persistActiveDocument();
+  }, 1200);
 }
 
 async function flushScheduledSave(): Promise<boolean> {
-  clearSaveTimer()
-  return persistActiveDocument()
+  clearSaveTimer();
+  return persistActiveDocument();
 }
 
 async function openDocument(documentId: string) {
   if (selectedDocumentId.value && selectedDocumentId.value !== documentId) {
-    const saved = await flushScheduledSave()
-    if (!saved)
-      return
+    const saved = await flushScheduledSave();
+    if (!saved) return;
   }
 
-  const optimisticDocument = documents.value.find(document => document.id === documentId)
-  if (optimisticDocument)
-    setDraftFromDocument(optimisticDocument)
+  const optimisticDocument = documents.value.find(
+    (document) => document.id === documentId,
+  );
+  if (optimisticDocument) setDraftFromDocument(optimisticDocument);
 
-  documentPending.value = true
-  pageError.value = null
+  documentPending.value = true;
+  pageError.value = null;
 
   try {
-    const document = await getWritingDocument(documentId)
-    upsertDocument(document)
-    setDraftFromDocument(document)
-  }
-  catch (error) {
-    if (!optimisticDocument)
-      pageError.value = getErrorMessage(error)
-  }
-  finally {
-    documentPending.value = false
+    const document = await getWritingDocument(documentId);
+    upsertDocument(document);
+    setDraftFromDocument(document);
+  } catch (error) {
+    if (!optimisticDocument) pageError.value = getErrorMessage(error);
+  } finally {
+    documentPending.value = false;
   }
 }
 
 async function createAndOpenDocument() {
   if (selectedDocumentId.value) {
-    const saved = await flushScheduledSave()
-    if (!saved)
-      return
+    const saved = await flushScheduledSave();
+    if (!saved) return;
   }
 
-  createPending.value = true
-  pageError.value = null
+  createPending.value = true;
+  pageError.value = null;
 
   try {
-    const document = await createWritingDocument()
-    upsertDocument(document)
-    setDraftFromDocument(document)
-  }
-  catch (error) {
-    pageError.value = getErrorMessage(error)
-  }
-  finally {
-    createPending.value = false
+    const document = await createWritingDocument();
+    upsertDocument(document);
+    setDraftFromDocument(document);
+  } catch (error) {
+    pageError.value = getErrorMessage(error);
+  } finally {
+    createPending.value = false;
   }
 }
 
 async function removeDocument(documentId: string) {
-  const target = documents.value.find(document => document.id === documentId)
-  if (!target)
-    return
+  const target = documents.value.find((document) => document.id === documentId);
+  if (!target) return;
 
-  const confirmed = window.confirm(`Delete "${target.title}"? This removes the saved draft.`)
-  if (!confirmed)
-    return
+  const confirmed = window.confirm(
+    `Delete "${target.title}"? This removes the saved draft.`,
+  );
+  if (!confirmed) return;
 
-  clearSaveTimer()
-  deletePending.value = true
-  pageError.value = null
+  clearSaveTimer();
+  deletePending.value = true;
+  pageError.value = null;
 
   try {
-    await deleteWritingDocument(documentId)
-    documents.value = documents.value.filter(document => document.id !== documentId)
+    await deleteWritingDocument(documentId);
+    documents.value = documents.value.filter(
+      (document) => document.id !== documentId,
+    );
 
     if (selectedDocumentId.value === documentId) {
-      selectedDocumentId.value = null
-      draftTitle.value = ''
-      draftMarkdown.value = ''
-      editorWordCount.value = 0
-      persistedTitle.value = ''
-      persistedMarkdown.value = ''
-      lastSavedAt.value = null
-      saveState.value = 'idle'
-      saveError.value = null
+      selectedDocumentId.value = null;
+      draftTitle.value = "";
+      draftMarkdown.value = "";
+      editorWordCount.value = 0;
+      persistedTitle.value = "";
+      persistedMarkdown.value = "";
+      lastSavedAt.value = null;
+      saveState.value = "idle";
+      saveError.value = null;
 
       if (documents.value.length > 0)
-        await openDocument(documents.value[0]!.id)
-      else
-        await createAndOpenDocument()
+        await openDocument(documents.value[0]!.id);
+      else await createAndOpenDocument();
     }
-  }
-  catch (error) {
-    pageError.value = getErrorMessage(error)
-  }
-  finally {
-    deletePending.value = false
+  } catch (error) {
+    pageError.value = getErrorMessage(error);
+  } finally {
+    deletePending.value = false;
   }
 }
 
 async function handleUploadImage(file: File) {
-  return uploadWritingImage(file)
+  return uploadWritingImage(file);
 }
 
 async function initializeStudio() {
-  pagePending.value = true
-  pageError.value = null
+  pagePending.value = true;
+  pageError.value = null;
 
   try {
-    const response = await listWritingDocuments()
-    documents.value = sortWritingDocumentsByUpdatedAt(response.items)
+    const response = await listWritingDocuments();
+    documents.value = sortWritingDocumentsByUpdatedAt(response.items);
 
-    if (documents.value.length === 0)
-      await createAndOpenDocument()
-    else
-      await openDocument(documents.value[0]!.id)
-  }
-  catch (error) {
-    pageError.value = getErrorMessage(error)
-  }
-  finally {
-    pagePending.value = false
+    if (documents.value.length === 0) await createAndOpenDocument();
+    else await openDocument(documents.value[0]!.id);
+  } catch (error) {
+    pageError.value = getErrorMessage(error);
+  } finally {
+    pagePending.value = false;
   }
 }
 
 async function reloadStudio() {
   if (selectedDocumentId.value) {
-    const saved = await flushScheduledSave()
-    if (!saved)
-      return
+    const saved = await flushScheduledSave();
+    if (!saved) return;
   }
 
-  await initializeStudio()
+  await initializeStudio();
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasDirtyChanges.value)
-    return
+  if (!hasDirtyChanges.value) return;
 
-  event.preventDefault()
-  event.returnValue = ''
+  event.preventDefault();
+  event.returnValue = "";
 }
 
 function focusOutlineSection(section: RenderedMarkdownHeading) {
-  writingEditorRef.value?.scrollToHeading(section.id)
+  writingEditorRef.value?.scrollToHeading(section.id);
 }
 
 watch([draftTitle, draftMarkdown], () => {
-  if (hydratingDraft.value || !selectedDocumentId.value)
-    return
+  if (hydratingDraft.value || !selectedDocumentId.value) return;
 
-  optimisticallyUpdateSelectedDocument()
+  optimisticallyUpdateSelectedDocument();
 
-  if (hasDirtyChanges.value)
-    scheduleSave()
-  else if (saveState.value !== 'error')
-    saveState.value = 'saved'
-})
+  if (hasDirtyChanges.value) scheduleSave();
+  else if (saveState.value !== "error") saveState.value = "saved";
+});
 
 onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload)
-  void initializeStudio()
-})
+  window.addEventListener("beforeunload", handleBeforeUnload);
+  void initializeStudio();
+});
 
 onBeforeUnmount(() => {
-  clearSaveTimer()
-  window.removeEventListener('beforeunload', handleBeforeUnload)
-  void persistActiveDocument()
-})
+  clearSaveTimer();
+  window.removeEventListener("beforeunload", handleBeforeUnload);
+  void persistActiveDocument();
+});
 </script>
 
 <template>
   <div class="ks-writing-studio">
     <div class="ks-writing-studio__frame">
-      <KsPageHeader class="ks-writing-studio__header" title="Writing Studio" section="Workspace">
+      <KsPageHeader
+        class="ks-writing-studio__header"
+        title="Writing Studio"
+        section="Workspace"
+      >
         <template #meta>
           {{ headerMeta }}
         </template>
@@ -473,7 +461,10 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div v-if="pagePending && documents.length === 0" class="ks-writing-studio__rail-loading">
+          <div
+            v-if="pagePending && documents.length === 0"
+            class="ks-writing-studio__rail-loading"
+          >
             <KsSkeleton height="88px" />
             <KsSkeleton height="88px" />
             <KsSkeleton height="88px" />
@@ -494,7 +485,9 @@ onBeforeUnmount(() => {
               :class="{ 'is-active': document.id === selectedDocumentId }"
               @click="openDocument(document.id)"
             >
-              <p class="ks-writing-studio__document-title">{{ document.title }}</p>
+              <p class="ks-writing-studio__document-title">
+                {{ document.title }}
+              </p>
             </button>
           </div>
         </aside>
@@ -509,7 +502,7 @@ onBeforeUnmount(() => {
                 class="ks-writing-studio__title-input"
                 type="text"
                 placeholder="Untitled"
-              >
+              />
             </label>
 
             <div class="ks-writing-studio__lead-meta">
@@ -554,7 +547,9 @@ onBeforeUnmount(() => {
             <div class="ks-writing-studio__status-head">
               <div>
                 <p class="ks-writing-studio__eyebrow">Inspector</p>
-                <h2 class="ks-writing-studio__status-title">{{ draftTitle || 'Untitled' }}</h2>
+                <h2 class="ks-writing-studio__status-title">
+                  {{ draftTitle || "Untitled" }}
+                </h2>
                 <p class="ks-writing-studio__status-meta">
                   {{ formatTimestamp(lastSavedAt) }}
                 </p>
@@ -586,7 +581,11 @@ onBeforeUnmount(() => {
               </div>
             </dl>
 
-            <div class="ks-writing-studio__panel-switcher" role="tablist" aria-label="Writing side panel mode">
+            <div
+              class="ks-writing-studio__panel-switcher"
+              role="tablist"
+              aria-label="Writing side panel mode"
+            >
               <button
                 type="button"
                 class="ks-writing-studio__panel-tab"
@@ -636,8 +635,16 @@ onBeforeUnmount(() => {
   min-height: 100dvh;
   padding-bottom: 0.75rem;
   background:
-    radial-gradient(circle at top left, rgba(196, 163, 90, 0.08), transparent 20rem),
-    radial-gradient(circle at top right, rgba(13, 115, 119, 0.08), transparent 26rem),
+    radial-gradient(
+      circle at top left,
+      rgba(196, 163, 90, 0.08),
+      transparent 20rem
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(13, 115, 119, 0.08),
+      transparent 26rem
+    ),
     linear-gradient(180deg, #f8f7f3 0%, #f2efe7 100%);
 }
 
@@ -658,7 +665,10 @@ onBeforeUnmount(() => {
 
 .ks-writing-studio__shell {
   display: grid;
-  grid-template-columns: minmax(12.5rem, 14rem) minmax(0, 1fr) minmax(19rem, 21rem);
+  grid-template-columns: minmax(12.5rem, 14rem) minmax(0, 1fr) minmax(
+      19rem,
+      21rem
+    );
   gap: 1.25rem;
   min-height: calc(100dvh - 12.5rem);
   align-items: stretch;
@@ -680,7 +690,11 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(232, 229, 224, 0.94);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(249, 247, 242, 0.94)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.95),
+      rgba(249, 247, 242, 0.94)
+    ),
     radial-gradient(circle at top, rgba(196, 163, 90, 0.08), transparent 30%);
   box-shadow: var(--shadow-card);
 }
@@ -850,8 +864,16 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(232, 229, 224, 0.94);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 244, 237, 0.95)),
-    radial-gradient(circle at top right, rgba(196, 163, 90, 0.08), transparent 32%);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.95),
+      rgba(247, 244, 237, 0.95)
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(196, 163, 90, 0.08),
+      transparent 32%
+    );
   box-shadow: var(--shadow-card);
 }
 

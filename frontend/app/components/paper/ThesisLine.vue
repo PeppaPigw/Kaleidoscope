@@ -7,18 +7,18 @@
  */
 
 export interface ThesisLineProps {
-  thesis: string
-  confidence: number
-  modelSource: string
+  thesis: string;
+  confidence: number;
+  modelSource: string;
 }
 
-defineProps<ThesisLineProps>()
-defineEmits<{ 'show-provenance': [] }>()
+defineProps<ThesisLineProps>();
+defineEmits<{ "show-provenance": [] }>();
 </script>
 
 <template>
   <div class="ks-thesis-line ks-motion-paper-reveal">
-    <div class="ks-thesis-line__accent" aria-hidden="true"/>
+    <div class="ks-thesis-line__accent" aria-hidden="true" />
     <blockquote class="ks-thesis-line__text">
       {{ thesis }}
     </blockquote>
@@ -31,7 +31,19 @@ defineEmits<{ 'show-provenance': [] }>()
         class="ks-thesis-line__provenance"
         @click="$emit('show-provenance')"
       >
-        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <svg
+          aria-hidden="true"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
         {{ modelSource }}
       </button>
     </div>
@@ -42,7 +54,11 @@ defineEmits<{ 'show-provenance': [] }>()
 .ks-thesis-line {
   position: relative;
   padding: 24px 24px 24px 28px;
-  background: linear-gradient(135deg, rgba(196, 163, 90, 0.04), rgba(13, 115, 119, 0.02));
+  background: linear-gradient(
+    135deg,
+    rgba(196, 163, 90, 0.04),
+    rgba(13, 115, 119, 0.02)
+  );
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
 }
@@ -53,7 +69,11 @@ defineEmits<{ 'show-provenance': [] }>()
   left: 0;
   width: 4px;
   height: 100%;
-  background: linear-gradient(180deg, var(--color-accent-decorative), var(--color-primary));
+  background: linear-gradient(
+    180deg,
+    var(--color-accent-decorative),
+    var(--color-primary)
+  );
   border-radius: var(--radius-card) 0 0 var(--radius-card);
 }
 

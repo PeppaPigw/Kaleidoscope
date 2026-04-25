@@ -2,111 +2,127 @@
 /**
  * Collections detail page — view and manage papers in a paper group.
  */
-import { ArrowLeft, Trash2, ExternalLink, FolderPlus } from 'lucide-vue-next'
+import { ArrowLeft, Trash2, ExternalLink, FolderPlus } from "lucide-vue-next";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
-const route = useRoute()
-const collectionId = route.params.id as string
+const route = useRoute();
+const collectionId = route.params.id as string;
 
-const config = useRuntimeConfig()
-const apiBase = config.public.apiUrl as string
+const config = useRuntimeConfig();
+const apiBase = config.public.apiUrl as string;
 
 interface Paper {
-  paper_id: string
-  title: string
-  abstract: string | null
-  arxiv_id: string | null
-  published_at: string | null
-  added_at: string
+  paper_id: string;
+  title: string;
+  abstract: string | null;
+  arxiv_id: string | null;
+  published_at: string | null;
+  added_at: string;
 }
 
 interface Collection {
-  id: string
-  name: string
-  description: string | null
-  paper_count: number
+  id: string;
+  name: string;
+  description: string | null;
+  paper_count: number;
 }
 
 interface Workspace {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
-const collection = ref<Collection | null>(null)
-const papers = ref<Paper[]>([])
-const workspaces = ref<Workspace[]>([])
-const loading = ref(true)
-const removingId = ref<string | null>(null)
-const showWorkspacePicker = ref(false)
-const addingToWorkspace = ref<string | null>(null)
+const collection = ref<Collection | null>(null);
+const papers = ref<Paper[]>([]);
+const workspaces = ref<Workspace[]>([]);
+const loading = ref(true);
+const removingId = ref<string | null>(null);
+const showWorkspacePicker = ref(false);
+const addingToWorkspace = ref<string | null>(null);
+const { resolveLocalPaperRoutes, preferredPaperRoute, openPreferredPaper } =
+  usePreferredPaperRoute();
 
-useHead(computed(() => ({
-  title: collection.value ? `${collection.value.name} — Kaleidoscope` : 'Collection',
-})))
+useHead(
+  computed(() => ({
+    title: collection.value
+      ? `${collection.value.name} — Kaleidoscope`
+      : "Collection",
+  })),
+);
 
-function _authHeaders() {
-  const token = import.meta.client ? localStorage.getItem('ks_access_token') : null
-  if (token && token !== 'single-user-mode') {
-    return { Authorization: `Bearer ${token}` }
+function _authHeaders(): Record<string, string> | undefined {
+  const token = import.meta.client
+    ? localStorage.getItem("ks_access_token")
+    : null;
+  if (token && token !== "single-user-mode") {
+    return { Authorization: `Bearer ${token}` };
   }
-  return {}
+  return undefined;
 }
 
 onMounted(async () => {
-  loading.value = true
+  loading.value = true;
   try {
     const [col, paps, wss] = await Promise.all([
-      $fetch<Collection>(`${apiBase}/api/v1/collections/${collectionId}`, { headers: _authHeaders() }),
-      $fetch<Paper[]>(`${apiBase}/api/v1/collections/${collectionId}/papers`, { headers: _authHeaders() }),
-      $fetch<Workspace[]>(`${apiBase}/api/v1/collections`, { params: { kind: 'workspace' }, headers: _authHeaders() }),
-    ])
-    collection.value = col
-    papers.value = paps
-    workspaces.value = wss
+      $fetch<Collection>(`${apiBase}/api/v1/collections/${collectionId}`, {
+        headers: _authHeaders(),
+      }),
+      $fetch<Paper[]>(`${apiBase}/api/v1/collections/${collectionId}/papers`, {
+        headers: _authHeaders(),
+      }),
+      $fetch<Workspace[]>(`${apiBase}/api/v1/collections`, {
+        params: { kind: "workspace" },
+        headers: _authHeaders(),
+      }),
+    ]);
+    collection.value = col;
+    papers.value = paps;
+    workspaces.value = wss;
+    const arxivIds = paps
+      .map((paper) => paper.arxiv_id)
+      .filter((id): id is string => Boolean(id));
+    await resolveLocalPaperRoutes(arxivIds);
+  } catch (e) {
+    console.error("[collection detail] load error", e);
+  } finally {
+    loading.value = false;
   }
-  catch (e) {
-    console.error('[collection detail] load error', e)
-  }
-  finally {
-    loading.value = false
-  }
-})
+});
 
 async function removePaper(paperId: string) {
-  removingId.value = paperId
+  removingId.value = paperId;
   try {
-    await $fetch(`${apiBase}/api/v1/collections/${collectionId}/papers/${paperId}`, {
-      method: 'DELETE',
-      headers: _authHeaders(),
-    })
-    papers.value = papers.value.filter(p => p.paper_id !== paperId)
-    if (collection.value) collection.value.paper_count--
-  }
-  catch (e) {
-    console.error('[collection detail] remove paper error', e)
-  }
-  finally {
-    removingId.value = null
+    await $fetch(
+      `${apiBase}/api/v1/collections/${collectionId}/papers/${paperId}`,
+      {
+        method: "DELETE",
+        headers: _authHeaders(),
+      },
+    );
+    papers.value = papers.value.filter((p) => p.paper_id !== paperId);
+    if (collection.value) collection.value.paper_count--;
+  } catch (e) {
+    console.error("[collection detail] remove paper error", e);
+  } finally {
+    removingId.value = null;
   }
 }
 
 async function addToWorkspace(workspaceId: string) {
-  addingToWorkspace.value = workspaceId
+  addingToWorkspace.value = workspaceId;
   try {
-    const paperIds = papers.value.map(p => p.paper_id)
+    const paperIds = papers.value.map((p) => p.paper_id);
     await $fetch(`${apiBase}/api/v1/collections/${workspaceId}/papers`, {
-      method: 'POST',
+      method: "POST",
       body: { paper_ids: paperIds },
       headers: _authHeaders(),
-    })
-    showWorkspacePicker.value = false
-  }
-  catch (e) {
-    console.error('[collection detail] add to workspace error', e)
-  }
-  finally {
-    addingToWorkspace.value = null
+    });
+    showWorkspacePicker.value = false;
+  } catch (e) {
+    console.error("[collection detail] add to workspace error", e);
+  } finally {
+    addingToWorkspace.value = null;
   }
 }
 </script>
@@ -125,8 +141,12 @@ async function addToWorkspace(workspaceId: string) {
       <div class="ks-col-detail__header">
         <div class="ks-col-detail__header-text">
           <h1 class="ks-col-detail__title">{{ collection.name }}</h1>
-          <p v-if="collection.description" class="ks-col-detail__desc">{{ collection.description }}</p>
-          <p class="ks-col-detail__count">{{ collection.paper_count }} papers</p>
+          <p v-if="collection.description" class="ks-col-detail__desc">
+            {{ collection.description }}
+          </p>
+          <p class="ks-col-detail__count">
+            {{ collection.paper_count }} papers
+          </p>
         </div>
         <div class="ks-col-detail__actions">
           <button
@@ -142,7 +162,9 @@ async function addToWorkspace(workspaceId: string) {
 
       <!-- Workspace picker dropdown -->
       <div v-if="showWorkspacePicker" class="ks-col-detail__ws-picker">
-        <p class="ks-col-detail__ws-label">Select a workspace to add all papers:</p>
+        <p class="ks-col-detail__ws-label">
+          Select a workspace to add all papers:
+        </p>
         <div v-if="workspaces.length === 0" class="ks-col-detail__ws-empty">
           No workspaces found. Create one at /workspaces.
         </div>
@@ -161,7 +183,8 @@ async function addToWorkspace(workspaceId: string) {
 
       <!-- Paper list -->
       <div v-if="papers.length === 0" class="ks-col-detail__empty">
-        No papers in this group yet. Bookmark papers from DeepXiv search or reader.
+        No papers in this group yet. Bookmark papers from DeepXiv search or
+        reader.
       </div>
 
       <div v-else class="ks-col-detail__papers">
@@ -173,10 +196,13 @@ async function addToWorkspace(workspaceId: string) {
           <div class="ks-col-detail__paper-body">
             <h3 class="ks-col-detail__paper-title">{{ paper.title }}</h3>
             <p v-if="paper.abstract" class="ks-col-detail__paper-abstract">
-              {{ paper.abstract.slice(0, 200) }}{{ paper.abstract.length > 200 ? '…' : '' }}
+              {{ paper.abstract.slice(0, 200)
+              }}{{ paper.abstract.length > 200 ? "…" : "" }}
             </p>
             <div class="ks-col-detail__paper-meta">
-              <span v-if="paper.arxiv_id" class="ks-col-detail__paper-id">{{ paper.arxiv_id }}</span>
+              <span v-if="paper.arxiv_id" class="ks-col-detail__paper-id">{{
+                paper.arxiv_id
+              }}</span>
               <span v-if="paper.published_at" class="ks-col-detail__paper-date">
                 {{ new Date(paper.published_at).getFullYear() }}
               </span>
@@ -185,9 +211,10 @@ async function addToWorkspace(workspaceId: string) {
           <div class="ks-col-detail__paper-actions">
             <NuxtLink
               v-if="paper.arxiv_id"
-              :to="`/deepxiv/papers/${paper.arxiv_id}`"
+              :to="preferredPaperRoute(paper.arxiv_id)"
               class="ks-col-detail__paper-btn"
               :aria-label="`Open paper ${paper.title}`"
+              @click.prevent="openPreferredPaper(paper.arxiv_id)"
             >
               <ExternalLink :size="14" :stroke-width="2" />
             </NuxtLink>
@@ -276,7 +303,9 @@ async function addToWorkspace(workspaceId: string) {
   font: 500 0.875rem / 1 var(--font-sans);
   color: var(--color-text);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
   white-space: nowrap;
 }
 
@@ -319,7 +348,9 @@ async function addToWorkspace(workspaceId: string) {
   font: 500 0.875rem / 1 var(--font-sans);
   color: var(--color-text);
   cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
   text-align: left;
 }
 
@@ -420,7 +451,10 @@ async function addToWorkspace(workspaceId: string) {
   color: var(--color-secondary);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .ks-col-detail__paper-btn:hover {

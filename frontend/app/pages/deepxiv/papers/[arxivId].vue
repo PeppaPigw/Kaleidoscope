@@ -6,19 +6,23 @@
  * Center: content area (abstract, sections, preview, full text)
  * Right:  social impact, external links, import action
  */
-import { Loader2, ExternalLink, Download, BookOpen, FileText } from 'lucide-vue-next'
+import {
+  Loader2,
+  ExternalLink,
+  Download,
+  BookOpen,
+  FileText,
+} from "lucide-vue-next";
 import type {
   DeepXivHeadResponse,
   DeepXivBriefResponse,
   DeepXivSocialImpact,
-  DeepXivSection,
-} from '~/composables/useDeepXiv'
+} from "~/composables/useDeepXiv";
 
-definePageMeta({ layout: 'default', title: 'Paper Reader' })
-useHead({ title: 'Paper Reader -- DeepXiv' })
+definePageMeta({ layout: "default", title: "Paper Reader" });
+useHead({ title: "Paper Reader -- DeepXiv" });
 
-const route = useRoute()
-const { t } = useTranslation()
+const route = useRoute();
 const {
   getPaperHead,
   getPaperBrief,
@@ -26,181 +30,194 @@ const {
   getPaperPreview,
   getPaperRaw,
   getSocialImpact,
-} = useDeepXiv()
+} = useDeepXiv();
 
-const arxivId = computed(() => route.params.arxivId as string)
+const arxivId = computed(() => route.params.arxivId as string);
 
 // ── Data state ──────────────────────────────────────────
-const headData = ref<DeepXivHeadResponse | null>(null)
-const briefData = ref<DeepXivBriefResponse | null>(null)
-const socialImpact = ref<DeepXivSocialImpact | null>(null)
-const sectionContent = ref<string | null>(null)
-const activeSection = ref<string | null>(null)
+const headData = ref<DeepXivHeadResponse | null>(null);
+const briefData = ref<DeepXivBriefResponse | null>(null);
+const socialImpact = ref<DeepXivSocialImpact | null>(null);
+const sectionContent = ref<string | null>(null);
+const activeSection = ref<string | null>(null);
 
 // ── Loading state ───────────────────────────────────────
-const headLoading = ref(true)
-const briefLoading = ref(true)
-const socialLoading = ref(false)
-const sectionLoading = ref(false)
-const contentLoading = ref(false)
+const headLoading = ref(true);
+const briefLoading = ref(true);
+const socialLoading = ref(false);
+const sectionLoading = ref(false);
+const contentLoading = ref(false);
 
 // ── Content mode ────────────────────────────────────────
-type ContentMode = 'abstract' | 'section' | 'preview' | 'raw'
-const contentMode = ref<ContentMode>('abstract')
-const contentText = ref<string | null>(null)
+type ContentMode = "abstract" | "section" | "preview" | "raw";
+const contentMode = ref<ContentMode>("abstract");
+const contentText = ref<string | null>(null);
 
 // ── Derived ─────────────────────────────────────────────
-const paperTitle = computed(() => headData.value?.title ?? briefData.value?.title ?? 'Loading...')
+const paperTitle = computed(
+  () => headData.value?.title ?? briefData.value?.title ?? "Loading...",
+);
 
 const paperAuthors = computed(() => {
-  if (!headData.value?.authors) return []
-  return headData.value.authors.map(a => typeof a === 'string' ? a : a.name)
-})
+  if (!headData.value?.authors) return [];
+  return headData.value.authors.map((a) =>
+    typeof a === "string" ? a : a.name,
+  );
+});
 
-const paperSections = computed<DeepXivSection[]>(() => headData.value?.sections ?? [])
+const paperSections = computed(() =>
+  (headData.value?.sections ?? []).map((section) => ({
+    ...section,
+    tldr: section.tldr ?? "",
+  })),
+);
 
-const paperAbstract = computed(() => headData.value?.abstract ?? '')
+const paperAbstract = computed(() => headData.value?.abstract ?? "");
 
 // ── Load data on mount ──────────────────────────────────
 async function loadPaperData() {
-  headLoading.value = true
-  briefLoading.value = true
+  headLoading.value = true;
+  briefLoading.value = true;
 
   const [headResult, briefResult] = await Promise.allSettled([
     getPaperHead(arxivId.value),
     getPaperBrief(arxivId.value),
-  ])
+  ]);
 
-  if (headResult.status === 'fulfilled') {
-    headData.value = headResult.value
+  if (headResult.status === "fulfilled") {
+    headData.value = headResult.value;
   }
-  headLoading.value = false
+  headLoading.value = false;
 
-  if (briefResult.status === 'fulfilled') {
-    briefData.value = briefResult.value
+  if (briefResult.status === "fulfilled") {
+    briefData.value = briefResult.value;
   }
-  briefLoading.value = false
+  briefLoading.value = false;
 
   // Load social impact lazily
-  socialLoading.value = true
+  socialLoading.value = true;
   try {
-    socialImpact.value = await getSocialImpact(arxivId.value)
-  }
-  catch {
-    socialImpact.value = null
-  }
-  finally {
-    socialLoading.value = false
+    socialImpact.value = await getSocialImpact(arxivId.value);
+  } catch {
+    socialImpact.value = null;
+  } finally {
+    socialLoading.value = false;
   }
 }
 
 // ── Section loading ─────────────────────────────────────
 async function handleSectionSelect(sectionName: string) {
-  activeSection.value = sectionName
-  contentMode.value = 'section'
-  sectionLoading.value = true
-  sectionContent.value = null
+  activeSection.value = sectionName;
+  contentMode.value = "section";
+  sectionLoading.value = true;
+  sectionContent.value = null;
 
   try {
-    const res = await getPaperSection(arxivId.value, sectionName)
-    sectionContent.value = res.content
-  }
-  catch {
-    sectionContent.value = 'Failed to load section.'
-  }
-  finally {
-    sectionLoading.value = false
+    const res = await getPaperSection(arxivId.value, sectionName);
+    sectionContent.value = res.content;
+  } catch {
+    sectionContent.value = "Failed to load section.";
+  } finally {
+    sectionLoading.value = false;
   }
 }
 
 // ── Preview / Raw loading ───────────────────────────────
 async function loadPreview() {
-  contentMode.value = 'preview'
-  contentLoading.value = true
-  contentText.value = null
-  activeSection.value = null
+  contentMode.value = "preview";
+  contentLoading.value = true;
+  contentText.value = null;
+  activeSection.value = null;
 
   try {
-    const res = await getPaperPreview(arxivId.value)
-    contentText.value = res.text
-  }
-  catch {
-    contentText.value = 'Failed to load preview.'
-  }
-  finally {
-    contentLoading.value = false
+    const res = await getPaperPreview(arxivId.value);
+    contentText.value = res.text;
+  } catch {
+    contentText.value = "Failed to load preview.";
+  } finally {
+    contentLoading.value = false;
   }
 }
 
 async function loadRaw() {
-  contentMode.value = 'raw'
-  contentLoading.value = true
-  contentText.value = null
-  activeSection.value = null
+  contentMode.value = "raw";
+  contentLoading.value = true;
+  contentText.value = null;
+  activeSection.value = null;
 
   try {
-    const res = await getPaperRaw(arxivId.value)
-    contentText.value = res.content
-  }
-  catch {
-    contentText.value = 'Failed to load full text.'
-  }
-  finally {
-    contentLoading.value = false
+    const res = await getPaperRaw(arxivId.value);
+    contentText.value = res.content;
+  } catch {
+    contentText.value = "Failed to load full text.";
+  } finally {
+    contentLoading.value = false;
   }
 }
 
 function showAbstract() {
-  contentMode.value = 'abstract'
-  activeSection.value = null
-  sectionContent.value = null
-  contentText.value = null
+  contentMode.value = "abstract";
+  activeSection.value = null;
+  sectionContent.value = null;
+  contentText.value = null;
 }
 
 // ── Display content ─────────────────────────────────────
 const displayContent = computed(() => {
   switch (contentMode.value) {
-    case 'abstract':
-      return paperAbstract.value || 'No abstract available.'
-    case 'section':
-      return sectionContent.value
-    case 'preview':
-    case 'raw':
-      return contentText.value
+    case "abstract":
+      return paperAbstract.value || "No abstract available.";
+    case "section":
+      return sectionContent.value;
+    case "preview":
+    case "raw":
+      return contentText.value;
     default:
-      return null
+      return null;
   }
-})
+});
 
 const contentLabel = computed(() => {
   switch (contentMode.value) {
-    case 'abstract': return 'Abstract'
-    case 'section': return activeSection.value ?? 'Section'
-    case 'preview': return 'Preview'
-    case 'raw': return 'Full Text'
-    default: return ''
+    case "abstract":
+      return "Abstract";
+    case "section":
+      return activeSection.value ?? "Section";
+    case "preview":
+      return "Preview";
+    case "raw":
+      return "Full Text";
+    default:
+      return "";
   }
-})
+});
 
-const isContentLoading = computed(() =>
-  sectionLoading.value || contentLoading.value,
-)
+const isContentLoading = computed(
+  () => sectionLoading.value || contentLoading.value,
+);
+
+const shouldRenderPreviewMarkdown = computed(
+  () =>
+    contentMode.value === "preview" &&
+    Boolean(displayContent.value) &&
+    !isContentLoading.value,
+);
 
 // ── Lifecycle ───────────────────────────────────────────
 onMounted(() => {
-  void loadPaperData()
-})
+  void loadPaperData();
+});
 
 watch(arxivId, () => {
-  headData.value = null
-  briefData.value = null
-  socialImpact.value = null
-  sectionContent.value = null
-  contentText.value = null
-  activeSection.value = null
-  contentMode.value = 'abstract'
-  void loadPaperData()
-})
+  headData.value = null;
+  briefData.value = null;
+  socialImpact.value = null;
+  sectionContent.value = null;
+  contentText.value = null;
+  activeSection.value = null;
+  contentMode.value = "abstract";
+  void loadPaperData();
+});
 </script>
 
 <template>
@@ -227,7 +244,8 @@ watch(arxivId, () => {
                 v-for="(author, i) in paperAuthors"
                 :key="i"
                 class="ks-dxreader__author"
-              >{{ author }}</span>
+                >{{ author }}</span
+              >
             </div>
           </div>
 
@@ -239,14 +257,17 @@ watch(arxivId, () => {
                 v-for="kw in headData.keywords"
                 :key="kw"
                 class="ks-dxreader__tag"
-              >{{ kw }}</span>
+                >{{ kw }}</span
+              >
             </div>
           </div>
 
           <!-- Citations -->
           <div class="ks-dxreader__field">
             <span class="ks-dxreader__label">Citations</span>
-            <span class="ks-dxreader__value">{{ headData?.citations ?? briefData?.citations ?? 0 }}</span>
+            <span class="ks-dxreader__value">{{
+              headData?.citations ?? briefData?.citations ?? 0
+            }}</span>
           </div>
 
           <!-- Categories -->
@@ -257,7 +278,8 @@ watch(arxivId, () => {
                 v-for="cat in headData.categories"
                 :key="cat"
                 class="ks-dxreader__tag ks-dxreader__tag--cat"
-              >{{ cat }}</span>
+                >{{ cat }}</span
+              >
             </div>
           </div>
 
@@ -301,21 +323,30 @@ watch(arxivId, () => {
         <!-- Content mode tabs -->
         <div class="ks-dxreader__content-tabs">
           <button
-            :class="['ks-dxreader__tab', contentMode === 'abstract' && 'ks-dxreader__tab--active']"
+            :class="[
+              'ks-dxreader__tab',
+              contentMode === 'abstract' && 'ks-dxreader__tab--active',
+            ]"
             @click="showAbstract"
           >
             <BookOpen :size="14" />
             Abstract
           </button>
           <button
-            :class="['ks-dxreader__tab', contentMode === 'preview' && 'ks-dxreader__tab--active']"
+            :class="[
+              'ks-dxreader__tab',
+              contentMode === 'preview' && 'ks-dxreader__tab--active',
+            ]"
             @click="loadPreview"
           >
             <FileText :size="14" />
             Preview
           </button>
           <button
-            :class="['ks-dxreader__tab', contentMode === 'raw' && 'ks-dxreader__tab--active']"
+            :class="[
+              'ks-dxreader__tab',
+              contentMode === 'raw' && 'ks-dxreader__tab--active',
+            ]"
             @click="loadRaw"
           >
             <Download :size="14" />
@@ -334,6 +365,11 @@ watch(arxivId, () => {
             <Loader2 :size="20" class="ks-dxreader__spinner" />
             <span>Loading...</span>
           </div>
+          <PaperDeepAnalysis
+            v-else-if="shouldRenderPreviewMarkdown"
+            :analysis="displayContent!"
+            :show-header="false"
+          />
           <div v-else-if="displayContent" class="ks-dxreader__content-text">
             {{ displayContent }}
           </div>
@@ -420,7 +456,9 @@ watch(arxivId, () => {
 }
 
 @keyframes ks-dxr-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Three-column layout ─────────────────────────────── */
@@ -492,7 +530,7 @@ watch(arxivId, () => {
 }
 
 .ks-dxreader__author + .ks-dxreader__author::before {
-  content: ', ';
+  content: ", ";
   color: var(--color-secondary);
 }
 
@@ -566,9 +604,10 @@ watch(arxivId, () => {
   font: 500 0.75rem / 1 var(--font-sans);
   color: var(--color-secondary);
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth),
-              background var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-dxreader__tab:hover {
@@ -677,8 +716,9 @@ watch(arxivId, () => {
   font: 500 0.8125rem / 1 var(--font-sans);
   color: var(--color-text);
   text-decoration: none;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-dxreader__link-item:hover {

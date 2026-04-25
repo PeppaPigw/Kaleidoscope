@@ -4,25 +4,28 @@
  */
 
 export interface ThemeCluster {
-  id: string
-  name: string
-  paperCount: number
-  color: string
-  keywords: string[]
+  id: string;
+  name: string;
+  paperCount: number;
+  color: string;
+  keywords: string[];
 }
 
 export interface ThemeClustersProps {
-  clusters: ThemeCluster[]
+  clusters: ThemeCluster[];
 }
 
-defineProps<ThemeClustersProps>()
-defineEmits<{ 'cluster-click': [cluster: ThemeCluster] }>()
+defineProps<ThemeClustersProps>();
+defineEmits<{ "cluster-click": [cluster: ThemeCluster] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-theme-clusters ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-theme-clusters ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Theme Clusters</h2>
 
     <div class="ks-theme-clusters__grid">
@@ -36,10 +39,20 @@ const uid = useId()
       >
         <div class="ks-theme-clusters__header">
           <span class="ks-theme-clusters__name">{{ c.name }}</span>
-          <span class="ks-type-data" style="font-weight: 700;" :style="{ color: c.color }">{{ c.paperCount }}</span>
+          <span
+            class="ks-type-data"
+            style="font-weight: 700"
+            :style="{ color: c.color }"
+            >{{ c.paperCount }}</span
+          >
         </div>
         <div class="ks-theme-clusters__keywords">
-          <KsTag v-for="kw in c.keywords.slice(0, 4)" :key="kw" variant="neutral">{{ kw }}</KsTag>
+          <KsTag
+            v-for="kw in c.keywords.slice(0, 4)"
+            :key="kw"
+            variant="neutral"
+            >{{ kw }}</KsTag
+          >
         </div>
       </button>
     </div>
@@ -59,8 +72,9 @@ const uid = useId()
   text-align: left;
   cursor: pointer;
   border-left: 3px solid var(--color-border);
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-theme-clusters__card:hover {

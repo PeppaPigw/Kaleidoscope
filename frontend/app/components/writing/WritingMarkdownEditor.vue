@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import type { WritingImageUploadResponse } from '~/composables/useApi'
-import type { RenderedMarkdownHeading } from '~/utils/markdown'
-import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
-import Image from '@tiptap/extension-image'
-import Link from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
-import { Table } from '@tiptap/extension-table'
-import TableCell from '@tiptap/extension-table-cell'
-import TableHeader from '@tiptap/extension-table-header'
-import TableRow from '@tiptap/extension-table-row'
-import Underline from '@tiptap/extension-underline'
-import { Markdown } from '@tiptap/markdown'
-import StarterKit from '@tiptap/starter-kit'
-import { EditorContent, useEditor } from '@tiptap/vue-3'
-import GithubSlugger from 'github-slugger'
+import type { WritingImageUploadResponse } from "~/composables/useApi";
+import type { RenderedMarkdownHeading } from "~/utils/markdown";
+import { BlockMath, InlineMath } from "@tiptap/extension-mathematics";
+import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import { Table } from "@tiptap/extension-table";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import TableRow from "@tiptap/extension-table-row";
+import Underline from "@tiptap/extension-underline";
+import { Markdown } from "@tiptap/markdown";
+import StarterKit from "@tiptap/starter-kit";
+import { EditorContent, useEditor } from "@tiptap/vue-3";
+import GithubSlugger from "github-slugger";
 import {
   Bold,
   Code2,
@@ -32,61 +32,60 @@ import {
   Table2,
   Undo2,
   Underline as UnderlineIcon,
-} from 'lucide-vue-next'
+} from "lucide-vue-next";
 
-import { countMarkdownWords } from '~/utils/writing'
+import { countMarkdownWords } from "~/utils/writing";
 
-type UploadImageHandler = (file: File) => Promise<WritingImageUploadResponse>
-type HeadingElement = HTMLElement & { dataset: DOMStringMap }
+type UploadImageHandler = (file: File) => Promise<WritingImageUploadResponse>;
+type HeadingElement = HTMLElement & { dataset: DOMStringMap };
 
-const WRITING_HEADING_PREFIX = 'user-content-'
+const WRITING_HEADING_PREFIX = "user-content-";
 
 export interface WritingMarkdownEditorProps {
-  modelValue: string
-  disabled?: boolean
-  saveLabel?: string
-  uploadImage?: UploadImageHandler
+  modelValue: string;
+  disabled?: boolean;
+  saveLabel?: string;
+  uploadImage?: UploadImageHandler;
 }
 
 const props = withDefaults(defineProps<WritingMarkdownEditorProps>(), {
-  modelValue: '',
+  modelValue: "",
   disabled: false,
-  saveLabel: 'Ready',
+  saveLabel: "Ready",
   uploadImage: undefined,
-})
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'wordCountChange': [value: number]
-  'outlineChange': [value: RenderedMarkdownHeading[]]
-  'activeHeadingChange': [value: string | null]
-}>()
+  "update:modelValue": [value: string];
+  wordCountChange: [value: number];
+  outlineChange: [value: RenderedMarkdownHeading[]];
+  activeHeadingChange: [value: string | null];
+}>();
 
-const fileInputRef = ref<HTMLInputElement | null>(null)
-const editorSurfaceRef = ref<HTMLElement | null>(null)
-const uploadPending = ref(false)
-const uploadError = ref<string | null>(null)
-const syncingFromProps = ref(false)
-const lastMarkdown = ref(props.modelValue)
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const editorSurfaceRef = ref<HTMLElement | null>(null);
+const uploadPending = ref(false);
+const uploadError = ref<string | null>(null);
+const syncingFromProps = ref(false);
+const lastMarkdown = ref(props.modelValue);
 
-let activeHeadingFrameId: number | null = null
+let activeHeadingFrameId: number | null = null;
 
 function emitEditorValue() {
-  const value = editor.value?.getMarkdown() ?? ''
-  lastMarkdown.value = value
-  emit('update:modelValue', value)
-  emit('wordCountChange', countMarkdownWords(value))
+  const value = editor.value?.getMarkdown() ?? "";
+  lastMarkdown.value = value;
+  emit("update:modelValue", value);
+  emit("wordCountChange", countMarkdownWords(value));
 }
 
 async function insertUploadedImage(file: File) {
-  if (!props.uploadImage || !editor.value)
-    return
+  if (!props.uploadImage || !editor.value) return;
 
-  uploadPending.value = true
-  uploadError.value = null
+  uploadPending.value = true;
+  uploadError.value = null;
 
   try {
-    const result = await props.uploadImage(file)
+    const result = await props.uploadImage(file);
     editor.value
       .chain()
       .focus()
@@ -94,215 +93,209 @@ async function insertUploadedImage(file: File) {
         src: result.url,
         alt: result.alt || file.name,
       })
-      .run()
-    emitEditorValue()
-  }
-  catch (error) {
-    uploadError.value = error instanceof Error
-      ? error.message
-      : 'Image upload failed'
-  }
-  finally {
-    uploadPending.value = false
+      .run();
+    emitEditorValue();
+  } catch (error) {
+    uploadError.value =
+      error instanceof Error ? error.message : "Image upload failed";
+  } finally {
+    uploadPending.value = false;
   }
 }
 
 function pickImageFile(fileList: FileList | null | undefined): File | null {
-  if (!fileList)
-    return null
+  if (!fileList) return null;
 
-  return Array.from(fileList).find(file => file.type.startsWith('image/')) ?? null
+  return (
+    Array.from(fileList).find((file) => file.type.startsWith("image/")) ?? null
+  );
 }
 
 function requestImageUpload() {
-  fileInputRef.value?.click()
+  fileInputRef.value?.click();
 }
 
 function handleFileInputChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  target.value = ''
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  target.value = "";
 
-  if (file)
-    void insertUploadedImage(file)
+  if (file) void insertUploadedImage(file);
 }
 
 function editLink() {
-  if (!editor.value)
-    return
+  if (!editor.value) return;
 
-  const previousUrl = editor.value.getAttributes('link').href || 'https://'
-  const nextUrl = window.prompt('Link URL', previousUrl)
+  const previousUrl = editor.value.getAttributes("link").href || "https://";
+  const nextUrl = window.prompt("Link URL", previousUrl);
 
-  if (nextUrl === null)
-    return
+  if (nextUrl === null) return;
 
-  const trimmed = nextUrl.trim()
+  const trimmed = nextUrl.trim();
   if (!trimmed) {
-    editor.value.chain().focus().unsetLink().run()
-    return
+    editor.value.chain().focus().unsetLink().run();
+    return;
   }
 
-  editor.value.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run()
+  editor.value
+    .chain()
+    .focus()
+    .extendMarkRange("link")
+    .setLink({ href: trimmed })
+    .run();
 }
 
-function editMath(kind: 'inline' | 'block', pos?: number) {
-  if (!editor.value)
-    return
+function editMath(kind: "inline" | "block", pos?: number) {
+  if (!editor.value) return;
 
-  const existing = typeof pos === 'number'
-    ? String(editor.value.state.doc.nodeAt(pos)?.attrs.latex || '')
-    : kind === 'inline'
-      ? 'E = mc^2'
-      : '\\int_0^1 x^2 \\, dx'
+  const existing =
+    typeof pos === "number"
+      ? String(editor.value.state.doc.nodeAt(pos)?.attrs.latex || "")
+      : kind === "inline"
+        ? "E = mc^2"
+        : "\\int_0^1 x^2 \\, dx";
 
-  const label = kind === 'inline' ? 'Inline formula (LaTeX)' : 'Block formula (LaTeX)'
-  const nextValue = window.prompt(label, existing)
+  const label =
+    kind === "inline" ? "Inline formula (LaTeX)" : "Block formula (LaTeX)";
+  const nextValue = window.prompt(label, existing);
 
-  if (nextValue === null)
-    return
+  if (nextValue === null) return;
 
-  const latex = nextValue.trim()
+  const latex = nextValue.trim();
 
-  if (typeof pos === 'number') {
+  if (typeof pos === "number") {
     if (!latex) {
-      const command = kind === 'inline'
-        ? editor.value.commands.deleteInlineMath
-        : editor.value.commands.deleteBlockMath
-      command({ pos })
+      const command =
+        kind === "inline"
+          ? editor.value.commands.deleteInlineMath
+          : editor.value.commands.deleteBlockMath;
+      command({ pos });
+    } else if (kind === "inline") {
+      editor.value.commands.updateInlineMath({ latex, pos });
+    } else {
+      editor.value.commands.updateBlockMath({ latex, pos });
     }
-    else if (kind === 'inline') {
-      editor.value.commands.updateInlineMath({ latex, pos })
-    }
-    else {
-      editor.value.commands.updateBlockMath({ latex, pos })
-    }
-    emitEditorValue()
-    return
+    emitEditorValue();
+    return;
   }
 
-  if (!latex)
-    return
+  if (!latex) return;
 
-  if (kind === 'inline')
-    editor.value.chain().focus().insertInlineMath({ latex }).run()
-  else
-    editor.value.chain().focus().insertBlockMath({ latex }).run()
+  if (kind === "inline")
+    editor.value.chain().focus().insertInlineMath({ latex }).run();
+  else editor.value.chain().focus().insertBlockMath({ latex }).run();
 
-  emitEditorValue()
+  emitEditorValue();
 }
 
 function handleTransferFiles(fileList: FileList | null | undefined): boolean {
-  const file = pickImageFile(fileList)
-  if (!file)
-    return false
+  const file = pickImageFile(fileList);
+  if (!file) return false;
 
-  void insertUploadedImage(file)
-  return true
+  void insertUploadedImage(file);
+  return true;
 }
 
 function getHeadingElements(): HeadingElement[] {
   return Array.from(
     editorSurfaceRef.value?.querySelectorAll<HeadingElement>(
-      '.ks-writing-editor__prosemirror h1, .ks-writing-editor__prosemirror h2, .ks-writing-editor__prosemirror h3',
+      ".ks-writing-editor__prosemirror h1, .ks-writing-editor__prosemirror h2, .ks-writing-editor__prosemirror h3",
     ) ?? [],
-  )
+  );
 }
 
 function syncOutlineHeadings() {
-  const slugger = new GithubSlugger()
-  const headings: RenderedMarkdownHeading[] = []
+  const slugger = new GithubSlugger();
+  const headings: RenderedMarkdownHeading[] = [];
 
   for (const heading of getHeadingElements()) {
-    const title = heading.innerText.trim()
+    const title = heading.innerText.trim();
     if (!title) {
-      heading.removeAttribute('id')
-      delete heading.dataset.headingId
-      continue
+      heading.removeAttribute("id");
+      delete heading.dataset.headingId;
+      continue;
     }
 
-    const level = Number.parseInt(heading.tagName.replace('H', ''), 10)
-    const id = `${WRITING_HEADING_PREFIX}${slugger.slug(title)}`
-    heading.id = id
-    heading.dataset.headingId = id
-    headings.push({ id, title, level })
+    const level = Number.parseInt(heading.tagName.replace("H", ""), 10);
+    const id = `${WRITING_HEADING_PREFIX}${slugger.slug(title)}`;
+    heading.id = id;
+    heading.dataset.headingId = id;
+    headings.push({ id, title, level });
   }
 
-  emit('outlineChange', headings)
-  return headings
+  emit("outlineChange", headings);
+  return headings;
 }
 
 function syncActiveHeading() {
-  activeHeadingFrameId = null
+  activeHeadingFrameId = null;
 
-  const headings = getHeadingElements().filter(heading => heading.dataset.headingId)
+  const headings = getHeadingElements().filter(
+    (heading) => heading.dataset.headingId,
+  );
   if (headings.length === 0) {
-    emit('activeHeadingChange', null)
-    return
+    emit("activeHeadingChange", null);
+    return;
   }
 
-  const activationOffset = 156
-  let activeHeading = headings[0] ?? null
+  const activationOffset = 156;
+  let activeHeading = headings[0] ?? null;
 
   for (const heading of headings) {
     if (heading.getBoundingClientRect().top <= activationOffset)
-      activeHeading = heading
-    else
-      break
+      activeHeading = heading;
+    else break;
   }
 
-  emit('activeHeadingChange', activeHeading?.dataset.headingId ?? null)
+  emit("activeHeadingChange", activeHeading?.dataset.headingId ?? null);
 }
 
 function scheduleActiveHeadingSync() {
-  if (activeHeadingFrameId !== null)
-    return
+  if (activeHeadingFrameId !== null) return;
 
-  activeHeadingFrameId = window.requestAnimationFrame(syncActiveHeading)
+  activeHeadingFrameId = window.requestAnimationFrame(syncActiveHeading);
 }
 
 async function refreshOutlineState() {
-  await nextTick()
-  syncOutlineHeadings()
-  scheduleActiveHeadingSync()
+  await nextTick();
+  syncOutlineHeadings();
+  scheduleActiveHeadingSync();
 }
 
 function scrollToHeading(headingId: string) {
-  const selector = `#${window.CSS?.escape?.(headingId) ?? headingId}`
-  const heading = editorSurfaceRef.value?.querySelector<HTMLElement>(selector)
+  const selector = `#${window.CSS?.escape?.(headingId) ?? headingId}`;
+  const heading = editorSurfaceRef.value?.querySelector<HTMLElement>(selector);
   heading?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  })
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 const editor = useEditor({
   content: props.modelValue,
-  contentType: 'markdown',
+  contentType: "markdown",
   editable: !props.disabled,
   editorProps: {
     attributes: {
-      class: 'ks-writing-editor__prosemirror',
-      spellcheck: 'true',
+      class: "ks-writing-editor__prosemirror",
+      spellcheck: "true",
     },
     handlePaste: (_view, event) => {
-      const handled = handleTransferFiles(event.clipboardData?.files)
-      if (handled)
-        event.preventDefault()
-      return handled
+      const handled = handleTransferFiles(event.clipboardData?.files);
+      if (handled) event.preventDefault();
+      return handled;
     },
     handleDrop: (_view, event) => {
-      const handled = handleTransferFiles(event.dataTransfer?.files)
-      if (handled)
-        event.preventDefault()
-      return handled
+      const handled = handleTransferFiles(event.dataTransfer?.files);
+      if (handled) event.preventDefault();
+      return handled;
     },
   },
   extensions: [
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
       codeBlock: {
-        HTMLAttributes: { class: 'ks-writing-editor__code' },
+        HTMLAttributes: { class: "ks-writing-editor__code" },
       },
     }),
     Markdown,
@@ -310,17 +303,18 @@ const editor = useEditor({
     Link.configure({
       openOnClick: false,
       autolink: true,
-      defaultProtocol: 'https',
+      defaultProtocol: "https",
     }),
     Image,
     Placeholder.configure({
-      placeholder: ({ node }) => node.type.name === 'heading'
-        ? 'Section heading'
-        : 'Write in rich text. Kaleidoscope will persist Markdown behind the scenes.',
+      placeholder: ({ node }) =>
+        node.type.name === "heading"
+          ? "Section heading"
+          : "Write in rich text. Kaleidoscope will persist Markdown behind the scenes.",
     }),
     Table.configure({
       resizable: true,
-      HTMLAttributes: { class: 'ks-writing-editor__table' },
+      HTMLAttributes: { class: "ks-writing-editor__table" },
     }),
     TableRow,
     TableHeader,
@@ -330,7 +324,7 @@ const editor = useEditor({
         throwOnError: false,
       },
       onClick: (_node, pos) => {
-        editMath('inline', pos)
+        editMath("inline", pos);
       },
     }),
     BlockMath.configure({
@@ -338,71 +332,70 @@ const editor = useEditor({
         throwOnError: false,
       },
       onClick: (_node, pos) => {
-        editMath('block', pos)
+        editMath("block", pos);
       },
     }),
   ],
   onCreate: () => {
-    emit('wordCountChange', countMarkdownWords(props.modelValue))
-    void refreshOutlineState()
+    emit("wordCountChange", countMarkdownWords(props.modelValue));
+    void refreshOutlineState();
   },
   onUpdate: () => {
-    if (syncingFromProps.value)
-      return
+    if (syncingFromProps.value) return;
 
-    uploadError.value = null
-    emitEditorValue()
-    void refreshOutlineState()
+    uploadError.value = null;
+    emitEditorValue();
+    void refreshOutlineState();
   },
-})
+});
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (!editor.value)
-      return
+    if (!editor.value) return;
 
-    const nextMarkdown = value ?? ''
-    if (nextMarkdown === lastMarkdown.value)
-      return
+    const nextMarkdown = value ?? "";
+    if (nextMarkdown === lastMarkdown.value) return;
 
-    syncingFromProps.value = true
-    editor.value.commands.setContent(nextMarkdown, { contentType: 'markdown' })
-    lastMarkdown.value = editor.value.getMarkdown()
-    emit('wordCountChange', countMarkdownWords(lastMarkdown.value))
+    syncingFromProps.value = true;
+    editor.value.commands.setContent(nextMarkdown, { contentType: "markdown" });
+    lastMarkdown.value = editor.value.getMarkdown();
+    emit("wordCountChange", countMarkdownWords(lastMarkdown.value));
     nextTick(() => {
-      syncingFromProps.value = false
-    })
-    void refreshOutlineState()
+      syncingFromProps.value = false;
+    });
+    void refreshOutlineState();
   },
-)
+);
 
 watch(
   () => props.disabled,
   (disabled) => {
-    editor.value?.setEditable(!disabled)
+    editor.value?.setEditable(!disabled);
   },
-)
+);
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', scheduleActiveHeadingSync)
-  window.removeEventListener('resize', scheduleActiveHeadingSync)
+  window.removeEventListener("scroll", scheduleActiveHeadingSync);
+  window.removeEventListener("resize", scheduleActiveHeadingSync);
 
   if (activeHeadingFrameId !== null)
-    window.cancelAnimationFrame(activeHeadingFrameId)
+    window.cancelAnimationFrame(activeHeadingFrameId);
 
-  editor.value?.destroy()
-})
+  editor.value?.destroy();
+});
 
 onMounted(() => {
-  window.addEventListener('scroll', scheduleActiveHeadingSync, { passive: true })
-  window.addEventListener('resize', scheduleActiveHeadingSync)
-  void refreshOutlineState()
-})
+  window.addEventListener("scroll", scheduleActiveHeadingSync, {
+    passive: true,
+  });
+  window.addEventListener("resize", scheduleActiveHeadingSync);
+  void refreshOutlineState();
+});
 
 defineExpose({
   scrollToHeading,
-})
+});
 </script>
 
 <template>
@@ -514,37 +507,73 @@ defineExpose({
       </div>
 
       <div class="ks-writing-editor__group">
-        <button type="button" class="ks-writing-editor__tool" aria-label="Edit link" @click="editLink">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Edit link"
+          @click="editLink"
+        >
           <Link2 :size="16" />
         </button>
-        <button type="button" class="ks-writing-editor__tool" aria-label="Upload image" @click="requestImageUpload">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Upload image"
+          @click="requestImageUpload"
+        >
           <ImagePlus :size="16" />
         </button>
-        <button type="button" class="ks-writing-editor__tool" aria-label="Insert inline math" @click="editMath('inline')">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Insert inline math"
+          @click="editMath('inline')"
+        >
           <span class="ks-writing-editor__tool-text">$x$</span>
         </button>
-        <button type="button" class="ks-writing-editor__tool" aria-label="Insert block math" @click="editMath('block')">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Insert block math"
+          @click="editMath('block')"
+        >
           <Sigma :size="16" />
         </button>
         <button
           type="button"
           class="ks-writing-editor__tool"
           aria-label="Insert table"
-          @click="editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
+          @click="
+            editor
+              ?.chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          "
         >
           <Table2 :size="16" />
         </button>
       </div>
 
       <div class="ks-writing-editor__group ks-writing-editor__group--status">
-        <button type="button" class="ks-writing-editor__tool" aria-label="Undo" @click="editor?.chain().focus().undo().run()">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Undo"
+          @click="editor?.chain().focus().undo().run()"
+        >
           <Undo2 :size="16" />
         </button>
-        <button type="button" class="ks-writing-editor__tool" aria-label="Redo" @click="editor?.chain().focus().redo().run()">
+        <button
+          type="button"
+          class="ks-writing-editor__tool"
+          aria-label="Redo"
+          @click="editor?.chain().focus().redo().run()"
+        >
           <Redo2 :size="16" />
         </button>
         <span class="ks-writing-editor__status">
-          {{ uploadPending ? 'Uploading image…' : saveLabel }}
+          {{ uploadPending ? "Uploading image…" : saveLabel }}
         </span>
       </div>
     </div>
@@ -560,13 +589,15 @@ defineExpose({
       type="file"
       accept="image/*"
       @change="handleFileInputChange"
-    >
+    />
 
     <div ref="editorSurfaceRef" class="ks-writing-editor__surface">
-      <EditorContent v-if="editor" :editor="editor" class="ks-writing-editor__content" />
-      <div v-else class="ks-writing-editor__empty">
-        Loading editor…
-      </div>
+      <EditorContent
+        v-if="editor"
+        :editor="editor"
+        class="ks-writing-editor__content"
+      />
+      <div v-else class="ks-writing-editor__empty">Loading editor…</div>
     </div>
   </section>
 </template>
@@ -580,8 +611,16 @@ defineExpose({
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(250, 250, 247, 0.92)),
-    radial-gradient(circle at top right, rgba(196, 163, 90, 0.08), transparent 28%);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.95),
+      rgba(250, 250, 247, 0.92)
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(196, 163, 90, 0.08),
+      transparent 28%
+    );
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -776,7 +815,9 @@ defineExpose({
   transition: background-color var(--duration-fast) var(--ease-smooth);
 }
 
-:deep(.ks-writing-editor__prosemirror .tiptap-mathematics-render--editable:hover) {
+:deep(
+  .ks-writing-editor__prosemirror .tiptap-mathematics-render--editable:hover
+) {
   background: rgba(13, 115, 119, 0.1);
 }
 

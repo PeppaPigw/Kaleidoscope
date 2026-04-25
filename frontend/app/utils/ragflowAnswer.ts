@@ -31,6 +31,9 @@ export async function renderRagflowAnswer(
 
   if (!normalized) return "";
 
-  const rendered = await renderPaperMarkdown(normalized, { sections: [] });
+  const rendered = await renderPaperMarkdown(normalized, {
+    sections: [],
+    includeHeadings: false,
+  });
   return rendered.html;
 }

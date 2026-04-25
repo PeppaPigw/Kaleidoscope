@@ -5,33 +5,33 @@
  * Shows title (clickable), abstract truncated to 3 lines, author list,
  * category badges, citation count, and a relevance score bar.
  */
-import { BookOpen, Quote, BarChart3, Bookmark } from 'lucide-vue-next'
+import { BookOpen, Quote, BarChart3, Bookmark } from "lucide-vue-next";
 
 export interface DeepXivSearchResult {
-  arxiv_id: string
-  title: string
-  abstract: string
-  authors: string[]
-  categories: string[]
-  citations: number
-  score: number
-  token_count: number
+  arxiv_id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  categories: string[];
+  citations: number;
+  score: number;
+  token_count: number;
 }
 
 export interface SearchResultCardProps {
-  result: DeepXivSearchResult
+  result: DeepXivSearchResult;
 }
 
-const props = defineProps<SearchResultCardProps>()
+defineProps<SearchResultCardProps>();
 
 defineEmits<{
-  click: [result: DeepXivSearchResult]
-}>()
+  click: [result: DeepXivSearchResult];
+}>();
 
-const scorePercent = (score: number) => Math.round(score * 100)
+const scorePercent = (score: number) => Math.round(score * 100);
 
 // Bookmark
-const showGroupPicker = ref(false)
+const showGroupPicker = ref(false);
 </script>
 
 <template>
@@ -54,9 +54,15 @@ const showGroupPicker = ref(false)
         :key="i"
         class="ks-search-result-card__author"
       >
-        {{ author }}<template v-if="i < Math.min(result.authors.length, 4) - 1">,</template>
+        {{ author
+        }}<template v-if="i < Math.min(result.authors.length, 4) - 1"
+          >,</template
+        >
       </span>
-      <span v-if="result.authors.length > 4" class="ks-search-result-card__author">
+      <span
+        v-if="result.authors.length > 4"
+        class="ks-search-result-card__author"
+      >
         et al.
       </span>
     </div>
@@ -88,7 +94,9 @@ const showGroupPicker = ref(false)
       <div class="ks-search-result-card__score-label">
         <BarChart3 :size="14" />
         <span>Relevance</span>
-        <span class="ks-search-result-card__score-value">{{ scorePercent(result.score) }}%</span>
+        <span class="ks-search-result-card__score-value"
+          >{{ scorePercent(result.score) }}%</span
+        >
       </div>
       <div class="ks-search-result-card__score-track">
         <div
@@ -128,9 +136,10 @@ const showGroupPicker = ref(false)
   border: 1px solid var(--color-border);
   border-radius: 6px;
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-smooth),
-              box-shadow var(--duration-normal) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-smooth),
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-search-result-card:hover {
@@ -283,7 +292,11 @@ const showGroupPicker = ref(false)
   color: var(--color-secondary);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, background-color 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .ks-search-result-card:hover .ks-search-result-card__bookmark {

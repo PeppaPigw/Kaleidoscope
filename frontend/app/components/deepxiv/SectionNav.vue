@@ -7,22 +7,22 @@
  */
 
 export interface PaperSection {
-  name: string
-  idx: number
-  tldr: string
-  token_count: number
+  name: string;
+  idx: number;
+  tldr: string;
+  token_count: number;
 }
 
 export interface SectionNavProps {
-  sections: PaperSection[]
-  activeSection: string | null
+  sections: PaperSection[];
+  activeSection: string | null;
 }
 
-defineProps<SectionNavProps>()
+defineProps<SectionNavProps>();
 
 defineEmits<{
-  select: [sectionName: string]
-}>()
+  select: [sectionName: string];
+}>();
 </script>
 
 <template>
@@ -44,9 +44,13 @@ defineEmits<{
         >
           <div class="ks-section-nav__row">
             <span class="ks-section-nav__name">{{ section.name }}</span>
-            <span class="ks-section-nav__tokens">{{ section.token_count.toLocaleString() }}</span>
+            <span class="ks-section-nav__tokens">{{
+              section.token_count.toLocaleString()
+            }}</span>
           </div>
-          <p v-if="section.tldr" class="ks-section-nav__tldr">{{ section.tldr }}</p>
+          <p v-if="section.tldr" class="ks-section-nav__tldr">
+            {{ section.tldr }}
+          </p>
         </button>
       </li>
     </ul>
@@ -80,8 +84,9 @@ defineEmits<{
   border-radius: 0 4px 4px 0;
   cursor: pointer;
   text-align: left;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-section-nav__btn:hover {

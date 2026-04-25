@@ -21,7 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "papers",
-        sa.Column("paper_links", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "paper_links", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
     )
     op.add_column(
         "papers",

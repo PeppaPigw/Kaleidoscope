@@ -8,64 +8,67 @@
  *
  * @slot actions — Optional action buttons (defaults to "Quote to Draft")
  */
-import type { EvidenceCard } from '~~/types/paper'
-import { Quote, ExternalLink, ShieldCheck } from 'lucide-vue-next'
+import type { EvidenceCard } from "~~/types/paper";
+import { Quote, ExternalLink, ShieldCheck } from "lucide-vue-next";
 
 export interface KsEvidenceCardProps {
-  evidence: EvidenceCard
+  evidence: EvidenceCard;
   /** Show the source paper title link */
-  showSource?: boolean
+  showSource?: boolean;
   /** Compact mode (less padding, no border-left) */
-  compact?: boolean
+  compact?: boolean;
 }
 
 withDefaults(defineProps<KsEvidenceCardProps>(), {
   showSource: true,
   compact: false,
-})
+});
 
 defineEmits<{
-  'quote-to-draft': [evidence: EvidenceCard]
-  'view-source': [paperId: string]
-}>()
+  "quote-to-draft": [evidence: EvidenceCard];
+  "view-source": [paperId: string];
+}>();
 
 const typeLabels: Record<string, string> = {
-  claim: 'Claim',
-  method: 'Method',
-  result: 'Result',
-  limitation: 'Limitation',
-  dataset: 'Dataset',
-  metric: 'Metric',
-}
+  claim: "Claim",
+  method: "Method",
+  result: "Result",
+  limitation: "Limitation",
+  dataset: "Dataset",
+  metric: "Metric",
+};
 
 const typeColors: Record<string, string> = {
-  claim: 'var(--color-primary)',
-  method: '#6B5CE7',
-  result: '#0F7B3F',
-  limitation: '#CC4444',
-  dataset: 'var(--color-accent)',
-  metric: '#2D7FD3',
-}
+  claim: "var(--color-primary)",
+  method: "#6B5CE7",
+  result: "#0F7B3F",
+  limitation: "#CC4444",
+  dataset: "var(--color-accent)",
+  metric: "#2D7FD3",
+};
 
 function formatConfidence(c: number): string {
-  return `${Math.round(c * 100)}%`
+  return `${Math.round(c * 100)}%`;
 }
 </script>
 
 <template>
   <div
-    :class="[
-      'ks-evidence-card',
-      { 'ks-evidence-card--compact': compact },
-    ]"
-    :style="{ '--evidence-color': typeColors[evidence.claim_type] || 'var(--color-primary)' }"
+    :class="['ks-evidence-card', { 'ks-evidence-card--compact': compact }]"
+    :style="{
+      '--evidence-color':
+        typeColors[evidence.claim_type] || 'var(--color-primary)',
+    }"
   >
     <!-- Header: type + confidence -->
     <div class="ks-evidence-card__head">
       <span class="ks-evidence-card__type ks-type-eyebrow">
         {{ typeLabels[evidence.claim_type] || evidence.claim_type }}
       </span>
-      <span class="ks-evidence-card__confidence ks-type-data" :title="`Confidence: ${formatConfidence(evidence.confidence)}`">
+      <span
+        class="ks-evidence-card__confidence ks-type-data"
+        :title="`Confidence: ${formatConfidence(evidence.confidence)}`"
+      >
         <ShieldCheck :size="12" aria-hidden="true" />
         {{ formatConfidence(evidence.confidence) }}
       </span>
@@ -73,7 +76,11 @@ function formatConfidence(c: number): string {
 
     <!-- Quote text -->
     <p class="ks-evidence-card__text ks-type-body-sm">
-      <Quote :size="14" class="ks-evidence-card__quote-icon" aria-hidden="true" />
+      <Quote
+        :size="14"
+        class="ks-evidence-card__quote-icon"
+        aria-hidden="true"
+      />
       {{ evidence.text }}
     </p>
 
@@ -114,8 +121,9 @@ function formatConfidence(c: number): string {
   border-left: 3px solid var(--evidence-color, var(--color-primary));
   border-radius: var(--radius-card);
   background: var(--color-surface);
-  transition: box-shadow var(--duration-normal) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-evidence-card:hover {

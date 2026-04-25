@@ -7,32 +7,35 @@
  */
 
 export interface MonitorItem {
-  system: string
-  value: string
-  detail: string
-  status: 'ok' | 'warning' | 'error'
+  system: string;
+  value: string;
+  detail: string;
+  status: "ok" | "warning" | "error";
 }
 
 export interface MonitorRibbonProps {
-  monitors: MonitorItem[]
+  monitors: MonitorItem[];
 }
 
-defineProps<MonitorRibbonProps>()
+defineProps<MonitorRibbonProps>();
 
-const uid = useId()
-const { t } = useTranslation()
+const uid = useId();
+const { t } = useTranslation();
 
-const statusTagVariant: Record<MonitorItem['status'], 'primary' | 'accent' | 'warning'> = {
-  ok: 'primary',
-  warning: 'accent',
-  error: 'warning',
-}
+const statusTagVariant: Record<
+  MonitorItem["status"],
+  "primary" | "accent" | "warning"
+> = {
+  ok: "primary",
+  warning: "accent",
+  error: "warning",
+};
 
-const statusLabel: Record<MonitorItem['status'], string> = {
-  ok: 'OK',
-  warning: 'ALERT',
-  error: 'ERROR',
-}
+const statusLabel: Record<MonitorItem["status"], string> = {
+  ok: "OK",
+  warning: "ALERT",
+  error: "ERROR",
+};
 </script>
 
 <template>
@@ -41,7 +44,7 @@ const statusLabel: Record<MonitorItem['status'], string> = {
     :aria-labelledby="`${uid}-title`"
   >
     <h3 :id="`${uid}-title`" class="ks-type-eyebrow ks-monitor-ribbon__title">
-      {{ t('systemMonitor') }}
+      {{ t("systemMonitor") }}
     </h3>
     <div class="ks-monitor-ribbon__list" role="list">
       <div

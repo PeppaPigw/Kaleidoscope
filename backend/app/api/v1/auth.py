@@ -39,7 +39,10 @@ def _token_response() -> TokenResponse:
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
     """Validate admin credentials and return an access token."""
-    if req.username != settings.admin_username or req.password != settings.admin_password:
+    if (
+        req.username != settings.admin_username
+        or req.password != settings.admin_password
+    ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return _token_response()
 

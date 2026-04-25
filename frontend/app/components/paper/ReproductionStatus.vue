@@ -7,75 +7,118 @@
  */
 
 export interface ReproductionAttempt {
-  id: string
-  team: string
-  date: string
-  success: 'full' | 'partial' | 'failed'
-  notes: string
+  id: string;
+  team: string;
+  date: string;
+  success: "full" | "partial" | "failed";
+  notes: string;
 }
 
 export interface ReproductionStatusProps {
-  overallStatus: 'reproduced' | 'partially' | 'not-attempted' | 'failed'
-  attempts: ReproductionAttempt[]
-  codeAvailable: boolean
-  dataAvailable: boolean
+  overallStatus: "reproduced" | "partially" | "not-attempted" | "failed";
+  attempts: ReproductionAttempt[];
+  codeAvailable: boolean;
+  dataAvailable: boolean;
 }
 
-defineProps<ReproductionStatusProps>()
-const uid = useId()
+defineProps<ReproductionStatusProps>();
+const uid = useId();
 
-function statusColor(s: ReproductionStatusProps['overallStatus']): string {
+function statusColor(s: ReproductionStatusProps["overallStatus"]): string {
   switch (s) {
-    case 'reproduced': return 'var(--color-primary)'
-    case 'partially': return 'var(--color-accent)'
-    case 'not-attempted': return 'var(--color-secondary)'
-    case 'failed': return '#B54A4A'
+    case "reproduced":
+      return "var(--color-primary)";
+    case "partially":
+      return "var(--color-accent)";
+    case "not-attempted":
+      return "var(--color-secondary)";
+    case "failed":
+      return "#B54A4A";
   }
 }
 
-function statusLabel(s: ReproductionStatusProps['overallStatus']): string {
+function statusLabel(s: ReproductionStatusProps["overallStatus"]): string {
   switch (s) {
-    case 'reproduced': return '✓ Reproduced'
-    case 'partially': return '◐ Partially Reproduced'
-    case 'not-attempted': return '○ Not Yet Attempted'
-    case 'failed': return '✗ Failed to Reproduce'
+    case "reproduced":
+      return "✓ Reproduced";
+    case "partially":
+      return "◐ Partially Reproduced";
+    case "not-attempted":
+      return "○ Not Yet Attempted";
+    case "failed":
+      return "✗ Failed to Reproduce";
   }
 }
 </script>
 
 <template>
-  <section class="ks-repro-status ks-card ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-repro-status ks-card ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Reproducibility</h2>
 
-    <div class="ks-repro-status__badge" :style="{ color: statusColor(overallStatus) }">
+    <div
+      class="ks-repro-status__badge"
+      :style="{ color: statusColor(overallStatus) }"
+    >
       {{ statusLabel(overallStatus) }}
     </div>
 
     <div class="ks-repro-status__checklist">
       <div class="ks-repro-status__check">
-        <span :style="{ color: codeAvailable ? 'var(--color-primary)' : 'var(--color-secondary)' }">
-          {{ codeAvailable ? '✓' : '✗' }}
+        <span
+          :style="{
+            color: codeAvailable
+              ? 'var(--color-primary)'
+              : 'var(--color-secondary)',
+          }"
+        >
+          {{ codeAvailable ? "✓" : "✗" }}
         </span>
         <span class="ks-type-body-sm">Code available</span>
       </div>
       <div class="ks-repro-status__check">
-        <span :style="{ color: dataAvailable ? 'var(--color-primary)' : 'var(--color-secondary)' }">
-          {{ dataAvailable ? '✓' : '✗' }}
+        <span
+          :style="{
+            color: dataAvailable
+              ? 'var(--color-primary)'
+              : 'var(--color-secondary)',
+          }"
+        >
+          {{ dataAvailable ? "✓" : "✗" }}
         </span>
         <span class="ks-type-body-sm">Data available</span>
       </div>
     </div>
 
     <div v-if="attempts.length > 0" class="ks-repro-status__attempts">
-      <h3 class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 8px;">Reproduction Attempts</h3>
+      <h3
+        class="ks-type-eyebrow"
+        style="color: var(--color-accent); margin-bottom: 8px"
+      >
+        Reproduction Attempts
+      </h3>
       <div v-for="a in attempts" :key="a.id" class="ks-repro-status__attempt">
         <div class="ks-repro-status__attempt-header">
-          <span class="ks-type-data" style="font-weight: 600;">{{ a.team }}</span>
-          <KsTag :variant="a.success === 'full' ? 'primary' : a.success === 'partial' ? 'accent' : 'danger'">
+          <span class="ks-type-data" style="font-weight: 600">{{
+            a.team
+          }}</span>
+          <KsTag
+            :variant="
+              a.success === 'full'
+                ? 'primary'
+                : a.success === 'partial'
+                  ? 'accent'
+                  : 'danger'
+            "
+          >
             {{ a.success }}
           </KsTag>
         </div>
-        <p class="ks-type-body-sm" style="color: var(--color-secondary);">{{ a.notes }}</p>
+        <p class="ks-type-body-sm" style="color: var(--color-secondary)">
+          {{ a.notes }}
+        </p>
         <span class="ks-type-data">{{ a.date }}</span>
       </div>
     </div>

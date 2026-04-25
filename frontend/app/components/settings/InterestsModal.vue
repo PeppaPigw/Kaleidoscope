@@ -4,104 +4,145 @@
  * Shown automatically on first visit (preferences.interests_set !== true).
  * Also accessible from the profile menu.
  */
-import { X, Check } from 'lucide-vue-next'
+import { X, Check } from "lucide-vue-next";
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>();
 
-const { preferences, savePreferences, loadPreferences } = useUserPreferences()
+const { preferences, savePreferences, loadPreferences } = useUserPreferences();
 
 const ARXIV_CATEGORIES = [
-  { id: 'cs.AI', label: 'AI' },
-  { id: 'cs.CL', label: 'NLP' },
-  { id: 'cs.CV', label: 'Computer Vision' },
-  { id: 'cs.LG', label: 'Machine Learning' },
-  { id: 'cs.NE', label: 'Neural & Evolutionary' },
-  { id: 'cs.RO', label: 'Robotics' },
-  { id: 'cs.IR', label: 'Information Retrieval' },
-  { id: 'cs.CR', label: 'Cryptography' },
-  { id: 'cs.SE', label: 'Software Engineering' },
-  { id: 'cs.DC', label: 'Distributed Computing' },
-  { id: 'stat.ML', label: 'Statistics / ML' },
-  { id: 'math.ST', label: 'Math Statistics' },
-  { id: 'eess.IV', label: 'Image & Video' },
-  { id: 'eess.SP', label: 'Signal Processing' },
-  { id: 'q-bio.BM', label: 'Biomolecules' },
-  { id: 'q-bio.NC', label: 'Neurons & Cognition' },
-  { id: 'physics.data-an', label: 'Data Analysis' },
-  { id: 'astro-ph', label: 'Astrophysics' },
-  { id: 'cond-mat', label: 'Condensed Matter' },
-  { id: 'quant-ph', label: 'Quantum Physics' },
-]
+  { id: "cs.AI", label: "AI" },
+  { id: "cs.CL", label: "NLP" },
+  { id: "cs.CV", label: "Computer Vision" },
+  { id: "cs.LG", label: "Machine Learning" },
+  { id: "cs.NE", label: "Neural & Evolutionary" },
+  { id: "cs.RO", label: "Robotics" },
+  { id: "cs.IR", label: "Information Retrieval" },
+  { id: "cs.CR", label: "Cryptography" },
+  { id: "cs.SE", label: "Software Engineering" },
+  { id: "cs.DC", label: "Distributed Computing" },
+  { id: "stat.ML", label: "Statistics / ML" },
+  { id: "math.ST", label: "Math Statistics" },
+  { id: "eess.IV", label: "Image & Video" },
+  { id: "eess.SP", label: "Signal Processing" },
+  { id: "q-bio.BM", label: "Biomolecules" },
+  { id: "q-bio.NC", label: "Neurons & Cognition" },
+  { id: "physics.data-an", label: "Data Analysis" },
+  { id: "astro-ph", label: "Astrophysics" },
+  { id: "cond-mat", label: "Condensed Matter" },
+  { id: "quant-ph", label: "Quantum Physics" },
+];
 
-const step = ref(1)
-const selectedCategories = ref<string[]>([...preferences.value.subscribed_categories])
-const keywordInput = ref('')
-const keywords = ref<string[]>([...preferences.value.keywords])
-const saving = ref(false)
+const step = ref(1);
+const selectedCategories = ref<string[]>([
+  ...preferences.value.subscribed_categories,
+]);
+const keywordInput = ref("");
+const keywords = ref<string[]>([...preferences.value.keywords]);
+const saving = ref(false);
+const saveError = ref("");
 
 onMounted(async () => {
-  await loadPreferences()
-  selectedCategories.value = [...preferences.value.subscribed_categories]
-  keywords.value = [...preferences.value.keywords]
-})
+  try {
+    await loadPreferences();
+    selectedCategories.value = [...preferences.value.subscribed_categories];
+    keywords.value = [...preferences.value.keywords];
+  } catch {
+    // Leave empty defaults; onboarding can still continue offline-ish.
+  }
+});
 
 function toggleCategory(id: string) {
-  const idx = selectedCategories.value.indexOf(id)
+  const idx = selectedCategories.value.indexOf(id);
   if (idx >= 0) {
-    selectedCategories.value.splice(idx, 1)
-  }
-  else {
-    selectedCategories.value.push(id)
+    selectedCategories.value.splice(idx, 1);
+  } else {
+    selectedCategories.value.push(id);
   }
 }
 
 function addKeyword() {
-  const kw = keywordInput.value.trim()
+  const kw = keywordInput.value.trim();
   if (kw && !keywords.value.includes(kw)) {
-    keywords.value.push(kw)
+    keywords.value.push(kw);
   }
-  keywordInput.value = ''
+  keywordInput.value = "";
+}
+
+function handleKeywordKeydown(event: KeyboardEvent) {
+  if (event.key !== "Enter" && event.key !== ",") return;
+  event.preventDefault();
+  addKeyword();
 }
 
 function removeKeyword(kw: string) {
-  keywords.value = keywords.value.filter(k => k !== kw)
+  keywords.value = keywords.value.filter((k) => k !== kw);
 }
 
 async function handleFinish() {
-  saving.value = true
-  await savePreferences({
-    subscribed_categories: selectedCategories.value,
-    keywords: keywords.value,
-    interests_set: true,
-  })
-  saving.value = false
-  emit('close')
+  saving.value = true;
+  saveError.value = "";
+  try {
+    await savePreferences({
+      subscribed_categories: selectedCategories.value,
+      keywords: keywords.value,
+      interests_set: true,
+    });
+    emit("close");
+  } catch {
+    saveError.value = "Could not save your interests right now.";
+  } finally {
+    saving.value = false;
+  }
 }
 </script>
 
 <template>
   <Teleport to="body">
     <div class="ks-interests-overlay" @click.self="emit('close')">
-      <div class="ks-interests-modal" role="dialog" aria-modal="true" aria-label="Set your research interests">
+      <div
+        class="ks-interests-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Set your research interests"
+      >
         <!-- Header -->
         <div class="ks-interests-header">
           <div class="ks-interests-header-text">
             <h2 class="ks-interests-title">
-              {{ step === 1 ? 'What do you research?' : 'Track keywords' }}
+              {{ step === 1 ? "What do you research?" : "Track keywords" }}
             </h2>
             <p class="ks-interests-subtitle">
-              {{ step === 1 ? 'Choose your arXiv categories to personalize your dashboard.' : 'Add keywords to surface relevant papers.' }}
+              {{
+                step === 1
+                  ? "Choose your arXiv categories to personalize your dashboard."
+                  : "Add keywords to surface relevant papers."
+              }}
             </p>
           </div>
-          <button class="ks-interests-close" :aria-label="'Close'" @click="emit('close')">
+          <button
+            class="ks-interests-close"
+            :aria-label="'Close'"
+            @click="emit('close')"
+          >
             <X :size="18" :stroke-width="2" />
           </button>
         </div>
 
         <!-- Step indicator -->
         <div class="ks-interests-steps" aria-hidden="true">
-          <div :class="['ks-interests-step', { 'ks-interests-step--active': step >= 1 }]" />
-          <div :class="['ks-interests-step', { 'ks-interests-step--active': step >= 2 }]" />
+          <div
+            :class="[
+              'ks-interests-step',
+              { 'ks-interests-step--active': step >= 1 },
+            ]"
+          />
+          <div
+            :class="[
+              'ks-interests-step',
+              { 'ks-interests-step--active': step >= 2 },
+            ]"
+          />
         </div>
 
         <!-- Step 1: Categories -->
@@ -111,10 +152,17 @@ async function handleFinish() {
               v-for="cat in ARXIV_CATEGORIES"
               :key="cat.id"
               type="button"
-              :class="['ks-chip', { 'ks-chip--active': selectedCategories.includes(cat.id) }]"
+              :class="[
+                'ks-chip',
+                { 'ks-chip--active': selectedCategories.includes(cat.id) },
+              ]"
               @click="toggleCategory(cat.id)"
             >
-              <Check v-if="selectedCategories.includes(cat.id)" :size="12" :stroke-width="2.5" />
+              <Check
+                v-if="selectedCategories.includes(cat.id)"
+                :size="12"
+                :stroke-width="2.5"
+              />
               {{ cat.label }}
               <span class="ks-chip-id">{{ cat.id }}</span>
             </button>
@@ -129,17 +177,28 @@ async function handleFinish() {
               type="text"
               class="ks-interests-input"
               placeholder="e.g. diffusion models, RAG, LLM safety…"
-              @keydown.enter.prevent="addKeyword"
-              @keydown.comma.prevent="addKeyword"
+              @keydown="handleKeywordKeydown"
+            />
+            <button
+              type="button"
+              class="ks-interests-add-btn"
+              :disabled="!keywordInput.trim()"
+              @click="addKeyword"
             >
-            <button type="button" class="ks-interests-add-btn" :disabled="!keywordInput.trim()" @click="addKeyword">
               Add
             </button>
           </div>
           <div v-if="keywords.length > 0" class="ks-interests-tags">
             <span v-for="kw in keywords" :key="kw" class="ks-tag">
               {{ kw }}
-              <button type="button" class="ks-tag-remove" :aria-label="`Remove ${kw}`" @click="removeKeyword(kw)">×</button>
+              <button
+                type="button"
+                class="ks-tag-remove"
+                :aria-label="`Remove ${kw}`"
+                @click="removeKeyword(kw)"
+              >
+                ×
+              </button>
             </span>
           </div>
           <p v-else class="ks-interests-hint">
@@ -149,11 +208,22 @@ async function handleFinish() {
 
         <!-- Footer actions -->
         <div class="ks-interests-footer">
-          <button v-if="step === 2" type="button" class="ks-btn-ghost" @click="step = 1">
+          <p v-if="saveError" class="ks-interests-error">{{ saveError }}</p>
+          <button
+            v-if="step === 2"
+            type="button"
+            class="ks-btn-ghost"
+            @click="step = 1"
+          >
             Back
           </button>
           <div class="ks-interests-footer-right">
-            <button v-if="step === 1" type="button" class="ks-btn-ghost" @click="emit('close')">
+            <button
+              v-if="step === 1"
+              type="button"
+              class="ks-btn-ghost"
+              @click="emit('close')"
+            >
               Skip
             </button>
             <button
@@ -287,7 +357,10 @@ async function handleFinish() {
   font: 500 0.8125rem / 1 var(--font-sans);
   color: var(--color-text);
   cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    color 0.15s;
 }
 
 .ks-chip:hover {
@@ -395,6 +468,12 @@ async function handleFinish() {
   gap: 12px;
 }
 
+.ks-interests-error {
+  margin: 0;
+  color: var(--color-danger, #c23b22);
+  font: 500 0.8125rem / 1.4 var(--font-sans);
+}
+
 .ks-interests-footer-right {
   display: flex;
   align-items: center;
@@ -410,7 +489,9 @@ async function handleFinish() {
   font: 500 0.875rem / 1 var(--font-sans);
   color: var(--color-text);
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .ks-btn-ghost:hover {

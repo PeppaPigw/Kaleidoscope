@@ -8,120 +8,146 @@
  * Fetches paper content as markdown from the backend API and renders
  * it in a styled, scrollable reading view.
  */
-import type { PaperContent, PaperLabels } from '~/composables/useApi'
-import type { OutlineSection } from '~/components/reader/OutlineSpine.vue'
-import type { RenderedMarkdownHeading } from '../../utils/markdown'
-import { loadNotes, saveNotes } from '~/utils/notes'
-import type { Note } from '~/utils/notes'
-import { useResizer } from '~/composables/useResizer'
+import type { PaperContent, PaperLabels } from "~/composables/useApi";
+import type { OutlineSection } from "~/components/reader/OutlineSpine.vue";
+import type { RenderedMarkdownHeading } from "../../utils/markdown";
+import { loadNotes, saveNotes } from "~/utils/notes";
+import type { Note } from "~/utils/notes";
+import { useResizer } from "~/composables/useResizer";
 
 definePageMeta({
-  layout: 'default',
+  layout: "default",
   hideTopbar: true,
   flushContent: true,
-})
+});
 
-const route = useRoute()
-const { apiFetch } = useApi()
+const route = useRoute();
+const { apiFetch } = useApi();
 const paperId = computed(() => {
-  const p = route.params.paperId
-  return Array.isArray(p) ? p[0] ?? '' : p ?? ''
-})
-const uid = useId()
+  const p = route.params.paperId;
+  return Array.isArray(p) ? (p[0] ?? "") : (p ?? "");
+});
+const uid = useId();
 
 useHead({
-  title: 'Smart Reader — Kaleidoscope',
-  meta: [{ name: 'description', content: 'Read and annotate papers with AI-powered analysis.' }],
-})
+  title: "Smart Reader — Kaleidoscope",
+  meta: [
+    {
+      name: "description",
+      content: "Read and annotate papers with AI-powered analysis.",
+    },
+  ],
+});
 
-const activeTab = ref<'outline' | 'labels' | 'annotations' | 'paperqa'>('outline')
+const activeTab = ref<"outline" | "labels" | "annotations" | "paperqa">(
+  "outline",
+);
 
 const { sidebarWidth, resizerProps } = useResizer({
-  storageKey: 'ks-reader-sidebar-width',
+  storageKey: "ks-reader-sidebar-width",
   defaultWidth: 340,
   minSidebarWidth: 280,
   minMainWidth: 400,
-})
+});
 
 // ─── Notes ───────────────────────────────────────────────────
-const notes = ref<Note[]>([])
-const pendingAnnotationText = ref<string | null>(null)
-const pendingAskAiContext = ref<string | null>(null)
-const markdownCanvasRef = ref<{ scrollToNote: (id: string) => void } | null>(null)
+const notes = ref<Note[]>([]);
+const pendingAnnotationText = ref<string | null>(null);
+const pendingAskAiContext = ref<string | null>(null);
+const markdownCanvasRef = ref<{ scrollToNote: (id: string) => void } | null>(
+  null,
+);
 
 function loadPaperNotes() {
-  if (paperId.value) notes.value = loadNotes(paperId.value)
+  if (paperId.value) notes.value = loadNotes(paperId.value);
 }
 
 function persistNotes() {
-  if (paperId.value) saveNotes(paperId.value, notes.value)
+  if (paperId.value) saveNotes(paperId.value, notes.value);
 }
 
 function handleAddHighlight(text: string) {
-  notes.value.push({ id: crypto.randomUUID(), type: 'highlight', createdAt: Date.now(), selectedText: text })
-  persistNotes()
+  notes.value.push({
+    id: crypto.randomUUID(),
+    type: "highlight",
+    createdAt: Date.now(),
+    selectedText: text,
+  });
+  persistNotes();
 }
 
 function handleTextSelected(text: string) {
-  pendingAnnotationText.value = text
-  activeTab.value = 'annotations'
+  pendingAnnotationText.value = text;
+  activeTab.value = "annotations";
 }
 
 function handleAskAI(text: string) {
-  pendingAskAiContext.value = text
-  activeTab.value = 'paperqa'
+  pendingAskAiContext.value = text;
+  activeTab.value = "paperqa";
 }
 
 function handleAddAnnotation(selectedText: string, content: string) {
   notes.value.push({
     id: crypto.randomUUID(),
-    type: content.trim() ? 'annotation' : 'highlight',
+    type: content.trim() ? "annotation" : "highlight",
     createdAt: Date.now(),
     selectedText,
     content: content.trim() || undefined,
-  })
-  persistNotes()
+  });
+  persistNotes();
 }
 
 function handleAddManual(content: string) {
-  notes.value.push({ id: crypto.randomUUID(), type: 'manual', createdAt: Date.now(), content })
-  persistNotes()
+  notes.value.push({
+    id: crypto.randomUUID(),
+    type: "manual",
+    createdAt: Date.now(),
+    content,
+  });
+  persistNotes();
 }
 
 function handleDeleteNote(id: string) {
-  notes.value = notes.value.filter(n => n.id !== id)
-  persistNotes()
+  notes.value = notes.value.filter((n) => n.id !== id);
+  persistNotes();
 }
 
 function handleNoteClick(note: Note) {
   if (note.selectedText) {
-    markdownCanvasRef.value?.scrollToNote(note.id)
+    markdownCanvasRef.value?.scrollToNote(note.id);
   }
 }
 
-const paperContent = ref<PaperContent | null>(null)
-const contentPending = ref(true)
-const contentError = ref<string | null>(null)
-const markdownOutline = ref<RenderedMarkdownHeading[]>([])
+const paperContent = ref<PaperContent | null>(null);
+const contentPending = ref(true);
+const contentError = ref<string | null>(null);
+const markdownOutline = ref<RenderedMarkdownHeading[]>([]);
 
 // Dynamic paper title
-const paperTitle = computed(() =>
-  paperContent.value?.title || 'Loading paper...'
-)
+const paperTitle = computed(
+  () => paperContent.value?.title || "Loading paper...",
+);
 
 // Original paper links for navigation
 const originalLinks = computed(() => {
-  const urls = paperContent.value?.remote_urls || []
-  return urls.map(u => ({
+  const urls = paperContent.value?.remote_urls || [];
+  return urls.map((u) => ({
     url: u.url,
-    label: u.source === 'arxiv'
-      ? (u.type === 'pdf' ? '📄 arXiv PDF' : u.type === 'html' ? '🌐 ar5iv HTML' : '📋 arXiv Abstract')
-      : u.source === 'ar5iv' ? '🌐 ar5iv HTML'
-      : u.source === 'doi' ? '🔗 DOI Link'
-      : `🔗 ${u.source}`,
+    label:
+      u.source === "arxiv"
+        ? u.type === "pdf"
+          ? "📄 arXiv PDF"
+          : u.type === "html"
+            ? "🌐 ar5iv HTML"
+            : "📋 arXiv Abstract"
+        : u.source === "ar5iv"
+          ? "🌐 ar5iv HTML"
+          : u.source === "doi"
+            ? "🔗 DOI Link"
+            : `🔗 ${u.source}`,
     type: u.type,
-  }))
-})
+  }));
+});
 
 // Build outline from sections
 const outlineSections = computed<OutlineSection[]>(() => {
@@ -131,161 +157,171 @@ const outlineSections = computed<OutlineSection[]>(() => {
       title: heading.title,
       level: heading.level,
       page: index + 1,
-    }))
+    }));
   }
 
-  if (!paperContent.value?.sections)
-    return []
+  if (!paperContent.value?.sections) return [];
 
   return paperContent.value.sections.map((section, index) => ({
     id: `section-${index}`,
     title: section.title,
     level: section.level,
     page: index + 1,
-  }))
-})
+  }));
+});
 
-const activeSectionId = ref('section-0')
+const activeSectionId = ref("section-0");
 
 const sidebarTabs = [
-  { key: 'outline' as const, label: 'Outline' },
-  { key: 'labels' as const, label: 'Labels' },
-  { key: 'annotations' as const, label: 'Notes' },
-  { key: 'paperqa' as const, label: 'Ask' },
-]
+  { key: "outline" as const, label: "Outline" },
+  { key: "labels" as const, label: "Labels" },
+  { key: "annotations" as const, label: "Notes" },
+  { key: "paperqa" as const, label: "Ask" },
+];
 
 // ── Labels ────────────────────────────────────────────────────
-const paperLabels = ref<PaperLabels | null>(null)
-const labelsLoading = ref(false)
+const paperLabels = ref<PaperLabels | null>(null);
+const labelsLoading = ref(false);
 
 const LABEL_DIMS = [
-  { key: 'domain', label: 'Domain', color: '#6366f1' },
-  { key: 'task', label: 'Task', color: '#0ea5e9' },
-  { key: 'method', label: 'Method', color: '#10b981' },
-  { key: 'data_object', label: 'Data / Object', color: '#f59e0b' },
-  { key: 'application', label: 'Application', color: '#ec4899' },
-] as const
+  { key: "domain", label: "Domain", color: "#6366f1" },
+  { key: "task", label: "Task", color: "#0ea5e9" },
+  { key: "method", label: "Method", color: "#10b981" },
+  { key: "data_object", label: "Data / Object", color: "#f59e0b" },
+  { key: "application", label: "Application", color: "#ec4899" },
+] as const;
 
 const META_DIMS = [
-  { key: 'paper_type', label: 'Paper Type', color: '#8b5cf6' },
-  { key: 'evaluation_quality', label: 'Evaluation', color: '#64748b' },
-  { key: 'resource_constraint', label: 'Resource', color: '#78716c' },
-] as const
+  { key: "paper_type", label: "Paper Type", color: "#8b5cf6" },
+  { key: "evaluation_quality", label: "Evaluation", color: "#64748b" },
+  { key: "resource_constraint", label: "Resource", color: "#78716c" },
+] as const;
 
 async function loadLabels() {
-  if (!paperId.value) return
-  labelsLoading.value = true
+  if (!paperId.value) return;
+  labelsLoading.value = true;
   try {
-    const config = useRuntimeConfig()
-    const apiBase = config.public.apiUrl as string
-    const data = await $fetch<{ labels: PaperLabels }>(`${apiBase}/api/v1/papers/${paperId.value}/labels`)
-    paperLabels.value = data.labels
-  }
-  catch {
-    paperLabels.value = null
-  }
-  finally {
-    labelsLoading.value = false
+    const config = useRuntimeConfig();
+    const apiBase = config.public.apiUrl as string;
+    const data = await $fetch<{ labels: PaperLabels }>(
+      `${apiBase}/api/v1/papers/${paperId.value}/labels`,
+    );
+    paperLabels.value = data.labels;
+  } catch {
+    paperLabels.value = null;
+  } finally {
+    labelsLoading.value = false;
   }
 }
 
 function handleSectionClick(section: OutlineSection) {
-  activeSectionId.value = section.id
-  const el = document.getElementById(section.id)
+  activeSectionId.value = section.id;
+  const el = document.getElementById(section.id);
   if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
 function handleOutlineChange(headings: RenderedMarkdownHeading[]) {
-  markdownOutline.value = headings
+  markdownOutline.value = headings;
 
   if (headings.length === 0) {
-    activeSectionId.value = 'section-0'
-    return
+    activeSectionId.value = "section-0";
+    return;
   }
 
-  const hasActiveHeading = headings.some(heading => heading.id === activeSectionId.value)
+  const hasActiveHeading = headings.some(
+    (heading) => heading.id === activeSectionId.value,
+  );
   if (!hasActiveHeading && headings[0]?.id) {
-    activeSectionId.value = headings[0].id
+    activeSectionId.value = headings[0].id;
   }
 }
 
 function handleActiveHeadingChange(headingId: string | null) {
-  if (headingId)
-    activeSectionId.value = headingId
+  if (headingId) activeSectionId.value = headingId;
 }
 
 async function loadPaperContent() {
   if (!paperId.value) {
-    paperContent.value = null
-    contentPending.value = false
-    contentError.value = null
-    return
+    paperContent.value = null;
+    contentPending.value = false;
+    contentError.value = null;
+    return;
   }
 
-  contentPending.value = true
-  contentError.value = null
+  contentPending.value = true;
+  contentError.value = null;
 
   try {
-    paperContent.value = await apiFetch<PaperContent>(`/papers/${paperId.value}/content`)
-    markdownOutline.value = []
+    paperContent.value = await apiFetch<PaperContent>(
+      `/papers/${paperId.value}/content`,
+    );
+    markdownOutline.value = [];
   } catch (error) {
-    paperContent.value = null
-    markdownOutline.value = []
-    contentError.value = error instanceof Error ? error.message : 'Failed to load paper content'
+    paperContent.value = null;
+    markdownOutline.value = [];
+    contentError.value =
+      error instanceof Error ? error.message : "Failed to load paper content";
   } finally {
-    contentPending.value = false
+    contentPending.value = false;
   }
 }
 
 // Content quality state
-const contentFormat = computed(() => paperContent.value?.format ?? 'unknown')
-const isAbstractOnly = computed(() => contentFormat.value === 'abstract_only' || contentFormat.value === 'metadata_only')
-const reprocessing = ref(false)
-const reprocessError = ref<string | null>(null)
+const contentFormat = computed(() => paperContent.value?.format ?? "unknown");
+const isAbstractOnly = computed(
+  () =>
+    contentFormat.value === "abstract_only" ||
+    contentFormat.value === "metadata_only",
+);
+const reprocessing = ref(false);
+const reprocessError = ref<string | null>(null);
 
 async function triggerReprocess() {
-  if (!paperId.value || reprocessing.value) return
-  reprocessing.value = true
-  reprocessError.value = null
+  if (!paperId.value || reprocessing.value) return;
+  reprocessing.value = true;
+  reprocessError.value = null;
   try {
-    const config = useRuntimeConfig()
-    const apiBase = config.public.apiUrl as string
+    const config = useRuntimeConfig();
+    const apiBase = config.public.apiUrl as string;
     await $fetch(`${apiBase}/api/v1/papers/${paperId.value}/reparse`, {
-      method: 'POST',
+      method: "POST",
       body: { url: null, is_html: false },
-    })
+    });
     // Reload content after ~5s to give server time to process
-    await new Promise(r => setTimeout(r, 5000))
-    await loadPaperContent()
+    await new Promise((r) => setTimeout(r, 5000));
+    await loadPaperContent();
   } catch (error: unknown) {
-    const detail = typeof error === 'object'
-      && error !== null
-      && 'data' in error
-      && typeof (error as { data?: { detail?: unknown } }).data?.detail === 'string'
-      ? (error as { data?: { detail?: string } }).data?.detail
-      : null
+    const detail =
+      typeof error === "object" &&
+      error !== null &&
+      "data" in error &&
+      typeof (error as { data?: { detail?: unknown } }).data?.detail ===
+        "string"
+        ? (error as { data?: { detail?: string } }).data?.detail
+        : null;
 
-    reprocessError.value = detail || 'Reprocessing failed — please try again later.'
+    reprocessError.value =
+      detail || "Reprocessing failed — please try again later.";
   } finally {
-    reprocessing.value = false
+    reprocessing.value = false;
   }
 }
 
 onMounted(() => {
-  void loadPaperContent()
-  void loadLabels()
-  loadPaperNotes()
-})
+  void loadPaperContent();
+  void loadLabels();
+  loadPaperNotes();
+});
 
 watch(paperId, (currentPaperId, previousPaperId) => {
   if (previousPaperId && currentPaperId !== previousPaperId) {
-    void loadPaperContent()
-    loadPaperNotes()
-    pendingAnnotationText.value = null
+    void loadPaperContent();
+    loadPaperNotes();
+    pendingAnnotationText.value = null;
   }
-})
+});
 </script>
 
 <template>
@@ -302,27 +338,43 @@ watch(paperId, (currentPaperId, previousPaperId) => {
         class="ks-reader__link-btn"
       >
         {{ link.label }}
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="margin-left:4px">
-          <path d="M11 3a1 1 0 110-2h6a1 1 0 011 1v6a1 1 0 01-2 0V4.414l-7.293 7.293a1 1 0 01-1.414-1.414L14.586 3H11z"/>
-          <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          style="margin-left: 4px"
+        >
+          <path
+            d="M11 3a1 1 0 110-2h6a1 1 0 011 1v6a1 1 0 01-2 0V4.414l-7.293 7.293a1 1 0 01-1.414-1.414L14.586 3H11z"
+          />
+          <path
+            d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"
+          />
         </svg>
       </a>
     </div>
 
     <!-- Abstract-only content warning banner -->
-    <div v-if="isAbstractOnly && !contentPending" class="ks-reader__quality-banner">
+    <div
+      v-if="isAbstractOnly && !contentPending"
+      class="ks-reader__quality-banner"
+    >
       <div class="ks-reader__quality-banner-icon">⚠️</div>
       <div class="ks-reader__quality-banner-body">
         <strong>Full text not yet available.</strong>
-        This paper's PDF is still being processed by MinerU. Currently showing the abstract only.
-        <span v-if="reprocessError" class="ks-reader__quality-banner-error"> {{ reprocessError }}</span>
+        This paper's PDF is still being processed by MinerU. Currently showing
+        the abstract only.
+        <span v-if="reprocessError" class="ks-reader__quality-banner-error">
+          {{ reprocessError }}</span
+        >
       </div>
       <button
         class="ks-reader__quality-reprocess-btn"
         :disabled="reprocessing"
         @click="triggerReprocess"
       >
-        {{ reprocessing ? '⏳ Processing…' : '🔄 Re-process PDF' }}
+        {{ reprocessing ? "⏳ Processing…" : "🔄 Re-process PDF" }}
       </button>
     </div>
 
@@ -345,7 +397,11 @@ watch(paperId, (currentPaperId, previousPaperId) => {
 
       <div v-bind="resizerProps" />
 
-      <aside class="ks-reader__sidebar" :style="{ width: sidebarWidth + 'px' }" aria-label="Reader tools">
+      <aside
+        class="ks-reader__sidebar"
+        :style="{ width: sidebarWidth + 'px' }"
+        aria-label="Reader tools"
+      >
         <div class="ks-reader__tabs" role="tablist">
           <button
             v-for="tab in sidebarTabs"
@@ -356,7 +412,10 @@ watch(paperId, (currentPaperId, previousPaperId) => {
             :aria-selected="activeTab === tab.key"
             :aria-controls="`${uid}-panel-${tab.key}`"
             :tabindex="activeTab === tab.key ? 0 : -1"
-            :class="['ks-reader__tab', { 'ks-reader__tab--active': activeTab === tab.key }]"
+            :class="[
+              'ks-reader__tab',
+              { 'ks-reader__tab--active': activeTab === tab.key },
+            ]"
             @click="activeTab = tab.key"
           >
             {{ tab.label }}
@@ -390,32 +449,62 @@ watch(paperId, (currentPaperId, previousPaperId) => {
 
           <!-- Labels panel -->
           <div v-if="activeTab === 'labels'" class="ks-reader__labels">
-            <div v-if="labelsLoading" class="ks-reader__labels-loading">Loading labels…</div>
-            <div v-else-if="!paperLabels" class="ks-reader__labels-empty">Labels not yet generated for this paper.</div>
+            <div v-if="labelsLoading" class="ks-reader__labels-loading">
+              Loading labels…
+            </div>
+            <div v-else-if="!paperLabels" class="ks-reader__labels-empty">
+              Labels not yet generated for this paper.
+            </div>
             <template v-else>
-              <div v-for="dim in LABEL_DIMS" :key="dim.key" class="ks-reader__label-group">
-                <span class="ks-reader__label-dim-name" :style="{ color: dim.color }">{{ dim.label }}</span>
+              <div
+                v-for="dim in LABEL_DIMS"
+                :key="dim.key"
+                class="ks-reader__label-group"
+              >
+                <span
+                  class="ks-reader__label-dim-name"
+                  :style="{ color: dim.color }"
+                  >{{ dim.label }}</span
+                >
                 <div class="ks-reader__label-chips">
                   <span
-                    v-for="tag in (paperLabels[dim.key] as string[])"
+                    v-for="tag in paperLabels[dim.key] as string[]"
                     :key="tag"
                     class="ks-reader__label-chip"
                     :style="{ borderColor: dim.color, color: dim.color }"
-                  >{{ tag }}</span>
-                  <span v-if="!(paperLabels[dim.key] as string[]).length" class="ks-reader__label-none">—</span>
+                    >{{ tag }}</span
+                  >
+                  <span
+                    v-if="!(paperLabels[dim.key] as string[]).length"
+                    class="ks-reader__label-none"
+                    >—</span
+                  >
                 </div>
               </div>
               <div class="ks-reader__label-divider" />
-              <div v-for="dim in META_DIMS" :key="dim.key" class="ks-reader__label-group">
-                <span class="ks-reader__label-dim-name" :style="{ color: dim.color }">{{ dim.label }}</span>
+              <div
+                v-for="dim in META_DIMS"
+                :key="dim.key"
+                class="ks-reader__label-group"
+              >
+                <span
+                  class="ks-reader__label-dim-name"
+                  :style="{ color: dim.color }"
+                  >{{ dim.label }}</span
+                >
                 <div class="ks-reader__label-chips">
                   <span
-                    v-for="tag in (paperLabels.meta[dim.key] as string[])"
+                    v-for="tag in paperLabels.meta[dim.key] as string[]"
                     :key="tag"
                     class="ks-reader__label-chip"
                     :style="{ borderColor: dim.color, color: dim.color }"
-                  >{{ tag }}</span>
-                  <span v-if="!(paperLabels.meta[dim.key] as string[]).length" class="ks-reader__label-none">—</span>
+                    >{{ tag }}</span
+                  >
+                  <span
+                    v-if="!(paperLabels.meta[dim.key] as string[]).length"
+                    class="ks-reader__label-none"
+                    >—</span
+                  >
                 </div>
               </div>
             </template>
@@ -473,7 +562,7 @@ watch(paperId, (currentPaperId, previousPaperId) => {
 }
 
 .ks-reader__resizer::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -483,7 +572,9 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   border-radius: 1px;
   background: var(--color-border);
   opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
 }
 
 .ks-reader__resizer:hover::after,
@@ -533,8 +624,9 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  transition: color var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
   border-bottom: 2px solid transparent;
 }
 
@@ -607,8 +699,11 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   border-radius: 6px;
   color: var(--color-primary, #8b5cf6);
   text-decoration: none;
-  font: 500 0.8rem / 1 var(--font-sans, 'Inter', sans-serif);
-  transition: background 0.2s, color 0.2s, transform 0.15s;
+  font: 500 0.8rem / 1 var(--font-sans, "Inter", sans-serif);
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.15s;
   white-space: nowrap;
 }
 
@@ -657,8 +752,9 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   border-radius: 6px;
   font: 600 0.8125rem / 1 var(--font-sans);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              opacity var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    opacity var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-reader__qa-btn:hover:not(:disabled) {
@@ -691,7 +787,7 @@ watch(paperId, (currentPaperId, previousPaperId) => {
 
 .ks-reader__quality-banner-body {
   flex: 1;
-  font: 400 0.875rem / 1.5 var(--font-sans, 'Inter', sans-serif);
+  font: 400 0.875rem / 1.5 var(--font-sans, "Inter", sans-serif);
   color: var(--color-text);
 }
 
@@ -707,9 +803,11 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   border: 1px solid rgba(245, 158, 11, 0.5);
   border-radius: 8px;
   color: #f59e0b;
-  font: 600 0.8125rem / 1 var(--font-sans, 'Inter', sans-serif);
+  font: 600 0.8125rem / 1 var(--font-sans, "Inter", sans-serif);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
   white-space: nowrap;
 }
 
@@ -776,5 +874,4 @@ watch(paperId, (currentPaperId, previousPaperId) => {
   background: var(--color-border);
   margin: 2px 0;
 }
-
 </style>

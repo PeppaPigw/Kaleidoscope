@@ -4,38 +4,43 @@
  */
 
 export interface CorpusPaper {
-  id: string
-  title: string
-  authors: string
-  year: number
-  status: 'read' | 'unread' | 'annotated' | 'skipped'
+  id: string;
+  title: string;
+  authors: string;
+  year: number;
+  status: "read" | "unread" | "annotated" | "skipped";
 }
 
 export interface CorpusShelfProps {
-  papers: CorpusPaper[]
+  papers: CorpusPaper[];
 }
 
-defineProps<CorpusShelfProps>()
-defineEmits<{ 'paper-click': [paper: CorpusPaper] }>()
+defineProps<CorpusShelfProps>();
+defineEmits<{ "paper-click": [paper: CorpusPaper] }>();
 
-const uid = useId()
+const uid = useId();
 
-type TagVariant = 'success' | 'neutral' | 'accent'
+type TagVariant = "success" | "neutral" | "accent";
 
-function statusVariant(s: CorpusPaper['status']): TagVariant {
-  const map: Record<CorpusPaper['status'], TagVariant> = {
-    read: 'success',
-    unread: 'neutral',
-    annotated: 'accent',
-    skipped: 'neutral',
-  }
-  return map[s]
+function statusVariant(s: CorpusPaper["status"]): TagVariant {
+  const map: Record<CorpusPaper["status"], TagVariant> = {
+    read: "success",
+    unread: "neutral",
+    annotated: "accent",
+    skipped: "neutral",
+  };
+  return map[s];
 }
 </script>
 
 <template>
-  <section class="ks-corpus-shelf ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">Corpus ({{ papers.length }} papers)</h2>
+  <section
+    class="ks-corpus-shelf ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      Corpus ({{ papers.length }} papers)
+    </h2>
 
     <div class="ks-corpus-shelf__list">
       <button
@@ -48,7 +53,9 @@ function statusVariant(s: CorpusPaper['status']): TagVariant {
       >
         <div class="ks-corpus-shelf__item-main">
           <span class="ks-corpus-shelf__title">{{ p.title }}</span>
-          <span class="ks-type-data" style="color: var(--color-secondary);">{{ p.authors }} · {{ p.year }}</span>
+          <span class="ks-type-data" style="color: var(--color-secondary)"
+            >{{ p.authors }} · {{ p.year }}</span
+          >
         </div>
         <KsTag :variant="statusVariant(p.status)">{{ p.status }}</KsTag>
       </button>

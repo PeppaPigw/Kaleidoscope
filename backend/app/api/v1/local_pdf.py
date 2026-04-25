@@ -26,8 +26,8 @@ async def upload_single_pdf(
     """
     Upload a single PDF file for ingestion.
 
-    The PDF is stored, a paper record is created, and GROBID parsing
-    is queued automatically. Returns the paper ID and import status.
+    The PDF is stored, mirrored to a MinerU-accessible URL, and queued for
+    MinerU parsing automatically. Returns the paper ID and import status.
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
@@ -45,14 +45,24 @@ async def upload_single_pdf(
         user_id=user_id,
     )
 
+    if result["status"] == "imported" and not result.get("mineru_url"):
+        raise HTTPException(
+            status_code=500,
+            detail="Uploaded PDF is missing a MinerU source URL",
+        )
+
     # COMMIT FIRST, then queue parsing — prevents race condition
     await db.commit()
 
     if result["status"] == "imported":
         try:
-            from app.tasks.ingest_tasks import parse_fulltext_task
+            from app.tasks.ingest_tasks import parse_via_mineru
 
-            parse_fulltext_task.delay(result["paper_id"])
+            parse_via_mineru.delay(
+                result["paper_id"],
+                result["mineru_url"],
+                is_html=False,
+            )
         except Exception:
             pass  # Task queue may not be running in dev
 
@@ -69,7 +79,7 @@ async def batch_upload_pdfs(
     Upload a ZIP archive of PDFs for batch ingestion.
 
     Extracts all .pdf files from the ZIP, deduplicates,
-    and queues each for GROBID parsing.
+    and queues each for MinerU parsing.
 
     Returns summary with counts and per-file results.
     """
@@ -86,17 +96,28 @@ async def batch_upload_pdfs(
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
 
+    imported_items = [
+        (r["paper_id"], r.get("mineru_url"))
+        for r in result.get("results", [])
+        if r["status"] == "imported"
+    ]
+    missing_mineru_urls = [
+        paper_id for paper_id, mineru_url in imported_items if not mineru_url
+    ]
+    if missing_mineru_urls:
+        raise HTTPException(
+            status_code=500,
+            detail="One or more uploaded PDFs are missing MinerU source URLs",
+        )
+
     # COMMIT FIRST, then queue parsing — prevents race condition
     await db.commit()
 
-    imported_ids = [
-        r["paper_id"] for r in result.get("results", []) if r["status"] == "imported"
-    ]
-    for paper_id in imported_ids:
+    for paper_id, mineru_url in imported_items:
         try:
-            from app.tasks.ingest_tasks import parse_fulltext_task
+            from app.tasks.ingest_tasks import parse_via_mineru
 
-            parse_fulltext_task.delay(paper_id)
+            parse_via_mineru.delay(paper_id, mineru_url, is_html=False)
         except Exception:
             pass
 

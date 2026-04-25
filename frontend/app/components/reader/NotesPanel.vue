@@ -12,78 +12,79 @@
  * A search bar filters across selected text and note content.
  */
 
-import type { Note } from '~/utils/notes'
+import type { Note } from "~/utils/notes";
 
 const props = defineProps<{
-  notes: Note[]
+  notes: Note[];
   /** When set, the panel pre-opens the annotation form with this text. */
-  pendingText?: string | null
-}>()
+  pendingText?: string | null;
+}>();
 
 const emit = defineEmits<{
-  'note-click': [note: Note]
-  'add-highlight': [selectedText: string]
-  'add-annotation': [selectedText: string, content: string]
-  'add-manual': [content: string]
-  'delete-note': [id: string]
+  "note-click": [note: Note];
+  "add-highlight": [selectedText: string];
+  "add-annotation": [selectedText: string, content: string];
+  "add-manual": [content: string];
+  "delete-note": [id: string];
   /** Emitted when the pending annotation is dismissed or submitted. */
-  'pending-done': []
-}>()
+  "pending-done": [];
+}>();
 
-const searchQuery = ref('')
-const showManualForm = ref(false)
-const manualContent = ref('')
+const searchQuery = ref("");
+const showManualForm = ref(false);
+const manualContent = ref("");
 
 // Annotation form (triggered by text selection)
-const annotationContent = ref('')
+const annotationContent = ref("");
 
 // When pendingText arrives, focus the annotation textarea
-const annotationTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const annotationTextareaRef = ref<HTMLTextAreaElement | null>(null);
 watch(
   () => props.pendingText,
   async (text) => {
     if (text) {
-      annotationContent.value = ''
-      await nextTick()
-      annotationTextareaRef.value?.focus()
+      annotationContent.value = "";
+      await nextTick();
+      annotationTextareaRef.value?.focus();
     }
   },
-)
+);
 
 const filteredNotes = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  const sorted = [...props.notes].sort((a, b) => a.createdAt - b.createdAt)
-  if (!q) return sorted
-  return sorted.filter(n =>
-    n.selectedText?.toLowerCase().includes(q)
-    || n.content?.toLowerCase().includes(q),
-  )
-})
+  const q = searchQuery.value.toLowerCase().trim();
+  const sorted = [...props.notes].sort((a, b) => a.createdAt - b.createdAt);
+  if (!q) return sorted;
+  return sorted.filter(
+    (n) =>
+      n.selectedText?.toLowerCase().includes(q) ||
+      n.content?.toLowerCase().includes(q),
+  );
+});
 
 function submitManual() {
-  const c = manualContent.value.trim()
-  if (!c) return
-  emit('add-manual', c)
-  manualContent.value = ''
-  showManualForm.value = false
+  const c = manualContent.value.trim();
+  if (!c) return;
+  emit("add-manual", c);
+  manualContent.value = "";
+  showManualForm.value = false;
 }
 
 function submitAnnotation() {
-  if (!props.pendingText) return
-  emit('add-annotation', props.pendingText, annotationContent.value.trim())
-  annotationContent.value = ''
-  emit('pending-done')
+  if (!props.pendingText) return;
+  emit("add-annotation", props.pendingText, annotationContent.value.trim());
+  annotationContent.value = "";
+  emit("pending-done");
 }
 
 function cancelAnnotation() {
-  annotationContent.value = ''
-  emit('pending-done')
+  annotationContent.value = "";
+  emit("pending-done");
 }
 
-function typeLabel(type: Note['type']) {
-  if (type === 'highlight') return 'Highlight'
-  if (type === 'manual') return 'Note'
-  return 'Annotation'
+function typeLabel(type: Note["type"]) {
+  if (type === "highlight") return "Highlight";
+  if (type === "manual") return "Note";
+  return "Annotation";
 }
 </script>
 
@@ -91,13 +92,27 @@ function typeLabel(type: Note['type']) {
   <div class="ks-np">
     <!-- Header row -->
     <div class="ks-np__header">
-      <span class="ks-np__title">Notes <span class="ks-np__count">({{ notes.length }})</span></span>
+      <span class="ks-np__title"
+        >Notes <span class="ks-np__count">({{ notes.length }})</span></span
+      >
       <button
         class="ks-np__add-btn"
         title="Add a manual note"
-        @click="showManualForm = !showManualForm; annotationContent = ''; $emit('pending-done')"
+        @click="
+          showManualForm = !showManualForm;
+          annotationContent = '';
+          $emit('pending-done');
+        "
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
           <line x1="7" y1="1" x2="7" y2="13" />
           <line x1="1" y1="7" x2="13" y2="7" />
         </svg>
@@ -106,7 +121,16 @@ function typeLabel(type: Note['type']) {
 
     <!-- Search -->
     <div class="ks-np__search-wrap">
-      <svg class="ks-np__search-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+      <svg
+        class="ks-np__search-icon"
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+      >
         <circle cx="6.5" cy="6.5" r="5" />
         <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" />
       </svg>
@@ -116,7 +140,7 @@ function typeLabel(type: Note['type']) {
         type="search"
         placeholder="Search notes…"
         aria-label="Search notes"
-      >
+      />
     </div>
 
     <!-- Manual note form -->
@@ -128,16 +152,36 @@ function typeLabel(type: Note['type']) {
         rows="3"
         @keydown.ctrl.enter.prevent="submitManual"
         @keydown.meta.enter.prevent="submitManual"
-        @keydown.escape="showManualForm = false; manualContent = ''"
+        @keydown.escape="
+          showManualForm = false;
+          manualContent = '';
+        "
       />
       <div class="ks-np__form-actions">
-        <button class="ks-np__btn-cancel" @click="showManualForm = false; manualContent = ''">Cancel</button>
-        <button class="ks-np__btn-save" :disabled="!manualContent.trim()" @click="submitManual">Save</button>
+        <button
+          class="ks-np__btn-cancel"
+          @click="
+            showManualForm = false;
+            manualContent = '';
+          "
+        >
+          Cancel
+        </button>
+        <button
+          class="ks-np__btn-save"
+          :disabled="!manualContent.trim()"
+          @click="submitManual"
+        >
+          Save
+        </button>
       </div>
     </div>
 
     <!-- Annotation form (pending text selection) -->
-    <div v-if="pendingText && !showManualForm" class="ks-np__form ks-np__form--annotation">
+    <div
+      v-if="pendingText && !showManualForm"
+      class="ks-np__form ks-np__form--annotation"
+    >
       <div class="ks-np__pending-quote">
         <span class="ks-np__pending-q">"</span>
         <span class="ks-np__pending-text">{{ pendingText }}</span>
@@ -153,15 +197,23 @@ function typeLabel(type: Note['type']) {
         @keydown.escape="cancelAnnotation"
       />
       <div class="ks-np__form-actions">
-        <button class="ks-np__btn-cancel" @click="cancelAnnotation">Cancel</button>
-        <button class="ks-np__btn-save" @click="submitAnnotation">Save annotation</button>
+        <button class="ks-np__btn-cancel" @click="cancelAnnotation">
+          Cancel
+        </button>
+        <button class="ks-np__btn-save" @click="submitAnnotation">
+          Save annotation
+        </button>
       </div>
     </div>
 
     <!-- Empty state -->
-    <div v-if="filteredNotes.length === 0 && !showManualForm && !pendingText" class="ks-np__empty">
+    <div
+      v-if="filteredNotes.length === 0 && !showManualForm && !pendingText"
+      class="ks-np__empty"
+    >
       <template v-if="notes.length === 0">
-        Select text to highlight or annotate, or click <strong>+</strong> to add a note.
+        Select text to highlight or annotate, or click <strong>+</strong> to add
+        a note.
       </template>
       <template v-else>No notes match your search.</template>
     </div>
@@ -190,8 +242,20 @@ function typeLabel(type: Note['type']) {
         <p v-if="note.content" class="ks-np__content">{{ note.content }}</p>
 
         <!-- Delete -->
-        <button class="ks-np__delete" aria-label="Delete note" @click="$emit('delete-note', note.id)">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <button
+          class="ks-np__delete"
+          aria-label="Delete note"
+          @click="$emit('delete-note', note.id)"
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          >
             <line x1="1" y1="1" x2="9" y2="9" />
             <line x1="9" y1="1" x2="1" y2="9" />
           </svg>
@@ -239,7 +303,10 @@ function typeLabel(type: Note['type']) {
   background: none;
   color: var(--color-secondary);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .ks-np__add-btn:hover {
@@ -418,8 +485,12 @@ function typeLabel(type: Note['type']) {
   margin-bottom: 1px;
 }
 
-.ks-np__item--highlight .ks-np__badge { color: rgba(245, 158, 11, 0.8); }
-.ks-np__item--annotation .ks-np__badge { color: rgba(99, 102, 241, 0.8); }
+.ks-np__item--highlight .ks-np__badge {
+  color: rgba(245, 158, 11, 0.8);
+}
+.ks-np__item--annotation .ks-np__badge {
+  color: rgba(99, 102, 241, 0.8);
+}
 
 /* Quote (clickable) */
 .ks-np__quote {
@@ -466,7 +537,9 @@ function typeLabel(type: Note['type']) {
   color: transparent;
   cursor: pointer;
   border-radius: 3px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .ks-np__item:hover .ks-np__delete {

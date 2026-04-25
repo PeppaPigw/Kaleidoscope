@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 # ── Search ────────────────────────────────────────────
 
+
 class DeepXivSearchResult(BaseModel):
     arxiv_id: str
     title: str
@@ -22,6 +23,7 @@ class DeepXivSearchResponse(BaseModel):
 
 
 # ── Paper metadata ────────────────────────────────────
+
 
 class DeepXivSection(BaseModel):
     name: str
@@ -75,6 +77,7 @@ class DeepXivPreviewResponse(BaseModel):
 
 # ── PMC ───────────────────────────────────────────────
 
+
 class DeepXivPMCHeadResponse(BaseModel):
     pmc_id: str
     title: str
@@ -87,6 +90,7 @@ class DeepXivPMCHeadResponse(BaseModel):
 
 # ── Trending ──────────────────────────────────────────
 
+
 class DeepXivTrendingResponse(BaseModel):
     days: int = 7
     generated_at: str | None = None
@@ -95,6 +99,7 @@ class DeepXivTrendingResponse(BaseModel):
 
 
 # ── Social Impact ─────────────────────────────────────
+
 
 class DeepXivSocialImpactResponse(BaseModel):
     arxiv_id: str
@@ -107,6 +112,7 @@ class DeepXivSocialImpactResponse(BaseModel):
 
 
 # ── Agent ─────────────────────────────────────────────
+
 
 class DeepXivAgentRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)

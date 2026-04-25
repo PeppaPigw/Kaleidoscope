@@ -4,74 +4,134 @@
  *
  * Interactive note wall with detail drawer for viewing/editing notes.
  */
-import type { NoteCard } from '~/components/knowledge/NoteWall.vue'
+import type { NoteCard } from "~/components/knowledge/NoteWall.vue";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
-const { t } = useTranslation()
-const { getAnalyticsKeywordCloud } = useApi()
+const { t } = useTranslation();
+const { getAnalyticsKeywordCloud } = useApi();
 
 useHead({
-  title: 'Knowledge Garden — Kaleidoscope',
-  meta: [{ name: 'description', content: 'Organize research notes, concepts, and learning materials.' }],
-})
+  title: "Knowledge Garden — Kaleidoscope",
+  meta: [
+    {
+      name: "description",
+      content: "Organize research notes, concepts, and learning materials.",
+    },
+  ],
+});
 
 const MANUAL_NOTES: NoteCard[] = [
-  { id: 'n1', title: 'Atomic Claims vs. Paragraphs', excerpt: 'Key insight: decomposing at the claim level provides finer-grained evidence alignment, but introduces complexity in maintaining coherence across decomposed units. The trade-off between granularity and semantic completeness is central to effective claim extraction pipelines.', tags: ['claims', 'RAG'], backlinkCount: 5, updatedAt: '2h ago' },
-  { id: 'n2', title: 'NLI Filtering Pipeline', excerpt: 'NLI (Natural Language Inference) can be used as a post-processing step to filter out claims that are contradicted or not entailed by the original text. This reduces noise by approximately 34% in decomposition pipelines, improving downstream retrieval precision significantly.', tags: ['NLI', 'pipeline'], backlinkCount: 3, updatedAt: '1d ago' },
-  { id: 'n3', title: 'BioASQ Benchmark Notes', excerpt: 'BioASQ provides biomedical semantic indexing and question answering data. The Claims extension adds 12K manually annotated atomic claims across 256 biomedical papers. Performance on this benchmark correlates well with downstream RAG quality metrics.', tags: ['benchmark', 'biomedical'], backlinkCount: 7, updatedAt: '3d ago' },
-  { id: 'n4', title: 'Cross-Domain Transfer Limitations', excerpt: 'Current models trained on biomedical text show significant performance drops when applied to legal or financial domains. Fine-tuning helps but requires domain-specific claim annotation data that is expensive to produce.', tags: ['transfer', 'limitations'], backlinkCount: 2, updatedAt: '5d ago' },
-  { id: 'n5', title: 'Hallucination in RAG Systems', excerpt: 'Claim-level retrieval can reduce hallucination by providing more targeted evidence, but may introduce retrieval noise when claims are decontextualized. A balanced approach uses both paragraph-level and claim-level retrieval.', tags: ['hallucination', 'safety'], backlinkCount: 4, updatedAt: '1w ago' },
-  { id: 'n6', title: 'SciBERT Architecture', excerpt: 'SciBERT builds on BERT with pre-training on 1.14M scientific papers from Semantic Scholar, using a domain-specific vocabulary of 30K tokens. It achieves improvements over BERT on scientific NLP tasks including NER, relation extraction, and claim verification.', tags: ['model', 'BERT'], backlinkCount: 6, updatedAt: '2w ago' },
-]
+  {
+    id: "n1",
+    title: "Atomic Claims vs. Paragraphs",
+    excerpt:
+      "Key insight: decomposing at the claim level provides finer-grained evidence alignment, but introduces complexity in maintaining coherence across decomposed units. The trade-off between granularity and semantic completeness is central to effective claim extraction pipelines.",
+    tags: ["claims", "RAG"],
+    backlinkCount: 5,
+    updatedAt: "2h ago",
+  },
+  {
+    id: "n2",
+    title: "NLI Filtering Pipeline",
+    excerpt:
+      "NLI (Natural Language Inference) can be used as a post-processing step to filter out claims that are contradicted or not entailed by the original text. This reduces noise by approximately 34% in decomposition pipelines, improving downstream retrieval precision significantly.",
+    tags: ["NLI", "pipeline"],
+    backlinkCount: 3,
+    updatedAt: "1d ago",
+  },
+  {
+    id: "n3",
+    title: "BioASQ Benchmark Notes",
+    excerpt:
+      "BioASQ provides biomedical semantic indexing and question answering data. The Claims extension adds 12K manually annotated atomic claims across 256 biomedical papers. Performance on this benchmark correlates well with downstream RAG quality metrics.",
+    tags: ["benchmark", "biomedical"],
+    backlinkCount: 7,
+    updatedAt: "3d ago",
+  },
+  {
+    id: "n4",
+    title: "Cross-Domain Transfer Limitations",
+    excerpt:
+      "Current models trained on biomedical text show significant performance drops when applied to legal or financial domains. Fine-tuning helps but requires domain-specific claim annotation data that is expensive to produce.",
+    tags: ["transfer", "limitations"],
+    backlinkCount: 2,
+    updatedAt: "5d ago",
+  },
+  {
+    id: "n5",
+    title: "Hallucination in RAG Systems",
+    excerpt:
+      "Claim-level retrieval can reduce hallucination by providing more targeted evidence, but may introduce retrieval noise when claims are decontextualized. A balanced approach uses both paragraph-level and claim-level retrieval.",
+    tags: ["hallucination", "safety"],
+    backlinkCount: 4,
+    updatedAt: "1w ago",
+  },
+  {
+    id: "n6",
+    title: "SciBERT Architecture",
+    excerpt:
+      "SciBERT builds on BERT with pre-training on 1.14M scientific papers from Semantic Scholar, using a domain-specific vocabulary of 30K tokens. It achieves improvements over BERT on scientific NLP tasks including NER, relation extraction, and claim verification.",
+    tags: ["model", "BERT"],
+    backlinkCount: 6,
+    updatedAt: "2w ago",
+  },
+];
 
-const notes = ref<NoteCard[]>([...MANUAL_NOTES])
+const notes = ref<NoteCard[]>([...MANUAL_NOTES]);
 
-const selectedNote = ref<NoteCard | null>(null)
-const showDrawer = ref(false)
+const selectedNote = ref<NoteCard | null>(null);
+const showDrawer = ref(false);
 
 onMounted(async () => {
   try {
-    const keywordData = await getAnalyticsKeywordCloud(12)
-    const apiNotes: NoteCard[] = keywordData.keywords.map(k => ({
+    const keywordData = await getAnalyticsKeywordCloud(12);
+    const apiNotes: NoteCard[] = keywordData.keywords.map((k) => ({
       id: `kw-${k.keyword}`,
       title: k.keyword,
       excerpt: `Found in ${k.count} papers in your library. Click to search related papers.`,
-      tags: ['auto', 'keyword'],
+      tags: ["auto", "keyword"],
       backlinkCount: k.count,
-      updatedAt: 'from library',
-    }))
-    notes.value = [...apiNotes, ...MANUAL_NOTES]
+      updatedAt: "from library",
+    }));
+    notes.value = [...apiNotes, ...MANUAL_NOTES];
   } catch {
-    notes.value = [...MANUAL_NOTES]
+    notes.value = [...MANUAL_NOTES];
   }
-})
+});
 
 function handleNoteClick(note: NoteCard) {
-  selectedNote.value = note
-  showDrawer.value = true
+  selectedNote.value = note;
+  showDrawer.value = true;
 }
 
 function closeDrawer() {
-  showDrawer.value = false
-  setTimeout(() => { selectedNote.value = null }, 300)
+  showDrawer.value = false;
+  setTimeout(() => {
+    selectedNote.value = null;
+  }, 300);
 }
 
 function handleDeleteNote(note: NoteCard) {
-  notes.value = notes.value.filter(n => n.id !== note.id)
-  closeDrawer()
+  notes.value = notes.value.filter((n) => n.id !== note.id);
+  closeDrawer();
 }
 
 // Mock linked notes for detail view
 function getLinkedNotes(note: NoteCard): string[] {
-  const allTitles = notes.value.filter(n => n.id !== note.id).map(n => n.title)
-  return allTitles.slice(0, note.backlinkCount)
+  const allTitles = notes.value
+    .filter((n) => n.id !== note.id)
+    .map((n) => n.title);
+  return allTitles.slice(0, note.backlinkCount);
 }
 </script>
 
 <template>
   <div class="ks-knowledge">
-    <KsPageHeader :title="t('knowledge')" :subtitle="t('knowledgeGardenSubtitle')" />
+    <KsPageHeader
+      :title="t('knowledge')"
+      :subtitle="t('knowledgeGardenSubtitle')"
+    />
 
     <div class="ks-knowledge__content">
       <KnowledgeNoteWall :notes="notes" @note-click="handleNoteClick" />
@@ -85,34 +145,67 @@ function getLinkedNotes(note: NoteCard): string[] {
           class="ks-knowledge__overlay"
           @click.self="closeDrawer"
         >
-          <aside class="ks-knowledge__drawer" role="dialog" aria-modal="true" :aria-label="selectedNote.title">
+          <aside
+            class="ks-knowledge__drawer"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="selectedNote.title"
+          >
             <div class="ks-knowledge__drawer-header">
-              <h2 class="ks-knowledge__drawer-title">{{ selectedNote.title }}</h2>
-              <button type="button" class="ks-knowledge__drawer-close" :aria-label="t('close')" @click="closeDrawer">✕</button>
+              <h2 class="ks-knowledge__drawer-title">
+                {{ selectedNote.title }}
+              </h2>
+              <button
+                type="button"
+                class="ks-knowledge__drawer-close"
+                :aria-label="t('close')"
+                @click="closeDrawer"
+              >
+                ✕
+              </button>
             </div>
 
             <div class="ks-knowledge__drawer-tags">
-              <KsTag v-for="tag in selectedNote.tags" :key="tag" variant="primary">{{ tag }}</KsTag>
+              <KsTag
+                v-for="tag in selectedNote.tags"
+                :key="tag"
+                variant="primary"
+                >{{ tag }}</KsTag
+              >
             </div>
 
             <div class="ks-knowledge__drawer-body">
-              <p class="ks-knowledge__drawer-text">{{ selectedNote.excerpt }}</p>
+              <p class="ks-knowledge__drawer-text">
+                {{ selectedNote.excerpt }}
+              </p>
             </div>
 
             <div class="ks-knowledge__drawer-meta">
-              <span class="ks-type-data">Last updated: {{ selectedNote.updatedAt }}</span>
-              <span class="ks-type-data" style="color: var(--color-primary);">{{ selectedNote.backlinkCount }} {{ t('backlinks') }}</span>
+              <span class="ks-type-data"
+                >Last updated: {{ selectedNote.updatedAt }}</span
+              >
+              <span class="ks-type-data" style="color: var(--color-primary)"
+                >{{ selectedNote.backlinkCount }} {{ t("backlinks") }}</span
+              >
             </div>
 
             <!-- Linked notes -->
-            <div v-if="getLinkedNotes(selectedNote).length > 0" class="ks-knowledge__drawer-links">
-              <h3 class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 8px;">{{ t('linkedNotes').toUpperCase() }}</h3>
+            <div
+              v-if="getLinkedNotes(selectedNote).length > 0"
+              class="ks-knowledge__drawer-links"
+            >
+              <h3
+                class="ks-type-eyebrow"
+                style="color: var(--color-accent); margin-bottom: 8px"
+              >
+                {{ t("linkedNotes").toUpperCase() }}
+              </h3>
               <button
                 v-for="linked in getLinkedNotes(selectedNote)"
                 :key="linked"
                 type="button"
                 class="ks-knowledge__linked-btn"
-                @click="handleNoteClick(notes.find(n => n.title === linked)!)"
+                @click="handleNoteClick(notes.find((n) => n.title === linked)!)"
               >
                 {{ linked }}
               </button>
@@ -120,11 +213,19 @@ function getLinkedNotes(note: NoteCard): string[] {
 
             <!-- Actions -->
             <div class="ks-knowledge__drawer-actions">
-              <button type="button" class="ks-knowledge__action-btn ks-knowledge__action-btn--edit" @click="closeDrawer">
-                {{ t('editNote') }}
+              <button
+                type="button"
+                class="ks-knowledge__action-btn ks-knowledge__action-btn--edit"
+                @click="closeDrawer"
+              >
+                {{ t("editNote") }}
               </button>
-              <button type="button" class="ks-knowledge__action-btn ks-knowledge__action-btn--delete" @click="handleDeleteNote(selectedNote)">
-                {{ t('deleteNote') }}
+              <button
+                type="button"
+                class="ks-knowledge__action-btn ks-knowledge__action-btn--delete"
+                @click="handleDeleteNote(selectedNote)"
+              >
+                {{ t("deleteNote") }}
               </button>
             </div>
           </aside>
@@ -153,7 +254,7 @@ function getLinkedNotes(note: NoteCard): string[] {
   z-index: 100;
   display: flex;
   justify-content: flex-end;
-  background: rgba(26, 26, 26, 0.2);
+  background: var(--color-overlay-dark);
   backdrop-filter: blur(2px);
 }
 
@@ -172,8 +273,12 @@ function getLinkedNotes(note: NoteCard): string[] {
 }
 
 @keyframes slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .ks-knowledge__drawer-header {

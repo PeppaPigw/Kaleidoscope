@@ -8,29 +8,32 @@
  */
 
 export interface TopicCover {
-  id: string
-  label: string
-  title: string
-  subtitle: string
-  count: number
-  accent: 'teal' | 'gold'
+  id: string;
+  label: string;
+  title: string;
+  subtitle: string;
+  count: number;
+  accent: "teal" | "gold";
 }
 
 export interface TopicsWallProps {
-  topics: TopicCover[]
+  topics: TopicCover[];
 }
 
-defineProps<TopicsWallProps>()
+defineProps<TopicsWallProps>();
 
 defineEmits<{
-  'topic-click': [topic: TopicCover]
-}>()
+  "topic-click": [topic: TopicCover];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-topics-wall ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-topics-wall ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="sr-only">Research Collections</h2>
     <div class="ks-topics-wall__grid">
       <button
@@ -43,14 +46,14 @@ const uid = useId()
         ]"
         @click="$emit('topic-click', topic)"
       >
-        <span class="ks-type-eyebrow" style="color: var(--color-accent);">
+        <span class="ks-type-eyebrow" style="color: var(--color-accent)">
           {{ topic.label }}
         </span>
         <span class="ks-topics-wall__cover-title">{{ topic.title }}</span>
-        <span class="ks-type-body-sm" style="color: var(--color-secondary);">
+        <span class="ks-type-body-sm" style="color: var(--color-secondary)">
           {{ topic.subtitle }}
         </span>
-        <span class="ks-type-data" style="color: var(--color-primary);">
+        <span class="ks-type-data" style="color: var(--color-primary)">
           {{ topic.count }} papers
         </span>
       </button>
@@ -88,14 +91,15 @@ const uid = useId()
   border-radius: var(--radius-card);
   cursor: pointer;
   text-align: left;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              border-color var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-topics-wall__cover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 24px rgba(26, 26, 26, 0.06);
+  box-shadow: var(--shadow-card-hover);
   border-color: var(--color-primary);
 }
 
@@ -105,11 +109,19 @@ const uid = useId()
 }
 
 .ks-topics-wall__cover--teal {
-  background: linear-gradient(135deg, rgba(13, 115, 119, 0.04) 0%, var(--color-surface) 60%);
+  background: linear-gradient(
+    135deg,
+    var(--gradient-teal-start) 0%,
+    var(--color-surface) 60%
+  );
 }
 
 .ks-topics-wall__cover--gold {
-  background: linear-gradient(135deg, rgba(196, 163, 90, 0.06) 0%, var(--color-surface) 60%);
+  background: linear-gradient(
+    135deg,
+    var(--gradient-gold-start) 0%,
+    var(--color-surface) 60%
+  );
 }
 
 .ks-topics-wall__cover-title {

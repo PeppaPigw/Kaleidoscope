@@ -74,7 +74,9 @@ def _build_image_prompt(title: str, visual_summary: str) -> str:
     )
 
 
-def _call_image_api_sync(endpoint: str, api_key: str, model: str, prompt: str) -> ImageGenerationResult:
+def _call_image_api_sync(
+    endpoint: str, api_key: str, model: str, prompt: str
+) -> ImageGenerationResult:
     """Synchronous image API call via curl (run in thread pool by the async wrapper)."""
     headers: dict[str, str] = {}
     if api_key:
@@ -87,9 +89,15 @@ def _call_image_api_sync(endpoint: str, api_key: str, model: str, prompt: str) -
     }
 
     cmd = [
-        "curl", "-sS", "--max-time", "300",
-        "-X", "POST", endpoint,
-        "-H", "Content-Type: application/json",
+        "curl",
+        "-sS",
+        "--max-time",
+        "300",
+        "-X",
+        "POST",
+        endpoint,
+        "-H",
+        "Content-Type: application/json",
     ]
     for k, v in headers.items():
         cmd.extend(["-H", f"{k}: {v}"])
@@ -97,9 +105,7 @@ def _call_image_api_sync(endpoint: str, api_key: str, model: str, prompt: str) -
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        raise PipelineError(
-            f"curl failed ({result.returncode}): {result.stderr[:500]}"
-        )
+        raise PipelineError(f"curl failed ({result.returncode}): {result.stderr[:500]}")
     raw = result.stdout.strip()
     if not raw:
         raise PipelineError("curl returned empty response")
@@ -119,6 +125,7 @@ class OverviewImageService:
     async def _get_llm(self):
         if self._llm is None:
             from app.clients.llm_client import LLMClient
+
             self._llm = LLMClient()
         return self._llm
 
@@ -162,10 +169,15 @@ class OverviewImageService:
                 image_prompt,
             ),
         )
-        log.info("overview_image_api_done", bytes=len(image_result.image_bytes), mime=image_result.mime_type)
+        log.info(
+            "overview_image_api_done",
+            bytes=len(image_result.image_bytes),
+            mime=image_result.mime_type,
+        )
 
         # 4. Upload to OSS
         from app.clients.oss_client import OssClient
+
         ext = suffix_for_mime(image_result.mime_type)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         object_key = f"Kaleidoscope/overview-images/{ts}{ext}"

@@ -26,7 +26,9 @@ def upgrade() -> None:
 
     op.add_column(
         "papers",
-        sa.Column("deep_analysis", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "deep_analysis", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
     )
     op.add_column(
         "papers",
@@ -35,7 +37,9 @@ def upgrade() -> None:
 
     op.create_table(
         "audit_logs",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("action", sa.String(length=50), nullable=False),
         sa.Column("entity_type", sa.String(length=50), nullable=False),
@@ -50,11 +54,15 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_audit_logs_user_id"), "audit_logs", ["user_id"], unique=False)
+    op.create_index(
+        op.f("ix_audit_logs_user_id"), "audit_logs", ["user_id"], unique=False
+    )
 
     op.create_table(
         "webhooks",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
@@ -65,7 +73,9 @@ def upgrade() -> None:
         sa.Column("url", sa.Text(), nullable=False),
         sa.Column("events", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("secret", sa.Text(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column(
+            "is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")
+        ),
         sa.Column("last_triggered_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "created_at",
@@ -76,12 +86,16 @@ def upgrade() -> None:
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_webhooks_deleted_at"), "webhooks", ["deleted_at"], unique=False)
+    op.create_index(
+        op.f("ix_webhooks_deleted_at"), "webhooks", ["deleted_at"], unique=False
+    )
     op.create_index(op.f("ix_webhooks_user_id"), "webhooks", ["user_id"], unique=False)
 
     op.create_table(
         "saved_searches",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
@@ -148,10 +162,14 @@ def upgrade() -> None:
 
     op.create_table(
         "reading_path_cache",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column("from_paper_id", sa.UUID(), nullable=False),
         sa.Column("to_paper_id", sa.UUID(), nullable=False),
-        sa.Column("path_paper_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "path_paper_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column(
             "computed_at",
             sa.DateTime(timezone=True),
@@ -178,7 +196,9 @@ def upgrade() -> None:
 
     op.create_table(
         "reproduction_attempts",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column("paper_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
@@ -208,12 +228,18 @@ def upgrade() -> None:
 
     op.create_table(
         "user_corrections",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column("paper_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("field_name", sa.String(length=100), nullable=False),
-        sa.Column("original_value", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("corrected_value", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "original_value", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
+        sa.Column(
+            "corrected_value", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column("note", sa.Text(), nullable=True),
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column(
@@ -240,7 +266,9 @@ def upgrade() -> None:
 
     op.create_table(
         "user_reading_status",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+        ),
         sa.Column("user_id", sa.UUID(), server_default=DEFAULT_USER_ID, nullable=False),
         sa.Column("paper_id", sa.UUID(), nullable=False),
         sa.Column(
@@ -274,23 +302,37 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_user_reading_status_user_id"), table_name="user_reading_status")
-    op.drop_index(op.f("ix_user_reading_status_paper_id"), table_name="user_reading_status")
+    op.drop_index(
+        op.f("ix_user_reading_status_user_id"), table_name="user_reading_status"
+    )
+    op.drop_index(
+        op.f("ix_user_reading_status_paper_id"), table_name="user_reading_status"
+    )
     op.drop_table("user_reading_status")
 
     op.drop_index(op.f("ix_user_corrections_user_id"), table_name="user_corrections")
     op.drop_index(op.f("ix_user_corrections_paper_id"), table_name="user_corrections")
     op.drop_table("user_corrections")
 
-    op.drop_index(op.f("ix_reproduction_attempts_user_id"), table_name="reproduction_attempts")
-    op.drop_index(op.f("ix_reproduction_attempts_paper_id"), table_name="reproduction_attempts")
+    op.drop_index(
+        op.f("ix_reproduction_attempts_user_id"), table_name="reproduction_attempts"
+    )
+    op.drop_index(
+        op.f("ix_reproduction_attempts_paper_id"), table_name="reproduction_attempts"
+    )
     op.drop_table("reproduction_attempts")
 
-    op.drop_index(op.f("ix_reading_path_cache_to_paper_id"), table_name="reading_path_cache")
-    op.drop_index(op.f("ix_reading_path_cache_from_paper_id"), table_name="reading_path_cache")
+    op.drop_index(
+        op.f("ix_reading_path_cache_to_paper_id"), table_name="reading_path_cache"
+    )
+    op.drop_index(
+        op.f("ix_reading_path_cache_from_paper_id"), table_name="reading_path_cache"
+    )
     op.drop_table("reading_path_cache")
 
-    op.drop_index(op.f("ix_metadata_provenance_paper_id"), table_name="metadata_provenance")
+    op.drop_index(
+        op.f("ix_metadata_provenance_paper_id"), table_name="metadata_provenance"
+    )
     op.drop_table("metadata_provenance")
 
     op.drop_index(op.f("ix_saved_searches_user_id"), table_name="saved_searches")

@@ -19,6 +19,50 @@ from app.models.paper import Paper, PaperReference
 logger = structlog.get_logger(__name__)
 
 
+def sanitize_mineru_markdown(markdown: str | None) -> str:
+    """Strip control bytes MinerU occasionally leaks that PostgreSQL rejects."""
+    if not markdown:
+        return ""
+    return markdown.replace("\x00", "")
+
+
+def extract_title_from_markdown(markdown: str | None) -> str | None:
+    """Best-effort title extraction from the first meaningful H1 heading."""
+    if not markdown:
+        return None
+
+    for raw_line in markdown.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        match = re.match(r"^#\s+(.+)$", line)
+        if not match:
+            continue
+
+        title = re.sub(r"\s+", " ", match.group(1)).strip(" #\t")
+        if not title:
+            continue
+        if title.startswith((": ", ":", "-", "–", "—")):
+            continue
+
+        normalized = re.sub(r"^\d+(?:\.\d+)*[\s.:_-]*", "", title).strip()
+        lowered = normalized.casefold()
+        if lowered in {
+            "abstract",
+            "contents",
+            "table of contents",
+            "introduction",
+            "references",
+            "bibliography",
+        }:
+            return None
+
+        return title
+
+    return None
+
+
 class MinerUParsingService:
     """Parse documents via MinerU API and store as markdown."""
 
@@ -79,7 +123,7 @@ class MinerUParsingService:
             return {"status": "error", "error": extraction.error}
 
         # ── Store markdown content ────────────────────────────────
-        markdown = extraction.markdown
+        markdown = sanitize_mineru_markdown(extraction.markdown)
         paper.full_text_markdown = markdown
         paper.has_full_text = True
         paper.markdown_provenance = {
@@ -106,6 +150,16 @@ class MinerUParsingService:
         # ── Extract structure from markdown ───────────────────────
         sections = self._extract_sections(markdown)
         paper.parsed_sections = sections
+
+        title_text = (paper.title or "").strip()
+        if (
+            not title_text
+            or title_text == (paper.doi or "").strip()
+            or title_text.lower().startswith("arxiv:")
+        ):
+            extracted_title = extract_title_from_markdown(markdown)
+            if extracted_title:
+                paper.title = extracted_title
 
         # ── Extract metadata from markdown if missing ─────────────
         if not paper.abstract:

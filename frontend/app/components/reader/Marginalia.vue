@@ -4,33 +4,40 @@
  */
 
 export interface Annotation {
-  id: string
-  text: string
-  page: number
-  color: 'yellow' | 'green' | 'blue' | 'pink'
-  note?: string
+  id: string;
+  text: string;
+  page: number;
+  color: "yellow" | "green" | "blue" | "pink";
+  note?: string;
 }
 
 export interface MarginaliaProps {
-  annotations: Annotation[]
+  annotations: Annotation[];
 }
 
-defineProps<MarginaliaProps>()
-defineEmits<{ 'annotation-click': [annotation: Annotation] }>()
+defineProps<MarginaliaProps>();
+defineEmits<{ "annotation-click": [annotation: Annotation] }>();
 
-const uid = useId()
+const uid = useId();
 
-const colorMap: Record<Annotation['color'], string> = {
-  yellow: 'rgba(196, 163, 90, 0.15)',
-  green: 'rgba(13, 115, 119, 0.12)',
-  blue: 'rgba(59, 130, 246, 0.12)',
-  pink: 'rgba(236, 72, 153, 0.12)',
-}
+const colorMap: Record<Annotation["color"], string> = {
+  yellow: "rgba(196, 163, 90, 0.15)",
+  green: "rgba(13, 115, 119, 0.12)",
+  blue: "rgba(59, 130, 246, 0.12)",
+  pink: "rgba(236, 72, 153, 0.12)",
+};
 </script>
 
 <template>
-  <section class="ks-marginalia ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 12px;">
+  <section
+    class="ks-marginalia ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h3
+      :id="`${uid}-title`"
+      class="ks-type-eyebrow"
+      style="color: var(--color-accent); margin-bottom: 12px"
+    >
       Annotations ({{ annotations.length }})
     </h3>
 

@@ -5,152 +5,150 @@
  * Chat interface for querying and analyzing arXiv papers through an AI agent.
  * Follows KsProvenanceDrawer pattern for transitions, focus management, and WCAG compliance.
  */
-import { X, Bot, Send, Loader2 } from 'lucide-vue-next'
+import { X, Bot, Send, Loader2 } from "lucide-vue-next";
 
 interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  papersLoaded?: number
+  role: "user" | "assistant";
+  content: string;
+  papersLoaded?: number;
 }
 
 interface Props {
-  open: boolean
+  open: boolean;
 }
 
-const props = defineProps<Props>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<Props>();
+const emit = defineEmits<{ close: [] }>();
 
-const { agentQuery } = useDeepXiv()
+const { agentQuery } = useDeepXiv();
 
 // ── State ────────────────────────────────────────────────
-const messages = ref<ChatMessage[]>([])
-const input = ref('')
-const isLoading = ref(false)
-const error = ref<string | null>(null)
-const messagesEnd = ref<HTMLElement | null>(null)
-const drawerRef = ref<HTMLElement | null>(null)
-const previousFocus = ref<HTMLElement | null>(null)
+const messages = ref<ChatMessage[]>([]);
+const input = ref("");
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+const messagesEnd = ref<HTMLElement | null>(null);
+const drawerRef = ref<HTMLElement | null>(null);
+const previousFocus = ref<HTMLElement | null>(null);
 
 // ── Computed ─────────────────────────────────────────────
-const canSend = computed(() => input.value.trim().length > 0 && !isLoading.value)
+const canSend = computed(
+  () => input.value.trim().length > 0 && !isLoading.value,
+);
 
 // ── Actions ──────────────────────────────────────────────
 async function scrollToBottom() {
-  await nextTick()
-  messagesEnd.value?.scrollIntoView({ behavior: 'smooth' })
+  await nextTick();
+  messagesEnd.value?.scrollIntoView({ behavior: "smooth" });
 }
 
 async function sendMessage() {
-  const text = input.value.trim()
-  if (!text || isLoading.value) return
+  const text = input.value.trim();
+  if (!text || isLoading.value) return;
 
-  error.value = null
-  messages.value.push({ role: 'user', content: text })
-  input.value = ''
-  isLoading.value = true
-  await scrollToBottom()
+  error.value = null;
+  messages.value.push({ role: "user", content: text });
+  input.value = "";
+  isLoading.value = true;
+  await scrollToBottom();
 
   try {
-    const res = await agentQuery(text)
+    const res = await agentQuery(text);
     messages.value.push({
-      role: 'assistant',
+      role: "assistant",
       content: res.answer,
       papersLoaded: res.papers_loaded,
-    })
-  }
-  catch (err) {
-    error.value = err instanceof Error ? err.message : 'Agent query failed'
+    });
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Agent query failed";
     messages.value.push({
-      role: 'assistant',
-      content: 'Sorry, an error occurred while processing your query. Please try again.',
-    })
-  }
-  finally {
-    isLoading.value = false
-    await scrollToBottom()
+      role: "assistant",
+      content:
+        "Sorry, an error occurred while processing your query. Please try again.",
+    });
+  } finally {
+    isLoading.value = false;
+    await scrollToBottom();
   }
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault()
-    void sendMessage()
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    void sendMessage();
   }
 }
 
 function handleSuggestionClick(text: string) {
-  input.value = text
-  void sendMessage()
+  input.value = text;
+  void sendMessage();
 }
 
 // ── Focus management ─────────────────────────────────────
 function handleEscape(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    emit('close')
+  if (e.key === "Escape") {
+    emit("close");
   }
 }
 
 function trapFocus(e: KeyboardEvent) {
-  if (e.key !== 'Tab' || !drawerRef.value) return
+  if (e.key !== "Tab" || !drawerRef.value) return;
 
   const focusable = drawerRef.value.querySelectorAll<HTMLElement>(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-  )
-  if (focusable.length === 0) return
+  );
+  if (focusable.length === 0) return;
 
-  const first = focusable[0]!
-  const last = focusable[focusable.length - 1]!
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
 
   if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault()
-    last.focus()
-  }
-  else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault()
-    first.focus()
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
   }
 }
 
 function onDrawerEnter() {
-  previousFocus.value = document.activeElement as HTMLElement | null
+  previousFocus.value = document.activeElement as HTMLElement | null;
   nextTick(() => {
-    const inputEl = drawerRef.value?.querySelector<HTMLElement>('input')
-    inputEl?.focus()
-  })
+    const inputEl = drawerRef.value?.querySelector<HTMLElement>("input");
+    inputEl?.focus();
+  });
 }
 
 function onDrawerLeave() {
-  previousFocus.value?.focus()
-  previousFocus.value = null
+  previousFocus.value?.focus();
+  previousFocus.value = null;
 }
 
 // ── Lifecycle ────────────────────────────────────────────
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    document.addEventListener('keydown', handleEscape)
-    document.addEventListener('keydown', trapFocus)
-  }
-  else {
-    document.removeEventListener('keydown', handleEscape)
-    document.removeEventListener('keydown', trapFocus)
-  }
-})
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.addEventListener("keydown", trapFocus);
+    } else {
+      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", trapFocus);
+    }
+  },
+);
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleEscape)
-  document.removeEventListener('keydown', trapFocus)
-})
+  document.removeEventListener("keydown", handleEscape);
+  document.removeEventListener("keydown", trapFocus);
+});
 </script>
 
 <template>
   <Teleport to="body">
     <!-- Backdrop -->
     <Transition name="ks-fade">
-      <div
-        v-if="open"
-        class="ks-ai-drawer__backdrop"
-        @click="emit('close')"
-      />
+      <div v-if="open" class="ks-ai-drawer__backdrop" @click="emit('close')" />
     </Transition>
 
     <!-- Drawer panel -->
@@ -188,28 +186,46 @@ onUnmounted(() => {
         <!-- Chat area -->
         <div class="ks-ai-drawer__chat">
           <!-- Empty state -->
-          <div v-if="messages.length === 0 && !isLoading" class="ks-ai-drawer__empty">
+          <div
+            v-if="messages.length === 0 && !isLoading"
+            class="ks-ai-drawer__empty"
+          >
             <Bot :size="32" class="ks-ai-drawer__empty-icon" />
-            <h3 class="ks-ai-drawer__empty-title">Start a research conversation</h3>
+            <h3 class="ks-ai-drawer__empty-title">
+              Start a research conversation
+            </h3>
             <p class="ks-ai-drawer__empty-text">
-              Ask about specific papers, compare methodologies, or explore research topics.
+              Ask about specific papers, compare methodologies, or explore
+              research topics.
             </p>
             <div class="ks-ai-drawer__suggestions">
               <button
                 class="ks-ai-drawer__suggestion"
-                @click="handleSuggestionClick('What are the latest advances in large language models?')"
+                @click="
+                  handleSuggestionClick(
+                    'What are the latest advances in large language models?',
+                  )
+                "
               >
                 Latest advances in LLMs
               </button>
               <button
                 class="ks-ai-drawer__suggestion"
-                @click="handleSuggestionClick('Find papers on retrieval-augmented generation')"
+                @click="
+                  handleSuggestionClick(
+                    'Find papers on retrieval-augmented generation',
+                  )
+                "
               >
                 Papers on RAG
               </button>
               <button
                 class="ks-ai-drawer__suggestion"
-                @click="handleSuggestionClick('Summarize recent work on multimodal AI')"
+                @click="
+                  handleSuggestionClick(
+                    'Summarize recent work on multimodal AI',
+                  )
+                "
               >
                 Multimodal AI research
               </button>
@@ -251,19 +267,21 @@ onUnmounted(() => {
               placeholder="Ask about papers, methods, findings..."
               :disabled="isLoading"
               @keydown="handleKeydown"
-            >
+            />
             <button
               class="ks-ai-drawer__send-btn"
               :disabled="!canSend"
               @click="sendMessage"
             >
-              <Loader2 v-if="isLoading" :size="14" class="ks-ai-drawer__spinner" />
+              <Loader2
+                v-if="isLoading"
+                :size="14"
+                class="ks-ai-drawer__spinner"
+              />
               <Send v-else :size="14" />
             </button>
           </div>
-          <p class="ks-ai-drawer__input-hint">
-            Press Enter to send
-          </p>
+          <p class="ks-ai-drawer__input-hint">Press Enter to send</p>
         </div>
       </aside>
     </Transition>
@@ -335,8 +353,9 @@ onUnmounted(() => {
   color: var(--color-secondary);
   cursor: pointer;
   border-radius: 6px;
-  transition: background var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-ai-drawer__close:hover {
@@ -350,7 +369,8 @@ onUnmounted(() => {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--color-secondary) 30%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-secondary) 30%, transparent)
+    transparent;
 }
 
 .ks-ai-drawer__chat::-webkit-scrollbar {
@@ -408,8 +428,9 @@ onUnmounted(() => {
   color: var(--color-text);
   text-align: left;
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              background var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-ai-drawer__suggestion:hover {
@@ -443,7 +464,9 @@ onUnmounted(() => {
 }
 
 @keyframes ks-ai-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Error ─────────────────────────────────────────────── */
@@ -471,13 +494,15 @@ onUnmounted(() => {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-ai-drawer__input-row:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .ks-ai-drawer__input {

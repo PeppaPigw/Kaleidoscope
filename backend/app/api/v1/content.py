@@ -21,11 +21,15 @@ router = APIRouter(prefix="/papers", tags=["content"])
 
 def _fire_analysis_bg(paper_id: str) -> None:
     """Fire-and-forget: deep-analyse a single paper, then auto-generate overview image."""
+
     async def _run():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.models.author import PaperAuthor
-        from app.services.analysis.paper_analyst import PaperAnalystService
+        from app.services.analysis.paper_analyst import (
+            PaperAnalystService,
+            deep_analysis_is_valid,
+        )
         from app.services.analysis.overview_image_service import OverviewImageService
         from sqlalchemy.orm import selectinload
         from datetime import datetime, timezone
@@ -36,19 +40,22 @@ def _fire_analysis_bg(paper_id: str) -> None:
         try:
             async with async_session_factory() as db:
                 r = await db.execute(
-                    select(Paper).where(Paper.id == paper_id)
-                    .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+                    select(Paper)
+                    .where(Paper.id == paper_id)
+                    .options(
+                        selectinload(Paper.authors).selectinload(PaperAuthor.author)
+                    )
                 )
                 paper = r.scalar_one_or_none()
-                if paper and not paper.deep_analysis:
+                if paper and not deep_analysis_is_valid(paper.deep_analysis):
                     svc = PaperAnalystService(db)
                     result = await svc.analyse_and_persist(paper, db)
                     await db.commit()
                     await svc.close()
-                    if result.get("status") == "ok":
+                    if deep_analysis_is_valid(result):
                         paper_title = paper.title
                         analysis_text = result.get("analysis", "")
-                elif paper and paper.deep_analysis and paper.deep_analysis.get("status") == "ok":
+                elif paper and deep_analysis_is_valid(paper.deep_analysis):
                     # Analysis already done; still proceed to image if missing
                     paper_title = paper.title
                     analysis_text = paper.deep_analysis.get("analysis", "")
@@ -87,7 +94,10 @@ def _fire_analysis_bg(paper_id: str) -> None:
                     r = await db.execute(select(Paper).where(Paper.id == paper_id))
                     paper = r.scalar_one_or_none()
                     if paper:
-                        paper.overview_image = {"status": "error", "error": str(exc)[:300]}
+                        paper.overview_image = {
+                            "status": "error",
+                            "error": str(exc)[:300],
+                        }
                         await db.commit()
             except Exception:
                 pass
@@ -99,15 +109,20 @@ def _fire_analysis_bg(paper_id: str) -> None:
 
 def _fire_label_bg(paper_id: str) -> None:
     """Fire-and-forget: label a single paper in the background after import/reparse."""
+
     async def _run():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
-        from app.services.analysis.labeling_service import LabelingService
+        from app.services.analysis.labeling_service import (
+            LabelingService,
+            labels_have_any_values,
+        )
+
         try:
             async with async_session_factory() as db:
                 r = await db.execute(select(Paper).where(Paper.id == paper_id))
                 paper = r.scalar_one_or_none()
-                if paper and not paper.paper_labels:
+                if paper and not labels_have_any_values(paper.paper_labels):
                     svc = LabelingService(db)
                     await svc.label_paper(paper)
                     await db.commit()
@@ -409,6 +424,7 @@ async def get_paper_labels(
 ):
     """Return existing taxonomy labels for a paper (does not trigger LLM call)."""
     from app.models.paper import Paper
+    from app.services.analysis.labeling_service import labels_have_any_values
 
     result = await db.execute(
         select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
@@ -416,7 +432,7 @@ async def get_paper_labels(
     paper = result.scalar_one_or_none()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    if not paper.paper_labels:
+    if not labels_have_any_values(paper.paper_labels):
         raise HTTPException(
             status_code=404,
             detail="Labels not generated yet. POST to /labels to generate.",
@@ -488,6 +504,7 @@ async def get_deep_analysis(
 ):
     """Return deep LLM analysis for a paper."""
     from app.models.paper import Paper
+    from app.services.analysis.paper_analyst import deep_analysis_is_valid
 
     result = await db.execute(
         select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
@@ -495,7 +512,7 @@ async def get_deep_analysis(
     paper = result.scalar_one_or_none()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    if not paper.deep_analysis or paper.deep_analysis.get("status") != "ok":
+    if not deep_analysis_is_valid(paper.deep_analysis):
         raise HTTPException(status_code=404, detail="Deep analysis not available")
 
     return {
@@ -526,17 +543,23 @@ async def get_overview_image(
     return {
         "paper_id": str(paper.id),
         **paper.overview_image,
-        "generated_at": paper.overview_image_at.isoformat() if paper.overview_image_at else None,
+        "generated_at": (
+            paper.overview_image_at.isoformat() if paper.overview_image_at else None
+        ),
     }
 
 
-def _fire_overview_image_only_bg(paper_id: str, paper_title: str, analysis_text: str) -> None:
+def _fire_overview_image_only_bg(
+    paper_id: str, paper_title: str, analysis_text: str
+) -> None:
     """Fire-and-forget: generate overview image only (analysis already done)."""
+
     async def _run():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.analysis.overview_image_service import OverviewImageService
         from datetime import datetime, timezone
+
         svc = OverviewImageService()
         try:
             async with async_session_factory() as db:
@@ -562,7 +585,10 @@ def _fire_overview_image_only_bg(paper_id: str, paper_title: str, analysis_text:
                     r = await db.execute(select(Paper).where(Paper.id == paper_id))
                     paper = r.scalar_one_or_none()
                     if paper:
-                        paper.overview_image = {"status": "error", "error": str(exc)[:300]}
+                        paper.overview_image = {
+                            "status": "error",
+                            "error": str(exc)[:300],
+                        }
                         await db.commit()
             except Exception:
                 pass
@@ -586,6 +612,7 @@ async def generate_overview_image(
     Fires generation in the background; poll GET /overview-image for status.
     """
     from app.models.paper import Paper
+    from app.services.analysis.paper_analyst import deep_analysis_is_valid
 
     result = await db.execute(
         select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
@@ -594,7 +621,7 @@ async def generate_overview_image(
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
 
-    if not paper.deep_analysis or paper.deep_analysis.get("status") != "ok":
+    if not deep_analysis_is_valid(paper.deep_analysis):
         raise HTTPException(
             status_code=422,
             detail="Deep analysis not available. Generate deep analysis first.",
@@ -644,8 +671,11 @@ async def get_deep_analysis_zh(
     }
 
 
-def _fire_links_bg(paper_id: str, title: str, arxiv_id: str | None = None, doi: str | None = None) -> None:
+def _fire_links_bg(
+    paper_id: str, title: str, arxiv_id: str | None = None, doi: str | None = None
+) -> None:
     """Fire-and-forget: fetch AI paper links for a newly imported paper."""
+
     async def _run():
         from app.dependencies import async_session_factory
         from app.models.paper import Paper

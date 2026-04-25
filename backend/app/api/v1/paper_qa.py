@@ -23,18 +23,14 @@ class AskRequest(BaseModel):
 
 
 @router.get("/{paper_id}/status")
-async def get_embedding_status(
-    paper_id: str, db: AsyncSession = Depends(get_db)
-):
+async def get_embedding_status(paper_id: str, db: AsyncSession = Depends(get_db)):
     """Get the embedding pipeline status for a paper."""
     svc = PaperQAService(db)
     return await svc.get_status(paper_id)
 
 
 @router.post("/{paper_id}/prepare")
-async def prepare_paper(
-    paper_id: str, db: AsyncSession = Depends(get_db)
-):
+async def prepare_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
     """Trigger (or reprioritize) the embedding pipeline for a paper."""
     svc = PaperQAService(db)
     return await svc.prepare(paper_id)

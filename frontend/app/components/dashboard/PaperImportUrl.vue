@@ -6,133 +6,135 @@
  * Shows status feedback during the async extraction.
  */
 
-const api = useApi()
+const api = useApi();
 
-const url = ref('')
-const title = ref('')
-const isHtml = ref(false)
-const importing = ref(false)
-const importedPaperId = ref<string | null>(null)
-const importStatus = ref<string | null>(null)
-const importError = ref<string | null>(null)
+const url = ref("");
+const title = ref("");
+const isHtml = ref(false);
+const importing = ref(false);
+const importedPaperId = ref<string | null>(null);
+const importStatus = ref<string | null>(null);
+const importError = ref<string | null>(null);
 const result = ref<{
-  status: 'idle' | 'importing' | 'success' | 'error'
-  paperId?: string
-  message?: string
-  markdownLength?: number
-  sections?: number
-}>({ status: 'idle' })
+  status: "idle" | "importing" | "success" | "error";
+  paperId?: string;
+  message?: string;
+  markdownLength?: number;
+  sections?: number;
+}>({ status: "idle" });
 
-const showAdvanced = ref(false)
-let pollInterval: ReturnType<typeof setInterval> | null = null
-let pollCount = 0
+const showAdvanced = ref(false);
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+let pollCount = 0;
 const TERMINAL_STATES = new Set([
-  'ready',
-  'error',
-  'indexed',
-  'index_partial',
-  'index_failed',
-  'parse_failed',
-  'parsed',
-])
+  "ready",
+  "error",
+  "indexed",
+  "index_partial",
+  "index_failed",
+  "parse_failed",
+  "parsed",
+]);
 
 const isValidUrl = computed(() => {
   try {
-    new URL(url.value)
-    return true
+    new URL(url.value);
+    return true;
   } catch {
-    return false
+    return false;
   }
-})
+});
 
 // Auto-detect HTML vs PDF from URL
 watch(url, (v) => {
-  if (v && !v.toLowerCase().endsWith('.pdf') && (
-    v.includes('arxiv.org/abs') ||
-    v.includes('html') ||
-    v.includes('aclanthology.org') ||
-    v.includes('openreview.net')
-  )) {
-    isHtml.value = true
+  if (
+    v &&
+    !v.toLowerCase().endsWith(".pdf") &&
+    (v.includes("arxiv.org/abs") ||
+      v.includes("html") ||
+      v.includes("aclanthology.org") ||
+      v.includes("openreview.net"))
+  ) {
+    isHtml.value = true;
   } else {
-    isHtml.value = false
+    isHtml.value = false;
   }
-})
+});
 
 function clearPollInterval() {
   if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
+    clearInterval(pollInterval);
+    pollInterval = null;
   }
 }
 
 async function pollStatus(paperId: string) {
-  clearPollInterval()
-  pollCount = 0
+  clearPollInterval();
+  pollCount = 0;
   pollInterval = setInterval(async () => {
-    pollCount += 1
+    pollCount += 1;
     try {
-      const status = await api.getImportStatus(paperId)
-      importStatus.value = status.ingestion_status
-      importError.value = status.error_message ?? null
+      const status = await api.getImportStatus(paperId);
+      importStatus.value = status.ingestion_status;
+      importError.value = status.error_message ?? null;
       if (TERMINAL_STATES.has(status.ingestion_status) || pollCount >= 20) {
-        clearPollInterval()
+        clearPollInterval();
       }
     } catch {
-      clearPollInterval()
+      clearPollInterval();
     }
-  }, 2000)
+  }, 2000);
 }
 
 onBeforeUnmount(() => {
-  clearPollInterval()
-})
+  clearPollInterval();
+});
 
 async function handleImport() {
-  if (!isValidUrl.value || importing.value) return
+  if (!isValidUrl.value || importing.value) return;
 
-  importing.value = true
-  clearPollInterval()
-  importedPaperId.value = null
-  importStatus.value = null
-  importError.value = null
-  result.value = { status: 'importing' }
+  importing.value = true;
+  clearPollInterval();
+  importedPaperId.value = null;
+  importStatus.value = null;
+  importError.value = null;
+  result.value = { status: "importing" };
 
   try {
     const resp = await api.importFromUrl({
       url: url.value,
       title: title.value || undefined,
       is_html: isHtml.value,
-    })
+    });
 
-    importedPaperId.value = resp.paper_id
-    importStatus.value = resp.status
+    importedPaperId.value = resp.paper_id;
+    importStatus.value = resp.status;
     result.value = {
-      status: 'success',
+      status: "success",
       paperId: resp.paper_id,
-      message: `Imported "${resp.title}" — ${resp.markdown_length?.toLocaleString() || '?'} chars`,
+      message: `Imported "${resp.title}" — ${resp.markdown_length?.toLocaleString() || "?"} chars`,
       markdownLength: resp.markdown_length ?? undefined,
       sections: resp.sections ?? undefined,
-    }
-    void pollStatus(resp.paper_id)
+    };
+    void pollStatus(resp.paper_id);
     // Clear form
-    url.value = ''
-    title.value = ''
+    url.value = "";
+    title.value = "";
   } catch (err: any) {
-    clearPollInterval()
-    const detail = err?.data?.detail || err?.message || 'Import failed'
+    clearPollInterval();
+    const detail = err?.data?.detail || err?.message || "Import failed";
     result.value = {
-      status: 'error',
+      status: "error",
       message: detail,
-    }
+    };
   } finally {
-    importing.value = false
+    importing.value = false;
   }
 }
 
 function goToPaper() {
   if (importedPaperId.value) {
-    navigateTo(`/reader/${importedPaperId.value}`)
+    navigateTo(`/reader/${importedPaperId.value}`);
   }
 }
 </script>
@@ -154,7 +156,7 @@ function goToPaper() {
           placeholder="https://arxiv.org/pdf/2401.00001 or HTML page URL"
           :disabled="importing"
           autocomplete="off"
-        >
+        />
       </div>
 
       <button
@@ -162,7 +164,7 @@ function goToPaper() {
         class="ks-import__toggle"
         @click="showAdvanced = !showAdvanced"
       >
-        {{ showAdvanced ? '▾' : '▸' }} Options
+        {{ showAdvanced ? "▾" : "▸" }} Options
       </button>
 
       <div v-if="showAdvanced" class="ks-import__advanced">
@@ -172,9 +174,9 @@ function goToPaper() {
           class="ks-import__input ks-import__input--sm"
           placeholder="Custom title (optional)"
           :disabled="importing"
-        >
+        />
         <label class="ks-import__checkbox">
-          <input v-model="isHtml" type="checkbox" :disabled="importing" >
+          <input v-model="isHtml" type="checkbox" :disabled="importing" />
           <span>HTML source (auto-detected)</span>
         </label>
       </div>
@@ -186,7 +188,7 @@ function goToPaper() {
         :disabled="!isValidUrl || importing"
       >
         <span v-if="importing" class="ks-import__spinner" aria-hidden="true" />
-        {{ importing ? 'Extracting…' : 'Import & Extract' }}
+        {{ importing ? "Extracting…" : "Import & Extract" }}
       </button>
     </form>
 
@@ -202,15 +204,21 @@ function goToPaper() {
         <template v-else-if="result.status === 'success'">
           <span>✓ {{ result.message }}</span>
           <div v-if="result.sections" class="ks-import__meta">
-            {{ result.sections }} sections · {{ (result.markdownLength ?? 0).toLocaleString() }} chars
+            {{ result.sections }} sections ·
+            {{ (result.markdownLength ?? 0).toLocaleString() }} chars
           </div>
           <div v-if="importStatus" class="ks-import__meta">
             Status: {{ importStatus }}
           </div>
-          <div v-if="importStatus === 'error' && importError" class="ks-import__meta">
+          <div
+            v-if="importStatus === 'error' && importError"
+            class="ks-import__meta"
+          >
             {{ importError }}
           </div>
-          <button class="ks-import__link" @click="goToPaper">Open in Reader →</button>
+          <button class="ks-import__link" @click="goToPaper">
+            Open in Reader →
+          </button>
         </template>
         <template v-else-if="result.status === 'error'">
           <span>✗ {{ result.message }}</span>
@@ -337,14 +345,17 @@ function goToPaper() {
 
 .ks-import__spinner {
   display: inline-block;
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.3);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: ks-spin 0.6s linear infinite;
 }
 @keyframes ks-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ks-import__status {

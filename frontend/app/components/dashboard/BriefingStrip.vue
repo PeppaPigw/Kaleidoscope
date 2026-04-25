@@ -7,31 +7,34 @@
  */
 
 export interface BriefingItem {
-  id: string
-  type: 'NEW' | 'ALERT' | 'CODE' | 'INGEST' | 'UPDATE'
-  title: string
-  time: string
+  id: string;
+  type: "NEW" | "ALERT" | "CODE" | "INGEST" | "UPDATE";
+  title: string;
+  time: string;
 }
 
 export interface BriefingStripProps {
-  items: BriefingItem[]
+  items: BriefingItem[];
 }
 
-defineProps<BriefingStripProps>()
+defineProps<BriefingStripProps>();
 
-const { t } = useTranslation()
+const { t } = useTranslation();
 
 defineEmits<{
-  'item-click': [item: BriefingItem]
-}>()
+  "item-click": [item: BriefingItem];
+}>();
 
-const typeVariantMap: Record<BriefingItem['type'], 'primary' | 'accent' | 'success' | 'warning' | 'default'> = {
-  NEW: 'primary',
-  ALERT: 'accent',
-  CODE: 'success',
-  INGEST: 'default',
-  UPDATE: 'warning',
-}
+const typeVariantMap: Record<
+  BriefingItem["type"],
+  "primary" | "accent" | "success" | "warning" | "default"
+> = {
+  NEW: "primary",
+  ALERT: "accent",
+  CODE: "success",
+  INGEST: "default",
+  UPDATE: "warning",
+};
 </script>
 
 <template>
@@ -40,14 +43,10 @@ const typeVariantMap: Record<BriefingItem['type'], 'primary' | 'accent' | 'succe
     aria-label="Today's briefing"
   >
     <span class="ks-briefing-strip__label ks-type-eyebrow">
-      {{ t('briefing') }}
+      {{ t("briefing") }}
     </span>
     <ul class="ks-briefing-strip__ticker">
-      <li
-        v-for="item in items"
-        :key="item.id"
-        class="ks-briefing-strip__li"
-      >
+      <li v-for="item in items" :key="item.id" class="ks-briefing-strip__li">
         <button
           type="button"
           class="ks-briefing-strip__item"
@@ -73,7 +72,7 @@ const typeVariantMap: Record<BriefingItem['type'], 'primary' | 'accent' | 'succe
   height: 56px;
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--color-surface);
   overflow: hidden;
 }
 
@@ -110,8 +109,9 @@ const typeVariantMap: Record<BriefingItem['type'], 'primary' | 'accent' | 'succe
   background: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-briefing-strip__item:hover {

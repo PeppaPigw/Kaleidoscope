@@ -8,27 +8,27 @@
  */
 
 export interface FacetOption {
-  label: string
-  count: number
-  active: boolean
+  label: string;
+  count: number;
+  active: boolean;
 }
 
 export interface FacetGroup {
-  title: string
-  options: FacetOption[]
+  title: string;
+  options: FacetOption[];
 }
 
 export interface FacetWallProps {
-  groups: FacetGroup[]
+  groups: FacetGroup[];
 }
 
-defineProps<FacetWallProps>()
+defineProps<FacetWallProps>();
 
 defineEmits<{
-  'facet-toggle': [group: string, option: string, active: boolean]
-}>()
+  "facet-toggle": [group: string, option: string, active: boolean];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
@@ -43,17 +43,26 @@ const uid = useId()
       class="ks-facet-wall__group"
     >
       <h4 class="ks-facet-wall__group-title">{{ group.title }}</h4>
-      <div class="ks-facet-wall__options" role="group" :aria-label="group.title">
+      <div
+        class="ks-facet-wall__options"
+        role="group"
+        :aria-label="group.title"
+      >
         <button
           v-for="opt in group.options"
           :key="opt.label"
           type="button"
-          :class="['ks-facet-wall__option', { 'ks-facet-wall__option--active': opt.active }]"
+          :class="[
+            'ks-facet-wall__option',
+            { 'ks-facet-wall__option--active': opt.active },
+          ]"
           :aria-pressed="opt.active"
           @click="$emit('facet-toggle', group.title, opt.label, !opt.active)"
         >
-          <span>{{ opt.label }}</span>
-          <span class="ks-type-data">{{ opt.count }}</span>
+          <span class="ks-facet-wall__option-label">{{ opt.label }}</span>
+          <span class="ks-facet-wall__option-count ks-type-data">{{
+            opt.count
+          }}</span>
         </button>
       </div>
     </div>
@@ -114,17 +123,26 @@ const uid = useId()
 
 .ks-facet-wall__option {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
   padding: 7px 10px;
   background: none;
   border: none;
   border-radius: 2px;
   font: 400 0.9375rem / 1.4 var(--font-serif);
   color: var(--color-text);
+  text-align: left;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
+}
+
+.ks-facet-wall__option-label,
+.ks-facet-wall__option-count {
+  text-align: left;
 }
 
 .ks-facet-wall__option:hover {

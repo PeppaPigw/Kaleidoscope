@@ -16,19 +16,19 @@
 
 export interface KsFullBleedProps {
   /** Image source URL */
-  src: string
+  src: string;
   /** Alt text for accessibility */
-  alt: string
+  alt: string;
   /** Aspect ratio override (default: 16/7) */
-  aspectRatio?: string
+  aspectRatio?: string;
   /** Object-fit override */
-  objectFit?: 'cover' | 'contain' | 'fill'
+  objectFit?: "cover" | "contain" | "fill";
 }
 
 withDefaults(defineProps<KsFullBleedProps>(), {
-  aspectRatio: '16 / 7',
-  objectFit: 'cover',
-})
+  aspectRatio: "16 / 7",
+  objectFit: "cover",
+});
 </script>
 
 <template>
@@ -39,7 +39,7 @@ withDefaults(defineProps<KsFullBleedProps>(), {
       :style="{ aspectRatio, objectFit }"
       loading="lazy"
       decoding="async"
-    >
+    />
     <figcaption v-if="$slots.caption">
       <slot name="caption" />
     </figcaption>

@@ -4,9 +4,9 @@
 name: kaleidoscope
 
 services:
-  # --- PostgreSQL 16 ---
+  # --- PostgreSQL 16 with pgvector ---
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: kaleidoscope
       POSTGRES_USER: kaleidoscope
@@ -71,8 +71,8 @@ services:
       NEO4J_AUTH: neo4j/kaleidoscope
       NEO4J_PLUGINS: '["apoc"]'
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
     volumes:
       - neo4j_data:/data
     healthcheck:
@@ -89,8 +89,8 @@ services:
       MINIO_ROOT_USER: kaleidoscope
       MINIO_ROOT_PASSWORD: kaleidoscope
     ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console
+      - "9000:9000" # API
+      - "9001:9001" # Console
     volumes:
       - minio_data:/data
     healthcheck:
@@ -109,6 +109,47 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # --- Celery Worker ---
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=4 -Q celery,ingestion,parsing,indexing,embedding,ragflow
+    environment:
+      - DATABASE_URL=postgresql://kaleidoscope:kaleidoscope@postgres:5432/kaleidoscope
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../app:/app/app
+      - ../data:/app/data
+    restart: unless-stopped
+
+  # --- Celery Beat (Scheduler) ---
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A app.worker.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://kaleidoscope:kaleidoscope@postgres:5432/kaleidoscope
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../app:/app/app
+    restart: unless-stopped
 
 volumes:
   postgres_data:

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { RenderedMarkdownHeading } from '~/utils/markdown'
+import type { RenderedMarkdownHeading } from "~/utils/markdown";
 
 export interface WritingOutlinePaneProps {
-  sections: RenderedMarkdownHeading[]
-  activeSectionId?: string | null
+  sections: RenderedMarkdownHeading[];
+  activeSectionId?: string | null;
 }
 
-defineProps<WritingOutlinePaneProps>()
-defineEmits<{ 'section-click': [section: RenderedMarkdownHeading] }>()
+defineProps<WritingOutlinePaneProps>();
+defineEmits<{ "section-click": [section: RenderedMarkdownHeading] }>();
 </script>
 
 <template>
@@ -20,7 +20,9 @@ defineEmits<{ 'section-click': [section: RenderedMarkdownHeading] }>()
       <li
         v-for="section in sections"
         :key="section.id"
-        :style="{ '--ks-outline-level': String(Math.max(section.level - 1, 0)) }"
+        :style="{
+          '--ks-outline-level': String(Math.max(section.level - 1, 0)),
+        }"
       >
         <button
           type="button"
@@ -64,7 +66,8 @@ defineEmits<{ 'section-click': [section: RenderedMarkdownHeading] }>()
 .ks-writing-outline__item {
   width: 100%;
   margin: 0;
-  padding: 0.72rem 0.85rem 0.72rem calc(0.85rem + var(--ks-outline-level) * 0.9rem);
+  padding: 0.72rem 0.85rem 0.72rem
+    calc(0.85rem + var(--ks-outline-level) * 0.9rem);
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0.9rem;

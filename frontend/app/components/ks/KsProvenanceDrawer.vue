@@ -9,98 +9,107 @@
  * Uses Vue <Transition> for the panel animation and a backdrop overlay.
  * Implements focus trap, Escape handler, and focus restoration per WCAG.
  */
-import { X, BrainCircuit, Calendar, ShieldCheck, Database, ChevronRight } from 'lucide-vue-next'
-import type { ProvenanceInfo } from '~~/types/paper'
+import {
+  X,
+  BrainCircuit,
+  Calendar,
+  ShieldCheck,
+  Database,
+  ChevronRight,
+} from "lucide-vue-next";
+import type { ProvenanceInfo } from "~~/types/paper";
 
 export interface ProvenanceChainStep {
-  source: string
-  action: string
-  timestamp: string
-  confidence?: number
-  detail?: string
+  source: string;
+  action: string;
+  timestamp: string;
+  confidence?: number;
+  detail?: string;
 }
 
 export interface KsProvenanceDrawerProps {
   /** Whether the drawer is open */
-  open: boolean
+  open: boolean;
   /** Field label (e.g. "Summary", "Claim Extraction") */
-  fieldLabel?: string
+  fieldLabel?: string;
   /** Field value preview */
-  fieldValue?: string
+  fieldValue?: string;
   /** Provenance info */
-  provenance?: ProvenanceInfo | null
+  provenance?: ProvenanceInfo | null;
   /** Full chain of provenance steps */
-  chain?: ProvenanceChainStep[]
+  chain?: ProvenanceChainStep[];
 }
 
 withDefaults(defineProps<KsProvenanceDrawerProps>(), {
-  fieldLabel: 'Field',
+  fieldLabel: "Field",
   fieldValue: undefined,
   provenance: null,
   chain: () => [],
-})
+});
 
 const emit = defineEmits<{
-  close: []
-}>()
+  close: [];
+}>();
 
 // ─── Focus management ────────────────────────────────
-const drawerRef = ref<HTMLElement | null>(null)
-const previousFocus = ref<HTMLElement | null>(null)
+const drawerRef = ref<HTMLElement | null>(null);
+const previousFocus = ref<HTMLElement | null>(null);
 
 function handleEscape(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    emit('close')
+  if (e.key === "Escape") {
+    emit("close");
   }
 }
 
 function trapFocus(e: KeyboardEvent) {
-  if (e.key !== 'Tab' || !drawerRef.value) return
+  if (e.key !== "Tab" || !drawerRef.value) return;
 
   const focusable = drawerRef.value.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  )
-  if (focusable.length === 0) return
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable.length === 0) return;
 
-  const first = focusable[0]!
-  const last = focusable[focusable.length - 1]!
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
 
   if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault()
-    last.focus()
+    e.preventDefault();
+    last.focus();
   } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault()
-    first.focus()
+    e.preventDefault();
+    first.focus();
   }
 }
 
 function onDrawerEnter() {
   // Store the element that had focus before the drawer opened
-  previousFocus.value = document.activeElement as HTMLElement | null
+  previousFocus.value = document.activeElement as HTMLElement | null;
   // Move focus to the close button after the transition
   nextTick(() => {
-    const closeBtn = drawerRef.value?.querySelector<HTMLElement>('.ks-provenance-drawer__close')
-    closeBtn?.focus()
-  })
+    const closeBtn = drawerRef.value?.querySelector<HTMLElement>(
+      ".ks-provenance-drawer__close",
+    );
+    closeBtn?.focus();
+  });
 }
 
 function onDrawerLeave() {
   // Restore focus to the element that triggered the drawer
-  previousFocus.value?.focus()
-  previousFocus.value = null
+  previousFocus.value?.focus();
+  previousFocus.value = null;
 }
 
 function formatDate(ts: string): string {
   try {
-    return new Date(ts).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    return new Date(ts).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
-    return ts
+    return ts;
   }
 }
 </script>
@@ -162,17 +171,23 @@ function formatDate(ts: string): string {
           </div>
           <div class="ks-provenance-drawer__stat">
             <ShieldCheck :size="14" aria-hidden="true" />
-            <span class="ks-type-label">{{ Math.round(provenance.confidence * 100) }}% confidence</span>
+            <span class="ks-type-label"
+              >{{ Math.round(provenance.confidence * 100) }}% confidence</span
+            >
           </div>
           <div class="ks-provenance-drawer__stat">
             <Calendar :size="14" aria-hidden="true" />
-            <span class="ks-type-label">{{ formatDate(provenance.timestamp) }}</span>
+            <span class="ks-type-label">{{
+              formatDate(provenance.timestamp)
+            }}</span>
           </div>
         </div>
 
         <!-- Provenance chain timeline -->
         <div v-if="chain.length > 0" class="ks-provenance-drawer__chain">
-          <h3 class="ks-type-eyebrow" style="margin-bottom: 12px;">Provenance Chain</h3>
+          <h3 class="ks-type-eyebrow" style="margin-bottom: 12px">
+            Provenance Chain
+          </h3>
           <ol class="ks-provenance-drawer__timeline">
             <li
               v-for="(step, i) in chain"
@@ -187,8 +202,13 @@ function formatDate(ts: string): string {
                   <ChevronRight :size="12" aria-hidden="true" />
                   <span class="ks-type-label">{{ step.action }}</span>
                 </div>
-                <span class="ks-type-data">{{ formatDate(step.timestamp) }}</span>
-                <p v-if="step.detail" class="ks-provenance-drawer__step-detail ks-type-body-sm">
+                <span class="ks-type-data">{{
+                  formatDate(step.timestamp)
+                }}</span>
+                <p
+                  v-if="step.detail"
+                  class="ks-provenance-drawer__step-detail ks-type-body-sm"
+                >
                   {{ step.detail }}
                 </p>
               </div>
@@ -211,7 +231,7 @@ function formatDate(ts: string): string {
   position: fixed;
   inset: 0;
   z-index: 998;
-  background: rgba(26, 26, 26, 0.28);
+  background: var(--color-overlay-dark);
   backdrop-filter: blur(2px);
 }
 
@@ -233,11 +253,15 @@ function formatDate(ts: string): string {
 
 /* ─── Drawer slide animation ───────────────────────── */
 .ks-drawer-enter-active {
-  transition: transform 320ms var(--ease-page), opacity 200ms var(--ease-smooth);
+  transition:
+    transform 320ms var(--ease-page),
+    opacity 200ms var(--ease-smooth);
 }
 
 .ks-drawer-leave-active {
-  transition: transform 240ms cubic-bezier(0.32, 0, 0.67, 0), opacity 160ms var(--ease-smooth);
+  transition:
+    transform 240ms cubic-bezier(0.32, 0, 0.67, 0),
+    opacity 160ms var(--ease-smooth);
 }
 
 .ks-drawer-enter-from,
@@ -272,8 +296,9 @@ function formatDate(ts: string): string {
   background: transparent;
   color: var(--color-secondary);
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-provenance-drawer__close:hover {

@@ -4,38 +4,48 @@
  */
 
 export interface Contradiction {
-  id: string
-  claimA: { text: string; paper: string; year: number }
-  claimB: { text: string; paper: string; year: number }
-  severity: 'high' | 'medium' | 'low'
-  resolved: boolean
+  id: string;
+  claimA: { text: string; paper: string; year: number };
+  claimB: { text: string; paper: string; year: number };
+  severity: "high" | "medium" | "low";
+  resolved: boolean;
 }
 
 export interface ContradictionsPanelProps {
-  contradictions: Contradiction[]
+  contradictions: Contradiction[];
 }
 
-defineProps<ContradictionsPanelProps>()
+defineProps<ContradictionsPanelProps>();
 
-const uid = useId()
+const uid = useId();
 
-type TagVariant = 'danger' | 'warning' | 'neutral'
+type TagVariant = "danger" | "warning" | "neutral";
 
-function sevVariant(s: Contradiction['severity']): TagVariant {
-  const map: Record<Contradiction['severity'], TagVariant> = { high: 'danger', medium: 'warning', low: 'neutral' }
-  return map[s]
+function sevVariant(s: Contradiction["severity"]): TagVariant {
+  const map: Record<Contradiction["severity"], TagVariant> = {
+    high: "danger",
+    medium: "warning",
+    low: "neutral",
+  };
+  return map[s];
 }
 </script>
 
 <template>
-  <section class="ks-contradictions ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-contradictions ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Contradictions</h2>
 
     <div class="ks-contradictions__list">
       <div
         v-for="c in contradictions"
         :key="c.id"
-        :class="['ks-card ks-contradictions__item', { 'ks-contradictions__item--resolved': c.resolved }]"
+        :class="[
+          'ks-card ks-contradictions__item',
+          { 'ks-contradictions__item--resolved': c.resolved },
+        ]"
       >
         <div class="ks-contradictions__header">
           <KsTag :variant="sevVariant(c.severity)">{{ c.severity }}</KsTag>
@@ -44,12 +54,16 @@ function sevVariant(s: Contradiction['severity']): TagVariant {
         <div class="ks-contradictions__claims">
           <blockquote class="ks-contradictions__claim">
             <p>"{{ c.claimA.text }}"</p>
-            <cite class="ks-type-data">{{ c.claimA.paper }} ({{ c.claimA.year }})</cite>
+            <cite class="ks-type-data"
+              >{{ c.claimA.paper }} ({{ c.claimA.year }})</cite
+            >
           </blockquote>
           <span class="ks-contradictions__vs" aria-hidden="true">VS</span>
           <blockquote class="ks-contradictions__claim">
             <p>"{{ c.claimB.text }}"</p>
-            <cite class="ks-type-data">{{ c.claimB.paper }} ({{ c.claimB.year }})</cite>
+            <cite class="ks-type-data"
+              >{{ c.claimB.paper }} ({{ c.claimB.year }})</cite
+            >
           </blockquote>
         </div>
       </div>
@@ -65,9 +79,13 @@ function sevVariant(s: Contradiction['severity']): TagVariant {
   margin-top: 16px;
 }
 
-.ks-contradictions__item { padding: 16px; }
+.ks-contradictions__item {
+  padding: 16px;
+}
 
-.ks-contradictions__item--resolved { opacity: 0.6; }
+.ks-contradictions__item--resolved {
+  opacity: 0.6;
+}
 
 .ks-contradictions__header {
   display: flex;

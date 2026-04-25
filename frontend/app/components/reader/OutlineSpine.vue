@@ -4,26 +4,35 @@
  */
 
 export interface OutlineSection {
-  id: string
-  title: string
-  level: number
-  page: number
+  id: string;
+  title: string;
+  level: number;
+  page: number;
 }
 
 export interface OutlineSpineProps {
-  sections: OutlineSection[]
-  activeSectionId?: string
+  sections: OutlineSection[];
+  activeSectionId?: string;
 }
 
-defineProps<OutlineSpineProps>()
-defineEmits<{ 'section-click': [section: OutlineSection] }>()
+defineProps<OutlineSpineProps>();
+defineEmits<{ "section-click": [section: OutlineSection] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <nav class="ks-outline-spine ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="ks-type-eyebrow" style="color: var(--color-accent); margin-bottom: 12px;">Contents</h3>
+  <nav
+    class="ks-outline-spine ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h3
+      :id="`${uid}-title`"
+      class="ks-type-eyebrow"
+      style="color: var(--color-accent); margin-bottom: 12px"
+    >
+      Contents
+    </h3>
     <ol class="ks-outline-spine__list">
       <li
         v-for="section in sections"
@@ -32,7 +41,12 @@ const uid = useId()
       >
         <button
           type="button"
-          :class="['ks-outline-spine__item', { 'ks-outline-spine__item--active': section.id === activeSectionId }]"
+          :class="[
+            'ks-outline-spine__item',
+            {
+              'ks-outline-spine__item--active': section.id === activeSectionId,
+            },
+          ]"
           @click="$emit('section-click', section)"
         >
           <span class="ks-outline-spine__title">{{ section.title }}</span>

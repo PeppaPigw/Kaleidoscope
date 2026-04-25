@@ -7,39 +7,45 @@
  */
 
 export interface FilterOption {
-  id: string
-  label: string
-  count: number
-  active: boolean
+  id: string;
+  label: string;
+  count: number;
+  active: boolean;
 }
 
 export interface FilterGroup {
-  id: string
-  title: string
-  options: FilterOption[]
+  id: string;
+  title: string;
+  options: FilterOption[];
 }
 
 export interface PrecisionFiltersProps {
-  filters: FilterGroup[]
+  filters: FilterGroup[];
 }
 
-const props = defineProps<PrecisionFiltersProps>()
+const props = defineProps<PrecisionFiltersProps>();
 
 defineEmits<{
-  'filter-toggle': [groupId: string, optionId: string, active: boolean]
-  'clear-all': []
-}>()
+  "filter-toggle": [groupId: string, optionId: string, active: boolean];
+  "clear-all": [];
+}>();
 
-const uid = useId()
-const expanded = ref(false)
+const uid = useId();
+const expanded = ref(false);
 
 const activeCount = computed(() => {
-  return props.filters.reduce((sum, g) => sum + g.options.filter(o => o.active).length, 0)
-})
+  return props.filters.reduce(
+    (sum, g) => sum + g.options.filter((o) => o.active).length,
+    0,
+  );
+});
 </script>
 
 <template>
-  <div class="ks-precision-filters ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <div
+    class="ks-precision-filters ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-precision-filters__header">
       <h3 :id="`${uid}-title`" class="sr-only">Search Filters</h3>
       <button
@@ -48,9 +54,30 @@ const activeCount = computed(() => {
         :aria-expanded="expanded"
         @click="expanded = !expanded"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="21" x2="4" y2="14" />
+          <line x1="4" y1="10" x2="4" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12" y2="3" />
+          <line x1="20" y1="21" x2="20" y2="16" />
+          <line x1="20" y1="12" x2="20" y2="3" />
+          <line x1="1" y1="14" x2="7" y2="14" />
+          <line x1="9" y1="8" x2="15" y2="8" />
+          <line x1="17" y1="16" x2="23" y2="16" />
+        </svg>
         <span class="ks-type-eyebrow">Filters</span>
-        <span v-if="activeCount > 0" class="ks-precision-filters__badge">{{ activeCount }}</span>
+        <span v-if="activeCount > 0" class="ks-precision-filters__badge">{{
+          activeCount
+        }}</span>
       </button>
       <button
         v-if="activeCount > 0"
@@ -69,12 +96,19 @@ const activeCount = computed(() => {
           class="ks-precision-filters__group"
         >
           <h4 class="ks-precision-filters__group-title">{{ group.title }}</h4>
-          <div class="ks-precision-filters__options" role="group" :aria-label="group.title">
+          <div
+            class="ks-precision-filters__options"
+            role="group"
+            :aria-label="group.title"
+          >
             <button
               v-for="opt in group.options"
               :key="opt.id"
               type="button"
-              :class="['ks-precision-filters__option', { 'ks-precision-filters__option--active': opt.active }]"
+              :class="[
+                'ks-precision-filters__option',
+                { 'ks-precision-filters__option--active': opt.active },
+              ]"
               :aria-pressed="opt.active"
               @click="$emit('filter-toggle', group.id, opt.id, !opt.active)"
             >
@@ -91,8 +125,14 @@ const activeCount = computed(() => {
 <style scoped>
 .sr-only {
   position: absolute;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .ks-precision-filters {
@@ -213,16 +253,20 @@ const activeCount = computed(() => {
 }
 
 /* Transition */
-.ks-filters-enter-active, .ks-filters-leave-active {
-  transition: max-height var(--duration-normal) var(--ease-spring),
-              opacity var(--duration-fast) var(--ease-smooth);
+.ks-filters-enter-active,
+.ks-filters-leave-active {
+  transition:
+    max-height var(--duration-normal) var(--ease-spring),
+    opacity var(--duration-fast) var(--ease-smooth);
   overflow: hidden;
 }
-.ks-filters-enter-from, .ks-filters-leave-to {
+.ks-filters-enter-from,
+.ks-filters-leave-to {
   max-height: 0;
   opacity: 0;
 }
-.ks-filters-enter-to, .ks-filters-leave-from {
+.ks-filters-enter-to,
+.ks-filters-leave-from {
   max-height: 400px;
   opacity: 1;
 }

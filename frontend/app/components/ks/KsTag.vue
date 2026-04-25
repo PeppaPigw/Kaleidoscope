@@ -11,44 +11,51 @@
  */
 
 export interface KsTagProps {
-  variant?: 'default' | 'primary' | 'accent' | 'success' | 'warning' | 'neutral' | 'danger'
+  variant?:
+    | "default"
+    | "primary"
+    | "accent"
+    | "success"
+    | "warning"
+    | "neutral"
+    | "danger";
   /** Renders as a larger, clickable pill shape */
-  interactive?: boolean
+  interactive?: boolean;
   /** Renders removable with an × button */
-  removable?: boolean
+  removable?: boolean;
 }
 
 const props = withDefaults(defineProps<KsTagProps>(), {
-  variant: 'default',
+  variant: "default",
   interactive: false,
   removable: false,
-})
+});
 
 const emit = defineEmits<{
-  remove: []
-  click: []
-}>()
+  remove: [];
+  click: [];
+}>();
 
 const rootClasses = computed(() => [
-  'ks-tag',
+  "ks-tag",
   `ks-tag--${props.variant}`,
   {
-    'ks-tag--interactive': props.interactive,
-    'ks-tag--removable': props.removable,
+    "ks-tag--interactive": props.interactive,
+    "ks-tag--removable": props.removable,
   },
-])
+]);
 
 function handleTagActivate() {
   if (props.interactive) {
-    emit('click')
+    emit("click");
   }
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (!props.interactive) return
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault()
-    emit('click')
+  if (!props.interactive) return;
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    emit("click");
   }
 }
 </script>
@@ -81,13 +88,13 @@ function handleKeydown(e: KeyboardEvent) {
 /* ─── Semantic variants ────────────────────────────── */
 .ks-tag--success {
   background: rgba(16, 150, 72, 0.08);
-  color: #0F7B3F;
+  color: #0f7b3f;
   border-color: transparent;
 }
 
 .ks-tag--warning {
   background: rgba(212, 155, 33, 0.08);
-  color: #8A5A04;
+  color: #8a5a04;
   border-color: transparent;
 }
 
@@ -99,7 +106,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 .ks-tag--danger {
   background: rgba(181, 74, 74, 0.08);
-  color: #B54A4A;
+  color: #b54a4a;
   border-color: transparent;
 }
 
@@ -109,9 +116,10 @@ function handleKeydown(e: KeyboardEvent) {
   padding: 0 12px;
   height: 28px;
   border-radius: 14px;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth),
-              border-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-tag--interactive:hover {
@@ -147,8 +155,9 @@ function handleKeydown(e: KeyboardEvent) {
   font-size: 0.75rem;
   line-height: 1;
   border-radius: 50%;
-  transition: opacity var(--duration-fast) var(--ease-smooth),
-              background var(--duration-fast) var(--ease-smooth);
+  transition:
+    opacity var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-tag__remove:hover {

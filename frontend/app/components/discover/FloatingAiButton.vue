@@ -5,11 +5,11 @@
  * Positioned at bottom-right corner, similar to customer support chat buttons.
  * Includes hover tooltip and pulse animation to draw attention.
  */
-import { Bot } from 'lucide-vue-next'
+import { Bot } from "lucide-vue-next";
 
 defineEmits<{
-  click: []
-}>()
+  click: [];
+}>();
 </script>
 
 <template>
@@ -38,18 +38,21 @@ defineEmits<{
   color: var(--color-bg);
   border: none;
   border-radius: 50%;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15),
-              0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   z-index: 100;
-  transition: transform var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    transform var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-floating-ai:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2),
-              0 3px 10px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.2),
+    0 3px 10px rgba(0, 0, 0, 0.15);
 }
 
 .ks-floating-ai:hover .ks-floating-ai__tooltip {
@@ -81,14 +84,15 @@ defineEmits<{
   border-radius: 6px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--duration-fast) var(--ease-smooth),
-              visibility var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-smooth);
+  transition:
+    opacity var(--duration-fast) var(--ease-smooth),
+    visibility var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth);
   pointer-events: none;
 }
 
 .ks-floating-ai__tooltip::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 100%;
   top: 50%;
@@ -99,15 +103,18 @@ defineEmits<{
 
 /* ── Pulse animation (optional attention grabber) ────── */
 @keyframes ks-floating-pulse {
-  0%, 100% {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15),
-                0 2px 8px rgba(0, 0, 0, 0.1),
-                0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
+  0%,
+  100% {
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1),
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
   }
   50% {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15),
-                0 2px 8px rgba(0, 0, 0, 0.1),
-                0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, transparent);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1),
+      0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, transparent);
   }
 }
 

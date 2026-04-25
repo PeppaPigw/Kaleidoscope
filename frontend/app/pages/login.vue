@@ -1,56 +1,57 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: "auth" });
 
 useHead({
-  title: 'Sign In — Kaleidoscope',
+  title: "Sign In — Kaleidoscope",
   link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: "preconnect", href: "https://fonts.googleapis.com" },
+    { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },
     {
-      rel: 'stylesheet',
-      href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap',
+      rel: "stylesheet",
+      href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap",
     },
   ],
-})
+});
 
-const config = useRuntimeConfig()
-const apiBase = config.public.apiUrl as string
+const config = useRuntimeConfig();
+const apiBase = config.public.apiUrl as string;
 
-const username = ref('')
-const password = ref('')
-const loading = ref(false)
-const error = ref('')
-const showPassword = ref(false)
+const username = ref("");
+const password = ref("");
+const loading = ref(false);
+const error = ref("");
+const showPassword = ref(false);
 
 async function handleSubmit() {
-  if (!username.value.trim() || !password.value) return
-  loading.value = true
-  error.value = ''
+  if (!username.value.trim() || !password.value) return;
+  loading.value = true;
+  error.value = "";
   try {
-    const res = await $fetch<{ access_token: string; user_id: string; mode: string }>(
-      `${apiBase}/api/v1/auth/login`,
-      {
-        method: 'POST',
-        body: { username: username.value.trim(), password: password.value },
-      },
-    )
+    const res = await $fetch<{
+      access_token: string;
+      user_id: string;
+      mode: string;
+    }>(`${apiBase}/api/v1/auth/login`, {
+      method: "POST",
+      body: { username: username.value.trim(), password: password.value },
+    });
     if (import.meta.client) {
-      localStorage.setItem('ks_access_token', res.access_token || 'single-user-mode')
-      localStorage.setItem('ks_user_id', res.user_id)
+      localStorage.setItem(
+        "ks_access_token",
+        res.access_token || "single-user-mode",
+      );
+      localStorage.setItem("ks_user_id", res.user_id);
     }
-    await navigateTo('/dashboard')
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { detail?: string }; status?: number }
+    await navigateTo("/dashboard");
+  } catch (e: unknown) {
+    const err = e as { data?: { detail?: string }; status?: number };
     if (err?.status === 401) {
-      error.value = 'Invalid username or password.'
+      error.value = "Invalid username or password.";
+    } else {
+      error.value = "Something went wrong. Please try again.";
     }
-    else {
-      error.value = 'Something went wrong. Please try again.'
-    }
-  }
-  finally {
-    loading.value = false
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -67,14 +68,18 @@ async function handleSubmit() {
             src="/brand/kaleidoscope-icon-rounded.png"
             alt=""
             class="ks-login__brand-icon"
-          >
+          />
           <span class="ks-login__brand-name">Kaleidoscope</span>
         </div>
 
         <div class="ks-login__headline">
-          <p class="ks-login__headline-line ks-login__headline-line--light">Where</p>
+          <p class="ks-login__headline-line ks-login__headline-line--light">
+            Where
+          </p>
           <p class="ks-login__headline-line">discovery</p>
-          <p class="ks-login__headline-line ks-login__headline-line--italic">begins.</p>
+          <p class="ks-login__headline-line ks-login__headline-line--italic">
+            begins.
+          </p>
         </div>
 
         <div class="ks-login__panel-footer">
@@ -114,7 +119,7 @@ async function handleSubmit() {
               :disabled="loading"
               placeholder="Enter your username"
               @keydown.enter="handleSubmit"
-            >
+            />
           </div>
 
           <div class="ks-login__field">
@@ -129,14 +134,14 @@ async function handleSubmit() {
                 :disabled="loading"
                 placeholder="Enter your password"
                 @keydown.enter="handleSubmit"
-              >
+              />
               <button
                 type="button"
                 class="ks-login__password-toggle"
                 :aria-label="showPassword ? 'Hide password' : 'Show password'"
                 @click="showPassword = !showPassword"
               >
-                {{ showPassword ? '⊘' : '◎' }}
+                {{ showPassword ? "⊘" : "◎" }}
               </button>
             </div>
           </div>
@@ -190,12 +195,16 @@ async function handleSubmit() {
     linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 80% at 30% 40%, black 20%, transparent 100%);
+  mask-image: radial-gradient(
+    ellipse 80% 80% at 30% 40%,
+    black 20%,
+    transparent 100%
+  );
 }
 
 /* Prismatic accent blob */
 .ks-login__panel::before {
-  content: '';
+  content: "";
   position: absolute;
   width: 600px;
   height: 600px;
@@ -211,7 +220,7 @@ async function handleSubmit() {
 }
 
 .ks-login__panel::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 400px;
   height: 400px;
@@ -249,7 +258,7 @@ async function handleSubmit() {
 }
 
 .ks-login__brand-name {
-  font: 600 1rem / 1 var(--font-display, 'Cormorant Garamond', Georgia, serif);
+  font: 600 1rem / 1 var(--font-display, "Cormorant Garamond", Georgia, serif);
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.04em;
 }
@@ -264,10 +273,10 @@ async function handleSubmit() {
 }
 
 .ks-login__headline-line {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: "Cormorant Garamond", Georgia, serif;
   font-weight: 300;
   font-size: clamp(3.5rem, 6vw, 6rem);
-  line-height: 1.0;
+  line-height: 1;
   color: rgba(255, 255, 255, 0.95);
   margin: 0;
   letter-spacing: -0.02em;
@@ -377,7 +386,9 @@ async function handleSubmit() {
   font: 400 0.9375rem / 1.4 var(--font-sans, sans-serif);
   color: var(--color-text, #1a1a1a);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   -webkit-appearance: none;
 }
 
@@ -445,7 +456,10 @@ async function handleSubmit() {
   letter-spacing: 0.02em;
   color: #fff;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease,
+    opacity 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -478,7 +492,9 @@ async function handleSubmit() {
 }
 
 @keyframes ks-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Footer note */

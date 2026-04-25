@@ -5,39 +5,52 @@
  */
 
 export interface YearlyPub {
-  year: number
-  count: number
+  year: number;
+  count: number;
 }
 
 interface Props {
-  timeline: YearlyPub[]
+  timeline: YearlyPub[];
 }
 
-const props = defineProps<Props>()
-const uid = useId()
+const props = defineProps<Props>();
+const uid = useId();
 
-const maxCount = computed(() => Math.max(...props.timeline.map(t => t.count), 1))
-const totalPapers = computed(() => props.timeline.reduce((s, t) => s + t.count, 0))
-const activeYears = computed(() => props.timeline.length)
+const maxCount = computed(() =>
+  Math.max(...props.timeline.map((t) => t.count), 1),
+);
+const totalPapers = computed(() =>
+  props.timeline.reduce((s, t) => s + t.count, 0),
+);
+const activeYears = computed(() => props.timeline.length);
 </script>
 
 <template>
-  <section v-if="timeline.length" class="ks-pub-timeline ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    v-if="timeline.length"
+    class="ks-pub-timeline ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-pub-timeline__header">
-      <h2 :id="`${uid}-title`" class="ks-type-section-title">Publications by Year</h2>
+      <h2 :id="`${uid}-title`" class="ks-type-section-title">
+        Publications by Year
+      </h2>
       <span class="ks-pub-timeline__summary ks-type-data">
         {{ totalPapers }} papers · {{ activeYears }} active years
       </span>
     </div>
 
-    <div class="ks-pub-timeline__chart" role="img" :aria-label="`Publication counts from ${timeline[0]?.year} to ${timeline[timeline.length-1]?.year}`">
-      <div
-        v-for="bar in timeline"
-        :key="bar.year"
-        class="ks-pub-timeline__col"
-      >
+    <div
+      class="ks-pub-timeline__chart"
+      role="img"
+      :aria-label="`Publication counts from ${timeline[0]?.year} to ${timeline[timeline.length - 1]?.year}`"
+    >
+      <div v-for="bar in timeline" :key="bar.year" class="ks-pub-timeline__col">
         <span class="ks-pub-timeline__count ks-type-data">{{ bar.count }}</span>
-        <div class="ks-pub-timeline__bar-wrap" :title="`${bar.count} paper${bar.count !== 1 ? 's' : ''} in ${bar.year}`">
+        <div
+          class="ks-pub-timeline__bar-wrap"
+          :title="`${bar.count} paper${bar.count !== 1 ? 's' : ''} in ${bar.year}`"
+        >
           <div
             class="ks-pub-timeline__bar"
             :style="{ height: `${(bar.count / maxCount) * 100}%` }"
@@ -98,9 +111,13 @@ const activeYears = computed(() => props.timeline.length)
 .ks-pub-timeline__bar {
   width: 100%;
   min-height: 3px;
-  background: linear-gradient(180deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, transparent));
+  background: linear-gradient(
+    180deg,
+    var(--color-primary),
+    color-mix(in srgb, var(--color-primary) 60%, transparent)
+  );
   border-radius: 3px 3px 0 0;
-  transition: height 0.4s var(--ease-spring, cubic-bezier(.34,1.56,.64,1));
+  transition: height 0.4s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
 }
 
 .ks-pub-timeline__col:hover .ks-pub-timeline__bar {

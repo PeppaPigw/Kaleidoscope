@@ -16,12 +16,12 @@
 
 export interface KsSectionDividerProps {
   /** Text/symbol shown in the center. Ignored if default slot is used. */
-  label?: string
+  label?: string;
 }
 
 withDefaults(defineProps<KsSectionDividerProps>(), {
   label: undefined,
-})
+});
 </script>
 
 <template>
@@ -39,7 +39,13 @@ withDefaults(defineProps<KsSectionDividerProps>(), {
 .ks-section-divider:not(:has(> span)) {
   display: block;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-border) 80%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-border) 20%,
+    var(--color-border) 80%,
+    transparent 100%
+  );
   margin: clamp(2.5rem, 6vw, 5rem) 0;
 }
 </style>

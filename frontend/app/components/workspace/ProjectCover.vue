@@ -4,35 +4,44 @@
  */
 
 export interface ProjectCoverProps {
-  name: string
-  description: string
-  paperCount: number
-  memberCount: number
-  lastUpdated: string
-  status: 'active' | 'archived' | 'draft'
+  name: string;
+  description: string;
+  paperCount: number;
+  memberCount: number;
+  lastUpdated: string;
+  status: "active" | "archived" | "draft";
 }
 
-defineProps<ProjectCoverProps>()
-defineEmits<{ 'settings': [] }>()
+defineProps<ProjectCoverProps>();
+defineEmits<{ settings: [] }>();
 
-const uid = useId()
+const uid = useId();
 
-type TagVariant = 'success' | 'neutral' | 'warning'
+type TagVariant = "success" | "neutral" | "warning";
 
-function statusVariant(s: ProjectCoverProps['status']): TagVariant {
-  const map: Record<ProjectCoverProps['status'], TagVariant> = { active: 'success', archived: 'neutral', draft: 'warning' }
-  return map[s]
+function statusVariant(s: ProjectCoverProps["status"]): TagVariant {
+  const map: Record<ProjectCoverProps["status"], TagVariant> = {
+    active: "success",
+    archived: "neutral",
+    draft: "warning",
+  };
+  return map[s];
 }
 </script>
 
 <template>
-  <header class="ks-project-cover ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <header
+    class="ks-project-cover ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <div class="ks-project-cover__main">
       <div class="ks-project-cover__heading">
         <h1 :id="`${uid}-title`" class="ks-project-cover__name">{{ name }}</h1>
         <KsTag :variant="statusVariant(status)">{{ status }}</KsTag>
       </div>
-      <p class="ks-type-body-sm" style="color: var(--color-secondary);">{{ description }}</p>
+      <p class="ks-type-body-sm" style="color: var(--color-secondary)">
+        {{ description }}
+      </p>
     </div>
     <div class="ks-project-cover__stats">
       <div class="ks-project-cover__stat">
@@ -46,7 +55,9 @@ function statusVariant(s: ProjectCoverProps['status']): TagVariant {
       <div class="ks-project-cover__stat">
         <span class="ks-type-data">Updated {{ lastUpdated }}</span>
       </div>
-      <KsButton variant="secondary" @click="$emit('settings')">⚙ Settings</KsButton>
+      <KsButton variant="secondary" @click="$emit('settings')"
+        >⚙ Settings</KsButton
+      >
     </div>
   </header>
 </template>

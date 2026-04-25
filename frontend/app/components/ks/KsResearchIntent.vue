@@ -9,44 +9,46 @@
  * @slot actions — Optional action buttons (e.g., Edit, Archive)
  */
 
-export type ResearchQuestionStatus = 'active' | 'answered' | 'parked'
+export type ResearchQuestionStatus = "active" | "answered" | "parked";
 
 export interface ResearchQuestion {
-  id: string
-  text: string
-  status: ResearchQuestionStatus
+  id: string;
+  text: string;
+  status: ResearchQuestionStatus;
 }
 
 export interface KsResearchIntentProps {
   /** Primary research question / intent */
-  title: string
+  title: string;
   /** Sub-questions under this intent */
-  subQuestions?: ResearchQuestion[]
+  subQuestions?: ResearchQuestion[];
   /** Number of papers collected */
-  paperCount?: number
+  paperCount?: number;
   /** Progress percentage (0–100) */
-  progress?: number
+  progress?: number;
 }
 
 const props = withDefaults(defineProps<KsResearchIntentProps>(), {
   subQuestions: () => [],
   paperCount: 0,
   progress: 0,
-})
+});
 
 const statusIcons: Record<ResearchQuestionStatus, string> = {
-  active: '◉',
-  answered: '✓',
-  parked: '○',
-}
+  active: "◉",
+  answered: "✓",
+  parked: "○",
+};
 
 const statusLabels: Record<ResearchQuestionStatus, string> = {
-  active: 'Active',
-  answered: 'Answered',
-  parked: 'Parked',
-}
+  active: "Active",
+  answered: "Answered",
+  parked: "Parked",
+};
 
-const progressPercent = computed(() => Math.min(100, Math.max(0, props.progress)))
+const progressPercent = computed(() =>
+  Math.min(100, Math.max(0, props.progress)),
+);
 </script>
 
 <template>
@@ -61,7 +63,11 @@ const progressPercent = computed(() => Math.min(100, Math.max(0, props.progress)
     <h3 class="ks-research-intent__title ks-type-section-title">{{ title }}</h3>
 
     <!-- Sub-questions -->
-    <ul v-if="subQuestions.length > 0" class="ks-research-intent__questions" aria-label="Sub-questions">
+    <ul
+      v-if="subQuestions.length > 0"
+      class="ks-research-intent__questions"
+      aria-label="Sub-questions"
+    >
       <li
         v-for="rq in subQuestions"
         :key="rq.id"
@@ -159,7 +165,7 @@ const progressPercent = computed(() => Math.min(100, Math.max(0, props.progress)
 }
 
 .ks-research-intent__rq--answered .ks-research-intent__rq-icon {
-  color: #0F7B3F;
+  color: #0f7b3f;
 }
 
 .ks-research-intent__rq--parked .ks-research-intent__rq-icon {

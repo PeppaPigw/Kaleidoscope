@@ -12,42 +12,42 @@
 
 export interface KsCardProps {
   /** Visual variant: default | teal-top | gold-top | flat */
-  variant?: 'default' | 'teal-top' | 'gold-top' | 'flat'
+  variant?: "default" | "teal-top" | "gold-top" | "flat";
   /** Padding preset — none removes all padding */
-  padding?: 'none' | 'sm' | 'md' | 'lg'
+  padding?: "none" | "sm" | "md" | "lg";
   /** Disable hover lift animation */
-  static?: boolean
+  static?: boolean;
   /** HTML tag for the root element */
-  as?: string
+  as?: string;
 }
 
 const props = withDefaults(defineProps<KsCardProps>(), {
-  variant: 'default',
-  padding: 'md',
+  variant: "default",
+  padding: "md",
   static: false,
-  as: 'div',
-})
+  as: "div",
+});
 
 const paddingMap: Record<string, string> = {
-  none: '',
-  sm: 'ks-card-pad--sm',
-  md: 'ks-card-pad--md',
-  lg: 'ks-card-pad--lg',
-}
+  none: "",
+  sm: "ks-card-pad--sm",
+  md: "ks-card-pad--md",
+  lg: "ks-card-pad--lg",
+};
 
 const variantMap: Record<string, string> = {
-  'default': '',
-  'teal-top': 'ks-card--teal-top',
-  'gold-top': 'ks-card--gold-top',
-  'flat': 'ks-card--flat',
-}
+  default: "",
+  "teal-top": "ks-card--teal-top",
+  "gold-top": "ks-card--gold-top",
+  flat: "ks-card--flat",
+};
 
 const rootClasses = computed(() => [
-  'ks-card',
+  "ks-card",
   variantMap[props.variant],
   paddingMap[props.padding],
-  { 'ks-card--static': props.static },
-])
+  { "ks-card--static": props.static },
+]);
 </script>
 
 <template>
@@ -77,9 +77,15 @@ const rootClasses = computed(() => [
 }
 
 /* ─── Padding presets ──────────────────────────────── */
-.ks-card-pad--sm { padding: 12px 14px; }
-.ks-card-pad--md { padding: 20px 24px; }
-.ks-card-pad--lg { padding: 28px 32px; }
+.ks-card-pad--sm {
+  padding: 12px 14px;
+}
+.ks-card-pad--md {
+  padding: 20px 24px;
+}
+.ks-card-pad--lg {
+  padding: 28px 32px;
+}
 
 /* ─── Sections ─────────────────────────────────────── */
 .ks-card__header {

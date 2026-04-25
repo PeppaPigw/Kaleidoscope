@@ -4,34 +4,43 @@
  */
 
 export interface Opportunity {
-  id: string
-  title: string
-  description: string
-  gapType: 'unexplored' | 'underdeveloped' | 'contradictory'
-  relevantPapers: number
-  confidence: number
+  id: string;
+  title: string;
+  description: string;
+  gapType: "unexplored" | "underdeveloped" | "contradictory";
+  relevantPapers: number;
+  confidence: number;
 }
 
 export interface OpportunityLensProps {
-  opportunities: Opportunity[]
+  opportunities: Opportunity[];
 }
 
-defineProps<OpportunityLensProps>()
-defineEmits<{ 'opportunity-click': [opportunity: Opportunity] }>()
+defineProps<OpportunityLensProps>();
+defineEmits<{ "opportunity-click": [opportunity: Opportunity] }>();
 
-const uid = useId()
+const uid = useId();
 
-type TagVariant = 'primary' | 'accent' | 'danger'
+type TagVariant = "primary" | "accent" | "danger";
 
-function gapVariant(g: Opportunity['gapType']): TagVariant {
-  const map: Record<Opportunity['gapType'], TagVariant> = { unexplored: 'primary', underdeveloped: 'accent', contradictory: 'danger' }
-  return map[g]
+function gapVariant(g: Opportunity["gapType"]): TagVariant {
+  const map: Record<Opportunity["gapType"], TagVariant> = {
+    unexplored: "primary",
+    underdeveloped: "accent",
+    contradictory: "danger",
+  };
+  return map[g];
 }
 </script>
 
 <template>
-  <section class="ks-opportunity-lens ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">Research Opportunities</h2>
+  <section
+    class="ks-opportunity-lens ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      Research Opportunities
+    </h2>
 
     <div class="ks-opportunity-lens__grid">
       <button
@@ -43,7 +52,11 @@ function gapVariant(g: Opportunity['gapType']): TagVariant {
       >
         <div class="ks-opportunity-lens__header">
           <KsTag :variant="gapVariant(o.gapType)">{{ o.gapType }}</KsTag>
-          <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">{{ (o.confidence * 100).toFixed(0) }}%</span>
+          <span
+            class="ks-type-data"
+            style="color: var(--color-primary); font-weight: 700"
+            >{{ (o.confidence * 100).toFixed(0) }}%</span
+          >
         </div>
         <h3 class="ks-opportunity-lens__title">{{ o.title }}</h3>
         <p class="ks-opportunity-lens__desc">{{ o.description }}</p>
@@ -68,8 +81,9 @@ function gapVariant(g: Opportunity['gapType']): TagVariant {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-opportunity-lens__card:hover {

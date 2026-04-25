@@ -15,37 +15,40 @@
  */
 
 export interface KsSkeletonProps {
-  variant?: 'line' | 'circle' | 'paragraph' | 'card' | 'custom'
+  variant?: "line" | "circle" | "paragraph" | "card" | "custom";
   /** Width override (CSS value). Ignored for paragraph/card. */
-  width?: string
+  width?: string;
   /** Height override (CSS value). Ignored for paragraph/card. */
-  height?: string
+  height?: string;
   /** Number of lines in paragraph mode */
-  lines?: number
+  lines?: number;
   /** Animate pulse — disable for reduced-motion fallback */
-  animate?: boolean
+  animate?: boolean;
 }
 
 const props = withDefaults(defineProps<KsSkeletonProps>(), {
-  variant: 'custom',
+  variant: "custom",
   width: undefined,
   height: undefined,
   lines: 4,
   animate: true,
-})
+});
 
 const rootStyle = computed(() => {
-  if (props.variant === 'paragraph' || props.variant === 'card') return {}
+  if (props.variant === "paragraph" || props.variant === "card") return {};
   return {
     width: props.width,
     height: props.height,
-  }
-})
+  };
+});
 
 const lineWidths = computed(() => {
-  const widths = ['100%', '92%', '85%', '72%', '60%', '88%', '78%', '95%']
-  return Array.from({ length: props.lines }, (_, i) => widths[i % widths.length])
-})
+  const widths = ["100%", "92%", "85%", "72%", "60%", "88%", "78%", "95%"];
+  return Array.from(
+    { length: props.lines },
+    (_, i) => widths[i % widths.length],
+  );
+});
 </script>
 
 <template>

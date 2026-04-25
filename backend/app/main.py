@@ -125,6 +125,8 @@ async def _background_label_papers() -> None:
                 .where(
                     Paper.deleted_at.is_(None),
                     Paper.paper_labels.is_(None),
+                    Paper.title != "",
+                    Paper.full_text_markdown.is_not(None),
                 )
                 .order_by(Paper.created_at.desc())
             )
@@ -145,9 +147,7 @@ async def _background_label_papers() -> None:
             async with sem:
                 try:
                     async with async_session_factory() as db:
-                        r = await db.execute(
-                            select(Paper).where(Paper.id == paper_id)
-                        )
+                        r = await db.execute(select(Paper).where(Paper.id == paper_id))
                         paper = r.scalar_one_or_none()
                         if paper is None or paper.paper_labels is not None:
                             return
@@ -195,6 +195,8 @@ async def _background_analyse_papers() -> None:
                 .where(
                     Paper.deleted_at.is_(None),
                     Paper.deep_analysis.is_(None),
+                    Paper.title != "",
+                    Paper.full_text_markdown.is_not(None),
                 )
                 .order_by(Paper.created_at.desc())
             )
@@ -214,8 +216,13 @@ async def _background_analyse_papers() -> None:
                 try:
                     async with async_session_factory() as db:
                         r = await db.execute(
-                            select(Paper).where(Paper.id == paper_id)
-                            .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+                            select(Paper)
+                            .where(Paper.id == paper_id)
+                            .options(
+                                selectinload(Paper.authors).selectinload(
+                                    PaperAuthor.author
+                                )
+                            )
                         )
                         paper = r.scalar_one_or_none()
                         if paper is None or paper.deep_analysis is not None:
@@ -251,6 +258,7 @@ async def _background_overview_images() -> None:
     from app.models.paper import Paper
     from app.dependencies import async_session_factory
     from app.services.analysis.overview_image_service import OverviewImageService
+    from app.services.analysis.paper_analyst import deep_analysis_is_valid
     from datetime import datetime, timezone
 
     try:
@@ -269,8 +277,10 @@ async def _background_overview_images() -> None:
 
         # Only process papers where deep_analysis succeeded and overview_image is missing/failed
         candidates = [
-            r for r in rows
-            if (r.deep_analysis or {}).get("status") == "ok"
+            r
+            for r in rows
+            if deep_analysis_is_valid(r.deep_analysis)
+            and r.title.strip()
             and (r.overview_image or {}).get("status") not in ("ok", "generating")
         ]
 
@@ -283,7 +293,9 @@ async def _background_overview_images() -> None:
 
         logger.info("overview_image_startup_begin", count=len(candidates))
         done = errors = 0
-        sem = asyncio.Semaphore(1)  # image generation is expensive: LLM + image API + OSS
+        sem = asyncio.Semaphore(
+            1
+        )  # image generation is expensive: LLM + image API + OSS
 
         async def _one(paper_id, paper_title: str, deep_analysis: dict) -> None:
             nonlocal done, errors
@@ -300,7 +312,10 @@ async def _background_overview_images() -> None:
                         if paper is None:
                             return
                         # Re-check: another path may have generated it already
-                        if (paper.overview_image or {}).get("status") in ("ok", "generating"):
+                        if (paper.overview_image or {}).get("status") in (
+                            "ok",
+                            "generating",
+                        ):
                             return
                         paper.overview_image = {"status": "generating"}
                         paper.overview_image_at = datetime.now(timezone.utc)
@@ -391,7 +406,8 @@ async def _background_translate_analyses() -> None:
             rows = result.all()
 
         candidates = [
-            r for r in rows
+            r
+            for r in rows
             if (r.deep_analysis or {}).get("status") == "ok"
             and (r.deep_analysis_zh or {}).get("status") not in ("ok", "translating")
         ]
@@ -414,7 +430,9 @@ async def _background_translate_analyses() -> None:
 
             # Mark as translating
             async with async_session_factory() as db:
-                p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                p = (
+                    await db.execute(select(Paper).where(Paper.id == paper_id))
+                ).scalar_one_or_none()
                 if p is None:
                     continue
                 if (p.deep_analysis_zh or {}).get("status") in ("ok", "translating"):
@@ -425,7 +443,9 @@ async def _background_translate_analyses() -> None:
 
             try:
                 async with TranslateClient(system_prompt=_SYS) as client:
-                    translated = await client.translate(analysis_text, system_prompt=_SYS)
+                    translated = await client.translate(
+                        analysis_text, system_prompt=_SYS
+                    )
 
                 if translated:
                     zh_data = {
@@ -440,10 +460,14 @@ async def _background_translate_analyses() -> None:
             except Exception as e:
                 zh_data = {"status": "error", "error": str(e)[:300]}
                 errors += 1
-                logger.warning("translate_zh_bg_error", paper_id=str(paper_id), error=str(e)[:120])
+                logger.warning(
+                    "translate_zh_bg_error", paper_id=str(paper_id), error=str(e)[:120]
+                )
 
             async with async_session_factory() as db:
-                p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                p = (
+                    await db.execute(select(Paper).where(Paper.id == paper_id))
+                ).scalar_one_or_none()
                 if p is not None:
                     p.deep_analysis_zh = zh_data
                     p.deep_analysis_zh_at = datetime.now(timezone.utc)
@@ -474,33 +498,42 @@ async def _background_fetch_links() -> None:
 
         async with async_session_factory() as session:
             result = await session.execute(
-                select(Paper.id, Paper.title, Paper.arxiv_id, Paper.doi, Paper.paper_links)
+                select(
+                    Paper.id, Paper.title, Paper.arxiv_id, Paper.doi, Paper.paper_links
+                )
                 .where(Paper.deleted_at.is_(None), Paper.title != "")
                 .order_by(Paper.created_at.desc())
             )
             rows = result.all()
 
         candidates = [
-            r for r in rows
+            r
+            for r in rows
             if (r.paper_links or {}).get("status") not in ("ok", "fetching")
             and r.title.strip()
         ]
 
         if not candidates:
-            logger.info("fetch_links_startup_skip", reason="all papers already have links")
+            logger.info(
+                "fetch_links_startup_skip", reason="all papers already have links"
+            )
             return
 
         logger.info("fetch_links_startup_begin", count=len(candidates))
         done = errors = 0
         sem = asyncio.Semaphore(2)
 
-        async def _one(paper_id, title: str, arxiv_id: str | None, doi: str | None) -> None:
+        async def _one(
+            paper_id, title: str, arxiv_id: str | None, doi: str | None
+        ) -> None:
             nonlocal done, errors
             async with sem:
                 try:
                     # Mark as fetching (re-check first)
                     async with async_session_factory() as db:
-                        p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                        p = (
+                            await db.execute(select(Paper).where(Paper.id == paper_id))
+                        ).scalar_one_or_none()
                         if p is None:
                             return
                         if (p.paper_links or {}).get("status") in ("ok", "fetching"):
@@ -518,15 +551,23 @@ async def _background_fetch_links() -> None:
                         **links,
                     }
                     done += 1
-                    logger.info("fetch_links_bg_done", paper_id=str(paper_id), title=title[:60])
+                    logger.info(
+                        "fetch_links_bg_done", paper_id=str(paper_id), title=title[:60]
+                    )
                 except Exception as e:
                     links_data = {"status": "error", "error": str(e)[:300]}
                     errors += 1
-                    logger.warning("fetch_links_bg_error", paper_id=str(paper_id), error=str(e)[:120])
+                    logger.warning(
+                        "fetch_links_bg_error",
+                        paper_id=str(paper_id),
+                        error=str(e)[:120],
+                    )
 
                 try:
                     async with async_session_factory() as db:
-                        p = (await db.execute(select(Paper).where(Paper.id == paper_id))).scalar_one_or_none()
+                        p = (
+                            await db.execute(select(Paper).where(Paper.id == paper_id))
+                        ).scalar_one_or_none()
                         if p is not None:
                             p.paper_links = links_data
                             p.paper_links_at = datetime.now(timezone.utc)
@@ -561,33 +602,43 @@ async def _background_embed_papers() -> None:
         async with async_session_factory() as session:
             # Papers with no job at all
             no_job_ids = (
-                await session.execute(
-                    select(Paper.id).where(
-                        Paper.deleted_at.is_(None),
-                        not_(
-                            exists(
-                                select(PaperEmbeddingJob.id).where(
-                                    PaperEmbeddingJob.paper_id == Paper.id
+                (
+                    await session.execute(
+                        select(Paper.id).where(
+                            Paper.deleted_at.is_(None),
+                            not_(
+                                exists(
+                                    select(PaperEmbeddingJob.id).where(
+                                        PaperEmbeddingJob.paper_id == Paper.id
+                                    )
                                 )
-                            )
-                        ),
+                            ),
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             # Papers whose last job failed
             failed_ids = (
-                await session.execute(
-                    select(Paper.id)
-                    .join(PaperEmbeddingJob, PaperEmbeddingJob.paper_id == Paper.id)
-                    .where(
-                        Paper.deleted_at.is_(None),
-                        PaperEmbeddingJob.status == "failed",
+                (
+                    await session.execute(
+                        select(Paper.id)
+                        .join(PaperEmbeddingJob, PaperEmbeddingJob.paper_id == Paper.id)
+                        .where(
+                            Paper.deleted_at.is_(None),
+                            PaperEmbeddingJob.status == "failed",
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
-        all_ids = list(dict.fromkeys([str(i) for i in no_job_ids] + [str(i) for i in failed_ids]))
+        all_ids = list(
+            dict.fromkeys([str(i) for i in no_job_ids] + [str(i) for i in failed_ids])
+        )
 
         if not all_ids:
             logger.info("embed_startup_skip", reason="all papers already embedded")
@@ -615,7 +666,9 @@ async def _background_embed_papers() -> None:
                         )
                 except Exception as e:
                     errors += 1
-                    logger.warning("embed_startup_error", paper_id=paper_id, error=str(e)[:120])
+                    logger.warning(
+                        "embed_startup_error", paper_id=paper_id, error=str(e)[:120]
+                    )
 
         await asyncio.gather(*[_one(pid) for pid in all_ids], return_exceptions=True)
         logger.info("embed_startup_done", done=done, errors=errors, skipped=skipped)

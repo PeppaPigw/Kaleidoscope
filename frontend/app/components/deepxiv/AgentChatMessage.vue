@@ -5,24 +5,19 @@
  * User messages render right-aligned; assistant messages render left-aligned
  * with an optional papers-loaded badge.
  */
-import { FileText } from 'lucide-vue-next'
+import { FileText } from "lucide-vue-next";
 
 export interface AgentChatMessageProps {
-  role: 'user' | 'assistant'
-  content: string
-  papersLoaded?: number
+  role: "user" | "assistant";
+  content: string;
+  papersLoaded?: number;
 }
 
-defineProps<AgentChatMessageProps>()
+defineProps<AgentChatMessageProps>();
 </script>
 
 <template>
-  <div
-    :class="[
-      'ks-chat-message',
-      `ks-chat-message--${role}`,
-    ]"
-  >
+  <div :class="['ks-chat-message', `ks-chat-message--${role}`]">
     <div class="ks-chat-message__bubble">
       <p class="ks-chat-message__text">{{ content }}</p>
       <span
@@ -30,7 +25,7 @@ defineProps<AgentChatMessageProps>()
         class="ks-chat-message__papers"
       >
         <FileText :size="12" />
-        {{ papersLoaded }} paper{{ papersLoaded === 1 ? '' : 's' }} loaded
+        {{ papersLoaded }} paper{{ papersLoaded === 1 ? "" : "s" }} loaded
       </span>
     </div>
   </div>

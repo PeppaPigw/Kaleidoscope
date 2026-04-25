@@ -7,23 +7,23 @@
  */
 
 export interface SavedExploration {
-  id: string
-  title: string
-  date: string
-  pinned: boolean
+  id: string;
+  title: string;
+  date: string;
+  pinned: boolean;
 }
 
 export interface SavedExplorationsProps {
-  explorations: SavedExploration[]
+  explorations: SavedExploration[];
 }
 
-defineProps<SavedExplorationsProps>()
+defineProps<SavedExplorationsProps>();
 
 defineEmits<{
-  'reopen': [exploration: SavedExploration]
-}>()
+  reopen: [exploration: SavedExploration];
+}>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
@@ -31,7 +31,9 @@ const uid = useId()
     class="ks-saved-explorations ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-4"
     :aria-labelledby="`${uid}-title`"
   >
-    <h4 :id="`${uid}-title`" class="ks-type-section-title">Saved Explorations</h4>
+    <h4 :id="`${uid}-title`" class="ks-type-section-title">
+      Saved Explorations
+    </h4>
     <ul class="ks-saved-explorations__list">
       <li
         v-for="item in explorations"
@@ -42,7 +44,9 @@ const uid = useId()
         ]"
       >
         <div class="ks-saved-explorations__item-info">
-          <span class="ks-saved-explorations__item-title">{{ item.title }}</span>
+          <span class="ks-saved-explorations__item-title">{{
+            item.title
+          }}</span>
           <span class="ks-type-data">{{ item.date }}</span>
         </div>
         <button

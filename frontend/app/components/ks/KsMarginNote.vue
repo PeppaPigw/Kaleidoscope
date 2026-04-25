@@ -19,12 +19,12 @@
 
 export interface KsMarginNoteProps {
   /** Optional label above the note (e.g. "AI Note", "Editor") */
-  label?: string
+  label?: string;
 }
 
 withDefaults(defineProps<KsMarginNoteProps>(), {
   label: undefined,
-})
+});
 </script>
 
 <template>

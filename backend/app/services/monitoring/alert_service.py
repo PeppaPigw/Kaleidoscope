@@ -10,6 +10,7 @@ Provides:
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
 import structlog
 from sqlalchemy import func, select, update
@@ -19,6 +20,27 @@ from app.models.alert import Alert, AlertRule, Digest
 from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
+
+PREFERENCE_RULE_MANAGER = "user_preferences"
+
+
+def _dedupe_strings(values: list[str] | None) -> list[str]:
+    """Normalize free-form string lists while preserving first occurrence."""
+    if not values:
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        cleaned = str(value).strip()
+        if not cleaned:
+            continue
+        key = cleaned.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(cleaned)
+    return normalized
 
 
 class AlertService:
@@ -49,6 +71,97 @@ class AlertService:
         self.db.add(rule)
         await self.db.flush()
         return rule
+
+    async def sync_preference_rules(
+        self,
+        *,
+        keywords: list[str] | None = None,
+        tracked_authors: list[str] | None = None,
+    ) -> list[AlertRule]:
+        """Reconcile settings-managed rules with the latest user preferences."""
+        desired_specs = {
+            "keywords": {
+                "name": "Subscription keywords",
+                "rule_type": "keyword_match",
+                "condition": {
+                    "managed_by": PREFERENCE_RULE_MANAGER,
+                    "preference_type": "keywords",
+                    "keywords": _dedupe_strings(keywords),
+                },
+            },
+            "tracked_authors": {
+                "name": "Tracked authors",
+                "rule_type": "author_update",
+                "condition": {
+                    "managed_by": PREFERENCE_RULE_MANAGER,
+                    "preference_type": "tracked_authors",
+                    "author_names": _dedupe_strings(tracked_authors),
+                },
+            },
+        }
+
+        result = await self.db.execute(
+            select(AlertRule)
+            .where(AlertRule.user_id == self.user_id)
+            .order_by(AlertRule.created_at.asc())
+        )
+
+        managed_rules: dict[str, AlertRule] = {}
+        duplicates_to_remove: list[AlertRule] = []
+
+        for rule in result.scalars().all():
+            condition = rule.condition or {}
+            if condition.get("managed_by") != PREFERENCE_RULE_MANAGER:
+                continue
+            preference_type = condition.get("preference_type")
+            if preference_type not in desired_specs:
+                duplicates_to_remove.append(rule)
+                continue
+            if preference_type in managed_rules:
+                duplicates_to_remove.append(rule)
+                continue
+            managed_rules[str(preference_type)] = rule
+
+        synced_rules: list[AlertRule] = []
+        for preference_type, spec in desired_specs.items():
+            condition = spec["condition"]
+            values = (
+                condition.get("keywords")
+                if preference_type == "keywords"
+                else condition.get("author_names")
+            )
+            rule = managed_rules.pop(preference_type, None)
+
+            if not values:
+                if rule is not None:
+                    duplicates_to_remove.append(rule)
+                continue
+
+            if rule is None:
+                rule = AlertRule(
+                    user_id=self.user_id,
+                    name=str(spec["name"]),
+                    rule_type=str(spec["rule_type"]),
+                    condition=condition,
+                    actions=["in_app"],
+                    is_active=True,
+                )
+                self.db.add(rule)
+            else:
+                rule.name = str(spec["name"])
+                rule.rule_type = str(spec["rule_type"])
+                rule.condition = condition
+                rule.actions = ["in_app"]
+                rule.is_active = True
+
+            synced_rules.append(rule)
+
+        duplicates_to_remove.extend(managed_rules.values())
+        for rule in duplicates_to_remove:
+            await self.db.delete(rule)
+
+        await self.db.flush()
+        return synced_rules
 
     async def list_rules(self) -> list[AlertRule]:
         """List all rules for this user."""
@@ -184,7 +297,7 @@ class AlertService:
     @staticmethod
     def _matches_rule(rule: AlertRule, paper: Paper) -> bool:
         """Check if a paper matches a rule's condition."""
-        cond = rule.condition
+        cond: dict[str, Any] = rule.condition or {}
         if not cond:
             return False
 

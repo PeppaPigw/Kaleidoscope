@@ -8,47 +8,53 @@
  */
 
 export interface ClaimEvidence {
-  paperId: string
-  paperTitle: string
-  stance: 'supports' | 'contradicts' | 'neutral'
-  snippet: string
+  paperId: string;
+  paperTitle: string;
+  stance: "supports" | "contradicts" | "neutral";
+  snippet: string;
 }
 
 export interface ClaimResult {
-  id: string
-  claim: string
-  confidence: number
-  category: string
-  evidence: ClaimEvidence[]
+  id: string;
+  claim: string;
+  confidence: number;
+  category: string;
+  evidence: ClaimEvidence[];
 }
 
 export interface ClaimSearchProps {
-  claims: ClaimResult[]
-  loading?: boolean
+  claims: ClaimResult[];
+  loading?: boolean;
 }
 
-defineProps<ClaimSearchProps>()
+defineProps<ClaimSearchProps>();
 
 defineEmits<{
-  'claim-click': [claim: ClaimResult]
-  'paper-click': [paperId: string]
-}>()
+  "claim-click": [claim: ClaimResult];
+  "paper-click": [paperId: string];
+}>();
 
-const uid = useId()
+const uid = useId();
 
-function stanceColor(stance: ClaimEvidence['stance']): string {
+function stanceColor(stance: ClaimEvidence["stance"]): string {
   switch (stance) {
-    case 'supports': return 'var(--color-primary)'
-    case 'contradicts': return '#B54A4A'
-    case 'neutral': return 'var(--color-secondary)'
+    case "supports":
+      return "var(--color-primary)";
+    case "contradicts":
+      return "#B54A4A";
+    case "neutral":
+      return "var(--color-secondary)";
   }
 }
 
-function stanceLabel(stance: ClaimEvidence['stance']): string {
+function stanceLabel(stance: ClaimEvidence["stance"]): string {
   switch (stance) {
-    case 'supports': return 'Supporting'
-    case 'contradicts': return 'Contradicting'
-    case 'neutral': return 'Neutral'
+    case "supports":
+      return "Supporting";
+    case "contradicts":
+      return "Contradicting";
+    case "neutral":
+      return "Neutral";
   }
 }
 </script>
@@ -77,10 +83,13 @@ function stanceLabel(stance: ClaimEvidence['stance']): string {
         ]"
       >
         <div class="ks-claim-search__card-header">
-          <span class="ks-type-eyebrow" style="color: var(--color-accent);">
+          <span class="ks-type-eyebrow" style="color: var(--color-accent)">
             {{ claim.category }}
           </span>
-          <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">
+          <span
+            class="ks-type-data"
+            style="color: var(--color-primary); font-weight: 700"
+          >
             {{ (claim.confidence * 100).toFixed(0) }}% confidence
           </span>
         </div>
@@ -103,7 +112,15 @@ function stanceLabel(stance: ClaimEvidence['stance']): string {
             :style="{ borderLeftColor: stanceColor(ev.stance) }"
           >
             <div class="ks-claim-search__evidence-header">
-              <KsTag :variant="ev.stance === 'supports' ? 'primary' : ev.stance === 'contradicts' ? 'danger' : 'neutral'">
+              <KsTag
+                :variant="
+                  ev.stance === 'supports'
+                    ? 'primary'
+                    : ev.stance === 'contradicts'
+                      ? 'danger'
+                      : 'neutral'
+                "
+              >
                 {{ stanceLabel(ev.stance) }}
               </KsTag>
               <button
@@ -127,8 +144,14 @@ function stanceLabel(stance: ClaimEvidence['stance']): string {
 <style scoped>
 .sr-only {
   position: absolute;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .ks-claim-search__list {

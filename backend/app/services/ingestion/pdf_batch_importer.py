@@ -1,7 +1,7 @@
-"""Local PDF batch importer — bulk upload, parse, deduplicate, index.
+"""Local PDF batch importer — bulk upload, publish, deduplicate, index.
 
 Handles:
-- Single PDF upload → GROBID parse → metadata extraction → dedup → index
+- Single PDF upload → publish MinerU source URL → dedup → index
 - Batch ZIP upload → extract → process each PDF
 - Folder path scanning (server-side)
 - Duplicate detection via DOI exact + title fuzzy match
@@ -11,9 +11,8 @@ import hashlib
 import io
 import os
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import BinaryIO
 
 import structlog
 from sqlalchemy import func, select
@@ -39,10 +38,10 @@ class PDFBatchImporter:
         """
         Import a single PDF file.
 
-        Pipeline: hash → dedup check → store → queue GROBID parse → enrich
+        Pipeline: hash → dedup check → store → publish MinerU URL → enrich
 
         Returns:
-            {paper_id, status, is_duplicate, matched_paper_id}
+            {paper_id, status, is_duplicate, matched_paper_id, mineru_url}
         """
         log = logger.bind(filename=filename)
 
@@ -72,7 +71,7 @@ class PDFBatchImporter:
                 "source": "local_upload",
                 "original_filename": filename,
                 "content_hash": content_hash,
-                "upload_timestamp": datetime.utcnow().isoformat(),
+                "upload_timestamp": datetime.now(timezone.utc).isoformat(),
                 "uploaded_by_user": user_id or "anonymous",
             },
         )
@@ -86,17 +85,33 @@ class PDFBatchImporter:
         pdf_path = await self._store_pdf(paper_id, filename, content)
         paper.pdf_path = pdf_path
 
-        # 5. Quick metadata extraction from filename
-        # (Full GROBID parse will be done async via task queue)
+        # 5. Publish a public PDF URL that MinerU can fetch directly
+        mineru_url = await self._publish_pdf_for_mineru(paper_id, content)
+        paper.remote_urls = [
+            {
+                "url": mineru_url,
+                "source": "local_upload_public",
+                "type": "pdf",
+            }
+        ]
+        paper.raw_metadata = {
+            **dict(paper.raw_metadata or {}),
+            "mineru_source": "oss_public_pdf",
+            "mineru_source_url": mineru_url,
+        }
+
+        # 6. Quick metadata extraction from filename
+        # (Full MinerU parse will be done async via task queue)
         await self.db.flush()
 
-        log.info("pdf_imported", pdf_path=pdf_path)
+        log.info("pdf_imported", pdf_path=pdf_path, mineru_url=mineru_url)
         return {
             "paper_id": paper_id,
             "status": "imported",
             "is_duplicate": False,
             "matched_paper_id": None,
             "match_type": None,
+            "mineru_url": mineru_url,
         }
 
     async def import_zip(self, zip_content: bytes, user_id: str | None = None) -> dict:
@@ -277,3 +292,16 @@ class PDFBatchImporter:
         object_key = f"papers/{paper_id}/local_upload.pdf"
         PDFDownloaderService._persist_content(object_key, content)
         return object_key
+
+    async def _publish_pdf_for_mineru(self, paper_id: str, content: bytes) -> str:
+        """
+        Publish the uploaded PDF to a public object store URL for MinerU.
+
+        MinerU only accepts fetchable document URLs, so local uploads must be
+        mirrored to public storage before the parsing task can run.
+        """
+        from app.clients.oss_client import OssClient
+
+        object_key = f"Kaleidoscope/local-pdfs/{paper_id}/source.pdf"
+        async with OssClient() as oss:
+            return await oss.upload_bytes(content, object_key)

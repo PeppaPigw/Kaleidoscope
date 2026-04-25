@@ -10,6 +10,7 @@ Provides:
 """
 
 import json
+import re
 from typing import Any
 
 import structlog
@@ -20,6 +21,10 @@ from sqlalchemy.orm import selectinload
 from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
+
+_SPACE_RE = re.compile(r"\s+")
+_NON_WORD_RE = re.compile(r"[^a-z0-9]+")
+_NUMBER_RE = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
 
 # ─── LLM Prompt Templates ────────────────────────────────────────
 
@@ -169,6 +174,344 @@ class DeepAnalysisService:
         client = await self._get_llm_client()
         return await client.complete(prompt=prompt, temperature=0.2)
 
+    def _normalize_label(self, value: Any, fallback: str) -> str:
+        if value is None:
+            return fallback
+        text = _SPACE_RE.sub(" ", str(value)).strip()
+        return text or fallback
+
+    def _slugify(self, value: str) -> str:
+        text = value.lower().strip()
+        slug = _NON_WORD_RE.sub("-", text).strip("-")
+        return slug or "unknown"
+
+    def _parse_numeric_value(self, value: Any) -> tuple[float | None, str]:
+        if value is None:
+            return None, "—"
+
+        if isinstance(value, bool):
+            return None, str(value)
+
+        if isinstance(value, (int, float)):
+            numeric = float(value)
+            display = str(int(numeric)) if numeric.is_integer() else f"{numeric:g}"
+            return numeric, display
+
+        text = str(value).strip()
+        if not text:
+            return None, "—"
+
+        match = _NUMBER_RE.search(text)
+        if not match:
+            return None, text
+
+        try:
+            numeric = float(match.group(0).replace(",", ""))
+        except ValueError:
+            return None, text
+        return numeric, text
+
+    def _infer_higher_is_better(self, metric: str) -> bool:
+        text = metric.lower()
+        lower_is_better_terms = (
+            "error",
+            "loss",
+            "latency",
+            "time",
+            "memory",
+            "perplexity",
+            "mae",
+            "mse",
+            "rmse",
+            "wer",
+            "cer",
+            "distance",
+        )
+        return not any(term in text for term in lower_is_better_terms)
+
+    def _record_confidence(self, record: dict[str, Any]) -> float:
+        checks = [
+            bool(
+                record.get("method_name") and record["method_name"] != "Unknown Method"
+            ),
+            bool(record.get("dataset") and record["dataset"] != "Unspecified"),
+            bool(record.get("metric") and record["metric"] != "Unspecified"),
+            record.get("value_numeric") is not None,
+            bool(record.get("value_display") and record["value_display"] != "—"),
+        ]
+        return round(sum(1 for ok in checks if ok) / len(checks), 3)
+
+    def _normalize_experiments(
+        self,
+        paper_id: str,
+        paper: Paper,
+        experiments: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        records: list[dict[str, Any]] = []
+        methods_seen: dict[str, dict[str, Any]] = {}
+
+        for index, item in enumerate(experiments):
+            method_name = self._normalize_label(
+                item.get("method"),
+                "Unknown Method",
+            )
+            dataset = self._normalize_label(item.get("dataset"), "Unspecified")
+            metric = self._normalize_label(item.get("metric"), "Unspecified")
+            value_numeric, value_display = self._parse_numeric_value(item.get("value"))
+            method_key = self._slugify(method_name)
+            dataset_key = self._slugify(dataset)
+            metric_key = self._slugify(metric)
+            column_key = f"{dataset} · {metric}" if dataset != "Unspecified" else metric
+
+            record = {
+                "id": f"{paper_id}:record:{index}",
+                "paper_id": paper_id,
+                "paper_title": paper.title,
+                "paper_year": paper.published_at.year if paper.published_at else None,
+                "source": (
+                    f"{paper.title} ({paper.published_at.year})"
+                    if paper.published_at
+                    else paper.title
+                ),
+                "method_name": method_name,
+                "method_key": method_key,
+                "dataset": dataset,
+                "dataset_key": dataset_key,
+                "metric": metric,
+                "metric_key": metric_key,
+                "column_key": column_key,
+                "value_raw": item.get("value"),
+                "value_display": value_display,
+                "value_numeric": value_numeric,
+                "is_main_result": bool(item.get("is_main_result", False)),
+                "comparison": item.get("comparison"),
+                "split": item.get("split"),
+                "higher_is_better": self._infer_higher_is_better(metric),
+                "comparable": dataset != "Unspecified" and metric != "Unspecified",
+            }
+            record["confidence"] = self._record_confidence(record)
+            records.append(record)
+
+            if method_key not in methods_seen:
+                methods_seen[method_key] = {
+                    "id": f"{paper_id}:method:{method_key}",
+                    "name": method_name,
+                    "paper_id": paper_id,
+                    "paper_title": paper.title,
+                    "datasets": set(),
+                    "metrics": set(),
+                    "record_count": 0,
+                    "main_result_count": 0,
+                }
+
+            method_meta = methods_seen[method_key]
+            if dataset != "Unspecified":
+                method_meta["datasets"].add(dataset)
+            if metric != "Unspecified":
+                method_meta["metrics"].add(metric)
+            method_meta["record_count"] += 1
+            if record["is_main_result"]:
+                method_meta["main_result_count"] += 1
+
+        methods = []
+        for meta in methods_seen.values():
+            methods.append(
+                {
+                    **meta,
+                    "datasets": sorted(meta["datasets"]),
+                    "metrics": sorted(meta["metrics"]),
+                }
+            )
+        methods.sort(key=lambda item: item["name"].lower())
+        return records, methods
+
+    def _build_matrix_ready(
+        self,
+        records: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not records:
+            return {
+                "columns": [],
+                "metric_names": [],
+                "rows": [],
+                "best_by_column": {},
+            }
+
+        column_meta: dict[str, dict[str, Any]] = {}
+        rows_map: dict[str, dict[str, Any]] = {}
+        best_candidates: dict[str, tuple[str, float, bool]] = {}
+
+        for record in records:
+            column_key = record["column_key"]
+            column_meta.setdefault(
+                column_key,
+                {
+                    "key": column_key,
+                    "dataset": record["dataset"],
+                    "metric": record["metric"],
+                    "higher_is_better": record["higher_is_better"],
+                },
+            )
+
+            row_id = f"{record['paper_id']}:{record['method_key']}"
+            row = rows_map.setdefault(
+                row_id,
+                {
+                    "id": row_id,
+                    "paper_id": record["paper_id"],
+                    "paper_title": record["paper_title"],
+                    "method": record["method_name"],
+                    "source": record["source"],
+                    "metrics": {},
+                    "numeric_metrics": {},
+                    "best_metrics": [],
+                    "is_best": False,
+                    "record_ids": [],
+                    "confidence_values": [],
+                },
+            )
+            row["metrics"][column_key] = record["value_display"]
+            row["numeric_metrics"][column_key] = record.get("value_numeric")
+            row["record_ids"].append(record["id"])
+            if isinstance(record.get("confidence"), (int, float)):
+                row["confidence_values"].append(float(record["confidence"]))
+
+            numeric_value = record.get("value_numeric")
+            if numeric_value is None:
+                continue
+
+            higher_is_better = record.get("higher_is_better", True)
+            current_best = best_candidates.get(column_key)
+            if current_best is None:
+                best_candidates[column_key] = (
+                    row_id,
+                    float(numeric_value),
+                    higher_is_better,
+                )
+                continue
+
+            _, current_value, current_higher_is_better = current_best
+            if current_higher_is_better:
+                if float(numeric_value) > current_value:
+                    best_candidates[column_key] = (
+                        row_id,
+                        float(numeric_value),
+                        higher_is_better,
+                    )
+            elif float(numeric_value) < current_value:
+                best_candidates[column_key] = (
+                    row_id,
+                    float(numeric_value),
+                    higher_is_better,
+                )
+
+        best_by_column = {key: value[0] for key, value in best_candidates.items()}
+        rows = []
+        for row in rows_map.values():
+            confidence_values = row.pop("confidence_values")
+            row["confidence"] = (
+                round(sum(confidence_values) / len(confidence_values), 3)
+                if confidence_values
+                else None
+            )
+            row["best_metrics"] = sorted(
+                [
+                    column_key
+                    for column_key, row_id in best_by_column.items()
+                    if row_id == row["id"]
+                ]
+            )
+            row["is_best"] = bool(row["best_metrics"])
+            rows.append(row)
+
+        rows.sort(key=lambda item: item["method"].lower())
+        columns = sorted(
+            column_meta.values(),
+            key=lambda item: (
+                str(item.get("dataset") or "").lower(),
+                str(item.get("metric") or "").lower(),
+            ),
+        )
+
+        return {
+            "columns": columns,
+            "metric_names": [column["key"] for column in columns],
+            "rows": rows,
+            "best_by_column": best_by_column,
+        }
+
+    def _build_coverage(
+        self,
+        records: list[dict[str, Any]],
+        methods: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        total = len(records)
+        if total == 0:
+            return {
+                "total_records": 0,
+                "main_result_records": 0,
+                "methods": 0,
+                "datasets": 0,
+                "metrics": 0,
+                "field_completion": {
+                    "method": 0.0,
+                    "dataset": 0.0,
+                    "metric": 0.0,
+                    "numeric_value": 0.0,
+                },
+                "overall": 0.0,
+            }
+
+        with_method = sum(
+            1
+            for record in records
+            if record.get("method_name") and record["method_name"] != "Unknown Method"
+        )
+        with_dataset = sum(
+            1
+            for record in records
+            if record.get("dataset") and record["dataset"] != "Unspecified"
+        )
+        with_metric = sum(
+            1
+            for record in records
+            if record.get("metric") and record["metric"] != "Unspecified"
+        )
+        with_numeric = sum(
+            1 for record in records if record.get("value_numeric") is not None
+        )
+        field_completion = {
+            "method": round(with_method / total, 3),
+            "dataset": round(with_dataset / total, 3),
+            "metric": round(with_metric / total, 3),
+            "numeric_value": round(with_numeric / total, 3),
+        }
+        overall = round(sum(field_completion.values()) / len(field_completion), 3)
+
+        return {
+            "total_records": total,
+            "main_result_records": sum(
+                1 for record in records if record.get("is_main_result")
+            ),
+            "methods": len(methods),
+            "datasets": len(
+                {
+                    record["dataset"]
+                    for record in records
+                    if record.get("dataset") and record["dataset"] != "Unspecified"
+                }
+            ),
+            "metrics": len(
+                {
+                    record["metric"]
+                    for record in records
+                    if record.get("metric") and record["metric"] != "Unspecified"
+                }
+            ),
+            "field_completion": field_completion,
+            "overall": overall,
+        }
+
     async def analyze_innovation(self, paper_id: str) -> dict:
         """
         Analyze a paper's innovation points vs. prior work.
@@ -219,11 +562,37 @@ class DeepAnalysisService:
         try:
             response = await self._call_llm(prompt)
             experiments = json.loads(response)
+            records, methods = self._normalize_experiments(
+                paper_id=paper_id,
+                paper=paper,
+                experiments=experiments,
+            )
+            matrix_ready = self._build_matrix_ready(records)
+            coverage = self._build_coverage(records, methods)
+            confidence = {
+                "overall": coverage["overall"],
+                "records": {record["id"]: record["confidence"] for record in records},
+            }
             log.info("experiment_extraction_complete", count=len(experiments))
             return {
                 "paper_id": paper_id,
                 "title": paper.title,
+                "paper": {
+                    "id": paper_id,
+                    "title": paper.title,
+                    "year": paper.published_at.year if paper.published_at else None,
+                    "source": (
+                        f"{paper.title} ({paper.published_at.year})"
+                        if paper.published_at
+                        else paper.title
+                    ),
+                },
                 "experiments": experiments,
+                "methods": methods,
+                "records": records,
+                "matrix_ready": matrix_ready,
+                "coverage": coverage,
+                "confidence": confidence,
             }
         except (json.JSONDecodeError, Exception) as e:
             log.error("experiment_extraction_failed", error=str(e))
@@ -231,6 +600,16 @@ class DeepAnalysisService:
                 "paper_id": paper_id,
                 "title": paper.title,
                 "experiments": [],
+                "methods": [],
+                "records": [],
+                "matrix_ready": {
+                    "columns": [],
+                    "metric_names": [],
+                    "rows": [],
+                    "best_by_column": {},
+                },
+                "coverage": self._build_coverage([], []),
+                "confidence": {"overall": 0.0, "records": {}},
                 "error": str(e),
             }
 

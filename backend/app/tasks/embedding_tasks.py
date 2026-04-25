@@ -70,7 +70,9 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
             return {"status": job.status, "skipped": True}
 
         if not job:
-            job = PaperEmbeddingJob(paper_id=paper_uuid, status="running", priority=priority)
+            job = PaperEmbeddingJob(
+                paper_id=paper_uuid, status="running", priority=priority
+            )
             session.add(job)
         else:
             job.status = "running"
@@ -80,7 +82,9 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
         await session.flush()
 
         # ── 2. Load paper ─────────────────────────────────────────
-        paper = (await session.execute(select(Paper).where(Paper.id == paper_uuid))).scalar_one_or_none()
+        paper = (
+            await session.execute(select(Paper).where(Paper.id == paper_uuid))
+        ).scalar_one_or_none()
         if not paper:
             job.status = "failed"
             job.error_message = "Paper not found"
@@ -104,7 +108,9 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
             return {"status": "failed", "error": "No indexable sections"}
 
         # ── 4. Delete old chunks ──────────────────────────────────
-        await session.execute(delete(PaperChunk).where(PaperChunk.paper_id == paper_uuid))
+        await session.execute(
+            delete(PaperChunk).where(PaperChunk.paper_id == paper_uuid)
+        )
         await session.flush()
 
         # ── 5. Insert chunks (no vectors yet) ────────────────────
@@ -144,7 +150,9 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
         job.finished_at = datetime.now(timezone.utc)
         await session.commit()
 
-        logger.info("paper_embedding_completed", paper_id=paper_id, chunks=len(chunk_objs))
+        logger.info(
+            "paper_embedding_completed", paper_id=paper_id, chunks=len(chunk_objs)
+        )
         return {"status": "completed", "chunks": len(chunk_objs)}
 
 
@@ -169,7 +177,9 @@ def process_paper_embedding(self, paper_id: str, priority: int = 0):
             paper_uuid = uuid.UUID(paper_id)
             async with async_session_factory() as session:
                 result = await session.execute(
-                    select(PaperEmbeddingJob).where(PaperEmbeddingJob.paper_id == paper_uuid)
+                    select(PaperEmbeddingJob).where(
+                        PaperEmbeddingJob.paper_id == paper_uuid
+                    )
                 )
                 job = result.scalar_one_or_none()
                 if job:

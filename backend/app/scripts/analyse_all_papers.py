@@ -2,6 +2,7 @@
 Backfill deep_analysis for all papers missing it.
 Usage: python -m app.scripts.analyse_all_papers [--force] [--concurrency N]
 """
+
 import asyncio
 import argparse
 import sys
@@ -30,7 +31,7 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
             q = q.where(
                 or_(
                     Paper.deep_analysis.is_(None),
-                    Paper.deep_analysis['status'].astext == 'error',
+                    Paper.deep_analysis["status"].astext == "error",
                 )
             )
         q = q.order_by(Paper.created_at.desc())
@@ -53,8 +54,11 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
             try:
                 async with async_session_factory() as db:
                     r = await db.execute(
-                        select(Paper).where(Paper.id == paper_id)
-                        .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
+                        select(Paper)
+                        .where(Paper.id == paper_id)
+                        .options(
+                            selectinload(Paper.authors).selectinload(PaperAuthor.author)
+                        )
                     )
                     paper = r.scalar_one_or_none()
                     if paper is None:
@@ -77,10 +81,14 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
                 out_chars = len(result.get("analysis", ""))
                 if status == "ok":
                     done += 1
-                    print(f"  ✓ [{done+errors}/{total}] {title[:70]}  ({out_chars} chars)")
+                    print(
+                        f"  ✓ [{done+errors}/{total}] {title[:70]}  ({out_chars} chars)"
+                    )
                 else:
                     errors += 1
-                    print(f"  ✗ [{done+errors}/{total}] {title[:70]}  ERR: {result.get('error','?')[:80]}")
+                    print(
+                        f"  ✗ [{done+errors}/{total}] {title[:70]}  ERR: {result.get('error','?')[:80]}"
+                    )
             except Exception as e:
                 errors += 1
                 print(f"  ✗ EXCEPTION {str(paper_id)[:8]}… {str(e)[:100]}")
@@ -94,7 +102,9 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--force", action="store_true", help="Re-analyse already-analysed papers")
+    parser.add_argument(
+        "--force", action="store_true", help="Re-analyse already-analysed papers"
+    )
     parser.add_argument("--concurrency", type=int, default=5)
     args = parser.parse_args()
     asyncio.run(main(force=args.force, concurrency=args.concurrency))

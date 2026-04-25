@@ -7,32 +7,34 @@
  */
 
 export interface DeepXivFilters {
-  categories: string
-  date_from: string
-  date_to: string
-  min_citation: number
-  authors: string
+  categories: string;
+  date_from: string;
+  date_to: string;
+  min_citation: number;
+  authors: string;
 }
 
 export interface SearchFiltersProps {
-  modelValue: DeepXivFilters
+  modelValue: DeepXivFilters;
 }
 
-const props = defineProps<SearchFiltersProps>()
+const props = defineProps<SearchFiltersProps>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: DeepXivFilters]
-}>()
+  "update:modelValue": [value: DeepXivFilters];
+}>();
 
 function update(field: keyof DeepXivFilters, value: string | number) {
-  emit('update:modelValue', { ...props.modelValue, [field]: value })
+  emit("update:modelValue", { ...props.modelValue, [field]: value });
 }
 </script>
 
 <template>
   <div class="ks-search-filters">
     <div class="ks-search-filters__field">
-      <label class="ks-search-filters__label" for="dx-categories">Categories</label>
+      <label class="ks-search-filters__label" for="dx-categories"
+        >Categories</label
+      >
       <input
         id="dx-categories"
         type="text"
@@ -40,7 +42,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
         placeholder="cs.AI, cs.CL, stat.ML"
         :value="modelValue.categories"
         @input="update('categories', ($event.target as HTMLInputElement).value)"
-      >
+      />
     </div>
 
     <div class="ks-search-filters__field">
@@ -52,7 +54,7 @@ function update(field: keyof DeepXivFilters, value: string | number) {
         placeholder="Author names"
         :value="modelValue.authors"
         @input="update('authors', ($event.target as HTMLInputElement).value)"
-      >
+      />
     </div>
 
     <div class="ks-search-filters__row">
@@ -63,8 +65,10 @@ function update(field: keyof DeepXivFilters, value: string | number) {
           type="date"
           class="ks-search-filters__input"
           :value="modelValue.date_from"
-          @input="update('date_from', ($event.target as HTMLInputElement).value)"
-        >
+          @input="
+            update('date_from', ($event.target as HTMLInputElement).value)
+          "
+        />
       </div>
 
       <div class="ks-search-filters__field">
@@ -75,20 +79,27 @@ function update(field: keyof DeepXivFilters, value: string | number) {
           class="ks-search-filters__input"
           :value="modelValue.date_to"
           @input="update('date_to', ($event.target as HTMLInputElement).value)"
-        >
+        />
       </div>
     </div>
 
     <div class="ks-search-filters__field">
-      <label class="ks-search-filters__label" for="dx-min-citation">Min citations</label>
+      <label class="ks-search-filters__label" for="dx-min-citation"
+        >Min citations</label
+      >
       <input
         id="dx-min-citation"
         type="number"
         class="ks-search-filters__input ks-search-filters__input--narrow"
         min="0"
         :value="modelValue.min_citation"
-        @input="update('min_citation', Number(($event.target as HTMLInputElement).value))"
-      >
+        @input="
+          update(
+            'min_citation',
+            Number(($event.target as HTMLInputElement).value),
+          )
+        "
+      />
     </div>
   </div>
 </template>

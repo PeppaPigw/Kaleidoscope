@@ -115,7 +115,9 @@ class LinksService:
 
         prompt = _PROMPT_TEMPLATE.format(
             title=title.replace('"', "'"),
-            identifiers="\n".join(id_lines) if id_lines else "(no identifiers available)",
+            identifiers=(
+                "\n".join(id_lines) if id_lines else "(no identifiers available)"
+            ),
         )
         payload = {
             "model": settings.links_model,

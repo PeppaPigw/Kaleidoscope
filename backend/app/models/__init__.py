@@ -29,7 +29,6 @@ from app.models.topic import PaperTopic, Topic
 from app.models.user import User, UserRole
 from app.models.venue import Venue
 from app.models.writing import WritingDocument
-from app.services.ragflow.dataset_registry import RagflowDocumentMapping
 from app.models.paper_qa import PaperChunk, PaperEmbeddingJob, QAMessage
 
 __all__ = [
@@ -73,7 +72,6 @@ __all__ = [
     "UserCorrection",
     "ReproductionAttempt",
     "ReadingPathCache",
-    "RagflowDocumentMapping",
     "PaperChunk",
     "PaperEmbeddingJob",
     "QAMessage",

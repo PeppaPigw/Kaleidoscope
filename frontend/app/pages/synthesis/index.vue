@@ -2,59 +2,100 @@
 /**
  * Synthesis Studio — synthesis.vue
  */
-import type { ComparisonPaper, ComparisonFeature } from '~/components/synthesis/ComparisonMatrix.vue'
-import type { ThemeCluster } from '~/components/synthesis/ThemeClusters.vue'
+import type {
+  ComparisonPaper,
+  ComparisonFeature,
+} from "~/components/synthesis/ComparisonMatrix.vue";
+import type { ThemeCluster } from "~/components/synthesis/ThemeClusters.vue";
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: "default" });
 
-const CLUSTER_COLORS = ['var(--color-primary)', 'var(--color-accent-decorative)', '#6366f1', '#ec4899', '#f59e0b', '#10b981']
+const CLUSTER_COLORS = [
+  "var(--color-primary)",
+  "var(--color-accent-decorative)",
+  "#6366f1",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+];
 
-const { t } = useTranslation()
-const { getTrendTopics } = useApi()
+const { t } = useTranslation();
+const { getTrendTopics } = useApi();
 
 useHead({
-  title: 'Synthesis Studio — Kaleidoscope',
-  meta: [{ name: 'description', content: 'Cross-paper comparison and thematic synthesis.' }],
-})
+  title: "Synthesis Studio — Kaleidoscope",
+  meta: [
+    {
+      name: "description",
+      content: "Cross-paper comparison and thematic synthesis.",
+    },
+  ],
+});
 
 // Selected-paper comparison remains a stub until a user-driven comparison API exists.
 const papers: ComparisonPaper[] = [
-  { id: 'p1', title: 'ClaimMiner', shortName: 'ClaimMiner' },
-  { id: 'p2', title: 'FactNet', shortName: 'FactNet' },
-  { id: 'p3', title: 'RAG-Paragraph', shortName: 'RAG-P' },
-]
+  { id: "p1", title: "ClaimMiner", shortName: "ClaimMiner" },
+  { id: "p2", title: "FactNet", shortName: "FactNet" },
+  { id: "p3", title: "RAG-Paragraph", shortName: "RAG-P" },
+];
 
 const features: ComparisonFeature[] = [
-  { id: 'f1', name: 'Atomic Claim Extraction', category: 'Method', values: { p1: true, p2: false, p3: false } },
-  { id: 'f2', name: 'Evidence Alignment', category: 'Method', values: { p1: true, p2: true, p3: false } },
-  { id: 'f3', name: 'Cross-Domain Transfer', category: 'Capability', values: { p1: 'partial', p2: 'no', p3: 'yes' } },
-  { id: 'f4', name: 'Open Source', category: 'Access', values: { p1: true, p2: true, p3: false } },
-  { id: 'f5', name: 'BioASQ Evaluation', category: 'Benchmark', values: { p1: true, p2: false, p3: true } },
-]
+  {
+    id: "f1",
+    name: "Atomic Claim Extraction",
+    category: "Method",
+    values: { p1: true, p2: false, p3: false },
+  },
+  {
+    id: "f2",
+    name: "Evidence Alignment",
+    category: "Method",
+    values: { p1: true, p2: true, p3: false },
+  },
+  {
+    id: "f3",
+    name: "Cross-Domain Transfer",
+    category: "Capability",
+    values: { p1: "partial", p2: "no", p3: "yes" },
+  },
+  {
+    id: "f4",
+    name: "Open Source",
+    category: "Access",
+    values: { p1: true, p2: true, p3: false },
+  },
+  {
+    id: "f5",
+    name: "BioASQ Evaluation",
+    category: "Benchmark",
+    values: { p1: true, p2: false, p3: true },
+  },
+];
 
-const clusters = ref<ThemeCluster[]>([])
-const isLoading = ref(true)
-const loadError = ref(false)
+const clusters = ref<ThemeCluster[]>([]);
+const isLoading = ref(true);
+const loadError = ref(false);
 
 onMounted(async () => {
   try {
-    const topicData = await getTrendTopics()
+    const topicData = await getTrendTopics();
     clusters.value = topicData.topics.map((topic, index) => ({
       id: topic.id,
       name: topic.label,
       paperCount: topic.paper_count,
-      color: CLUSTER_COLORS[index % CLUSTER_COLORS.length] ?? CLUSTER_COLORS[0]!,
+      color:
+        CLUSTER_COLORS[index % CLUSTER_COLORS.length] ?? CLUSTER_COLORS[0]!,
       keywords: topic.keywords.slice(0, 4),
-    }))
+    }));
   } catch {
-    loadError.value = true
+    loadError.value = true;
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-})
+});
 
 function handleClusterClick(cluster: ThemeCluster) {
-  navigateTo(`/search?cluster=${cluster.id}`)
+  navigateTo(`/search?cluster=${cluster.id}`);
 }
 </script>
 
@@ -71,10 +112,15 @@ function handleClusterClick(cluster: ThemeCluster) {
         title="Theme clusters unavailable"
         description="Topic cluster data could not be loaded from the trends API."
       />
-      <SynthesisThemeClusters v-else :clusters="clusters" @cluster-click="handleClusterClick" />
+      <SynthesisThemeClusters
+        v-else
+        :clusters="clusters"
+        @cluster-click="handleClusterClick"
+      />
 
       <p class="ks-type-body-sm ks-synthesis__note">
-        Comparison matrix remains a selected-paper stub until user-driven comparison APIs are available.
+        Comparison matrix remains a selected-paper stub until user-driven
+        comparison APIs are available.
       </p>
       <SynthesisComparisonMatrix :papers="papers" :features="features" />
     </div>

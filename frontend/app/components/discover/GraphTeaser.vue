@@ -7,50 +7,62 @@
  */
 
 export interface GraphNode {
-  id: string
-  label: string
-  cx: number
-  cy: number
-  r: number
-  type: 'primary' | 'bridge'
+  id: string;
+  label: string;
+  cx: number;
+  cy: number;
+  r: number;
+  type: "primary" | "bridge";
 }
 
 export interface GraphEdge {
-  from: string
-  to: string
+  from: string;
+  to: string;
 }
 
 export interface GraphTeaserProps {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }
 
-const props = defineProps<GraphTeaserProps>()
+const props = defineProps<GraphTeaserProps>();
 
 defineEmits<{
-  'explore': []
-}>()
+  explore: [];
+}>();
 
-const uid = useId()
+const uid = useId();
 
 /** Pre-compute a Map for O(1) node lookups */
 const nodeMap = computed(() => {
-  const map = new Map<string, GraphNode>()
-  for (const n of props.nodes) map.set(n.id, n)
-  return map
-})
+  const map = new Map<string, GraphNode>();
+  for (const n of props.nodes) map.set(n.id, n);
+  return map;
+});
 
 /** Resolve edges to { from, to, x1, y1, x2, y2 } with coordinates */
 const resolvedEdges = computed(() => {
   return props.edges
-    .map(e => {
-      const from = nodeMap.value.get(e.from)
-      const to = nodeMap.value.get(e.to)
-      if (!from || !to) return null
-      return { key: `${e.from}-${e.to}`, x1: from.cx, y1: from.cy, x2: to.cx, y2: to.cy }
+    .map((e) => {
+      const from = nodeMap.value.get(e.from);
+      const to = nodeMap.value.get(e.to);
+      if (!from || !to) return null;
+      return {
+        key: `${e.from}-${e.to}`,
+        x1: from.cx,
+        y1: from.cy,
+        x2: to.cx,
+        y2: to.cy,
+      };
     })
-    .filter(Boolean) as { key: string; x1: number; y1: number; x2: number; y2: number }[]
-})
+    .filter(Boolean) as {
+    key: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  }[];
+});
 </script>
 
 <template>
@@ -62,7 +74,11 @@ const resolvedEdges = computed(() => {
     <p class="ks-type-body-sm ks-graph-teaser__desc">
       Connection landscape for current query
     </p>
-    <div class="ks-graph-teaser__canvas" role="img" aria-label="Concept connection graph">
+    <div
+      class="ks-graph-teaser__canvas"
+      role="img"
+      aria-label="Concept connection graph"
+    >
       <svg viewBox="0 0 264 152" class="ks-graph-teaser__svg">
         <!-- Edges -->
         <line
@@ -81,8 +97,16 @@ const resolvedEdges = computed(() => {
             :cx="node.cx"
             :cy="node.cy"
             :r="node.r"
-            :fill="node.type === 'primary' ? 'rgba(13,115,119,0.22)' : 'rgba(196,163,90,0.35)'"
-            :stroke="node.type === 'primary' ? 'var(--color-primary)' : 'var(--color-accent-decorative)'"
+            :fill="
+              node.type === 'primary'
+                ? 'rgba(13,115,119,0.22)'
+                : 'rgba(196,163,90,0.35)'
+            "
+            :stroke="
+              node.type === 'primary'
+                ? 'var(--color-primary)'
+                : 'var(--color-accent-decorative)'
+            "
             stroke-width="1.5"
           />
           <text

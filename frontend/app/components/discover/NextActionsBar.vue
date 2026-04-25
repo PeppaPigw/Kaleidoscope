@@ -78,7 +78,7 @@ defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: 8px 20px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--color-glass-bg);
   backdrop-filter: blur(10px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -92,7 +92,7 @@ defineEmits<{
 
 .ks-next-actions-bar--active {
   min-height: 64px;
-  box-shadow: 0 -4px 24px rgba(26, 26, 26, 0.08);
+  box-shadow: var(--shadow-float);
 }
 
 .ks-next-actions-bar__actions {

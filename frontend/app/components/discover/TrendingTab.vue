@@ -5,85 +5,111 @@
  * Displays popular arXiv papers over a configurable time range.
  * Enriches papers with briefs (title, TLDR, keywords) and auto-ingests new papers.
  */
-import { Loader2, TrendingUp, RefreshCw } from 'lucide-vue-next'
-import type { DeepXivTrendingPaper, DeepXivBriefResponse } from '~/composables/useDeepXiv'
+import { Loader2, TrendingUp, RefreshCw } from "lucide-vue-next";
+import type {
+  DeepXivTrendingPaper,
+  DeepXivBriefResponse,
+} from "~/composables/useDeepXiv";
 
-const { getTrending, getPaperBrief } = useDeepXiv()
-const { apiFetch } = useApi()
+const { getTrending, getPaperBrief } = useDeepXiv();
+const { apiFetch } = useApi();
+const { resolveLocalPaperRoutes, openPreferredPaper } =
+  usePreferredPaperRoute();
 
 // ── State ────────────────────────────────────────────────
-const days = ref(7)
-const papers = ref<DeepXivTrendingPaper[]>([])
-const briefs = ref<Record<string, DeepXivBriefResponse>>({})
-const totalPapers = ref(0)
-const isLoading = ref(true)
-const isEnriching = ref(false)
-const loadError = ref<string | null>(null)
-const ingestStatus = ref<{ queued: number; skipped: number } | null>(null)
-const isIngesting = ref(false)
+const days = ref(7);
+const papers = ref<DeepXivTrendingPaper[]>([]);
+const briefs = ref<Record<string, DeepXivBriefResponse>>({});
+const totalPapers = ref(0);
+const isLoading = ref(true);
+const isEnriching = ref(false);
+const loadError = ref<string | null>(null);
+const feedSource = ref<"deepxiv" | "local-fallback" | "deepxiv-empty">(
+  "deepxiv",
+);
+const feedMessage = ref<string | null>(null);
+const ingestStatus = ref<{ queued: number; skipped: number } | null>(null);
+const isIngesting = ref(false);
 
 // ── Load ─────────────────────────────────────────────────
 async function loadTrending() {
-  isLoading.value = true
-  loadError.value = null
-  papers.value = []
-  briefs.value = {}
+  isLoading.value = true;
+  loadError.value = null;
+  papers.value = [];
+  briefs.value = {};
 
   try {
-    const res = await getTrending(days.value, 30)
-    papers.value = res.papers ?? []
-    totalPapers.value = res.total ?? papers.value.length
-  }
-  catch (err) {
-    loadError.value = err instanceof Error ? err.message : 'Failed to load trending papers'
-    papers.value = []
-    totalPapers.value = 0
-  }
-  finally {
-    isLoading.value = false
+    const res = await getTrending(days.value, 30);
+    papers.value = res.papers ?? [];
+    totalPapers.value = res.total ?? papers.value.length;
+    feedSource.value = res.source ?? "deepxiv";
+    feedMessage.value = res.message ?? null;
+  } catch (err) {
+    loadError.value =
+      err instanceof Error ? err.message : "Failed to load trending papers";
+    papers.value = [];
+    totalPapers.value = 0;
+    feedSource.value = "deepxiv";
+    feedMessage.value = null;
+  } finally {
+    isLoading.value = false;
   }
 
   // Auto-ingest: queue new papers for local processing (fire-and-forget)
-  if (papers.value.length > 0 && !loadError.value) {
-    isIngesting.value = true
-    ingestStatus.value = null
+  if (
+    papers.value.length > 0 &&
+    !loadError.value &&
+    feedSource.value === "deepxiv"
+  ) {
+    isIngesting.value = true;
+    ingestStatus.value = null;
     apiFetch<{ queued: number; skipped: number; total: number }>(
       `/deepxiv/trending/ingest?days=${days.value}&limit=30`,
-      { method: 'POST' },
-    ).then((res) => {
-      ingestStatus.value = { queued: res.queued, skipped: res.skipped }
-    }).catch(() => {
-      // Ingest failure is non-critical — silently ignore
-    }).finally(() => {
-      isIngesting.value = false
-    })
+      { method: "POST" },
+    )
+      .then((res) => {
+        ingestStatus.value = { queued: res.queued, skipped: res.skipped };
+      })
+      .catch(() => {
+        // Ingest failure is non-critical — silently ignore
+      })
+      .finally(() => {
+        isIngesting.value = false;
+      });
   }
 
   // Enrich: fetch briefs for all papers in parallel batches
   if (papers.value.length > 0) {
-    isEnriching.value = true
-    const ids = papers.value.map(p => p.arxiv_id).filter(Boolean) as string[]
+    isEnriching.value = true;
+    const ids = papers.value.map((p) => p.arxiv_id).filter(Boolean) as string[];
+    await resolveLocalPaperRoutes(ids);
     // Batch into groups of 8 to avoid overwhelming the API
-    const BATCH = 8
+    const BATCH = 8;
     for (let i = 0; i < ids.length; i += BATCH) {
-      const batch = ids.slice(i, i + BATCH)
-      const results = await Promise.allSettled(batch.map(id => getPaperBrief(id)))
+      const batch = ids.slice(i, i + BATCH);
+      const results = await Promise.allSettled(
+        batch.map((id) => getPaperBrief(id)),
+      );
       results.forEach((r, j) => {
-        if (r.status === 'fulfilled' && r.value) {
-          briefs.value[batch[j]!] = r.value
+        if (r.status === "fulfilled" && r.value) {
+          briefs.value[batch[j]!] = r.value;
         }
-      })
+      });
     }
-    isEnriching.value = false
+    isEnriching.value = false;
   }
 }
 
-function handleCardClick(paper: DeepXivTrendingPaper) {
-  navigateTo(`/deepxiv/papers/${paper.arxiv_id}`)
+async function handleCardClick(paper: DeepXivTrendingPaper) {
+  await openPreferredPaper(paper.arxiv_id);
 }
 
-watch(days, () => { void loadTrending() })
-onMounted(() => { void loadTrending() })
+watch(days, () => {
+  void loadTrending();
+});
+onMounted(() => {
+  void loadTrending();
+});
 </script>
 
 <template>
@@ -96,7 +122,10 @@ onMounted(() => { void loadTrending() })
           <h3 class="ks-trending-tab__title">Trending Papers</h3>
           <p class="ks-trending-tab__subtitle">
             Popular arXiv papers over the last <strong>{{ days }} days</strong>
-            <span v-if="!isLoading && papers.length > 0" class="ks-trending-tab__count">
+            <span
+              v-if="!isLoading && papers.length > 0"
+              class="ks-trending-tab__count"
+            >
               · {{ totalPapers }} papers
             </span>
           </p>
@@ -111,10 +140,23 @@ onMounted(() => { void loadTrending() })
           :aria-label="isLoading ? 'Loading…' : 'Refresh'"
           @click="loadTrending"
         >
-          <RefreshCw :size="15" :class="{ 'ks-trending-tab__spinning': isLoading }" />
+          <RefreshCw
+            :size="15"
+            :class="{ 'ks-trending-tab__spinning': isLoading }"
+          />
         </button>
       </div>
     </header>
+
+    <div
+      v-if="feedMessage && !loadError"
+      class="ks-trending-tab__notice"
+      :class="{
+        'ks-trending-tab__notice--fallback': feedSource === 'local-fallback',
+      }"
+    >
+      {{ feedMessage }}
+    </div>
 
     <!-- Error -->
     <div v-if="loadError" class="ks-trending-tab__error">
@@ -134,10 +176,19 @@ onMounted(() => { void loadTrending() })
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="papers.length === 0 && !loadError" class="ks-trending-tab__empty">
-      <TrendingUp :size="40" :stroke-width="1.2" class="ks-trending-tab__empty-icon" />
+    <div
+      v-else-if="papers.length === 0 && !loadError"
+      class="ks-trending-tab__empty"
+    >
+      <TrendingUp
+        :size="40"
+        :stroke-width="1.2"
+        class="ks-trending-tab__empty-icon"
+      />
       <p class="ks-trending-tab__empty-title">No trending papers found</p>
-      <p class="ks-trending-tab__empty-hint">Try a different time range or check back later.</p>
+      <p class="ks-trending-tab__empty-hint">
+        Try a different time range or check back later.
+      </p>
     </div>
 
     <!-- Paper grid -->
@@ -149,13 +200,19 @@ onMounted(() => { void loadTrending() })
       </div>
 
       <!-- Ingest status -->
-      <div v-if="isIngesting" class="ks-trending-tab__ingest-status ks-trending-tab__ingest-status--loading">
+      <div
+        v-if="isIngesting"
+        class="ks-trending-tab__ingest-status ks-trending-tab__ingest-status--loading"
+      >
         <Loader2 :size="13" class="ks-trending-tab__spinning" />
         Queuing papers for local processing…
       </div>
       <div v-else-if="ingestStatus" class="ks-trending-tab__ingest-status">
         <span v-if="ingestStatus.queued > 0">
-          {{ ingestStatus.queued }} new paper{{ ingestStatus.queued !== 1 ? 's' : '' }} added to processing queue
+          {{ ingestStatus.queued }} new paper{{
+            ingestStatus.queued !== 1 ? "s" : ""
+          }}
+          added to processing queue
         </span>
         <span v-else>All papers already in local library</span>
       </div>
@@ -224,6 +281,25 @@ onMounted(() => { void loadTrending() })
   opacity: 0.7;
 }
 
+.ks-trending-tab__notice {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font: 400 0.8125rem / 1.5 var(--font-sans);
+  color: var(--color-secondary);
+}
+
+.ks-trending-tab__notice--fallback {
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 25%,
+    var(--color-border)
+  );
+  background: var(--color-primary-light);
+  color: var(--color-text);
+}
+
 .ks-trending-tab__controls {
   display: flex;
   align-items: center;
@@ -242,7 +318,9 @@ onMounted(() => { void loadTrending() })
   border-radius: 6px;
   color: var(--color-secondary);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .ks-trending-tab__refresh:hover:not(:disabled) {
@@ -300,8 +378,12 @@ onMounted(() => { void loadTrending() })
 
 /* ─── Skeleton ──────────────────────────────────────── */
 @keyframes ks-trending-shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 .ks-trending-tab__skeleton {
@@ -319,7 +401,12 @@ onMounted(() => { void loadTrending() })
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(90deg, var(--color-border) 25%, rgba(255,255,255,0.08) 50%, var(--color-border) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    var(--color-border) 75%
+  );
   background-size: 200% 100%;
   animation: ks-trending-shimmer 1.4s infinite;
 }
@@ -335,14 +422,28 @@ onMounted(() => { void loadTrending() })
 .ks-trending-tab__sk-text,
 .ks-trending-tab__sk-meta {
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--color-border) 25%, rgba(255,255,255,0.08) 50%, var(--color-border) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    var(--color-border) 75%
+  );
   background-size: 200% 100%;
   animation: ks-trending-shimmer 1.4s infinite;
 }
 
-.ks-trending-tab__sk-title { height: 18px; width: 88%; }
-.ks-trending-tab__sk-text { height: 14px; width: 100%; }
-.ks-trending-tab__sk-meta { height: 12px; width: 55%; }
+.ks-trending-tab__sk-title {
+  height: 18px;
+  width: 88%;
+}
+.ks-trending-tab__sk-text {
+  height: 14px;
+  width: 100%;
+}
+.ks-trending-tab__sk-meta {
+  height: 12px;
+  width: 55%;
+}
 
 /* ─── Spinner ───────────────────────────────────────── */
 .ks-trending-tab__spinning {
@@ -350,7 +451,9 @@ onMounted(() => { void loadTrending() })
 }
 
 @keyframes ks-trending-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Empty state ───────────────────────────────────── */

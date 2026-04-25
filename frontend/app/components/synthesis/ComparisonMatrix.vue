@@ -4,53 +4,79 @@
  */
 
 export interface ComparisonPaper {
-  id: string
-  title: string
-  shortName: string
+  id: string;
+  title: string;
+  shortName: string;
 }
 
 export interface ComparisonFeature {
-  id: string
-  name: string
-  category: string
-  values: Record<string, boolean | string>
+  id: string;
+  name: string;
+  category: string;
+  values: Record<string, boolean | string>;
 }
 
 export interface ComparisonMatrixProps {
-  papers: ComparisonPaper[]
-  features: ComparisonFeature[]
+  papers: ComparisonPaper[];
+  features: ComparisonFeature[];
 }
 
-defineProps<ComparisonMatrixProps>()
+defineProps<ComparisonMatrixProps>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-comparison-matrix ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">Cross-Paper Comparison</h2>
+  <section
+    class="ks-comparison-matrix ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      Cross-Paper Comparison
+    </h2>
 
     <div class="ks-comparison-matrix__wrapper">
       <table class="ks-comparison-matrix__table">
         <thead>
           <tr>
             <th class="ks-comparison-matrix__th">Feature</th>
-            <th v-for="p in papers" :key="p.id" class="ks-comparison-matrix__th ks-comparison-matrix__th--paper">
+            <th
+              v-for="p in papers"
+              :key="p.id"
+              class="ks-comparison-matrix__th ks-comparison-matrix__th--paper"
+            >
               {{ p.shortName }}
             </th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="f in features" :key="f.id">
-            <td class="ks-comparison-matrix__td ks-comparison-matrix__td--feature">
+            <td
+              class="ks-comparison-matrix__td ks-comparison-matrix__td--feature"
+            >
               <span>{{ f.name }}</span>
-              <span class="ks-type-data" style="color: var(--color-secondary);">{{ f.category }}</span>
+              <span
+                class="ks-type-data"
+                style="color: var(--color-secondary)"
+                >{{ f.category }}</span
+              >
             </td>
-            <td v-for="p in papers" :key="p.id" class="ks-comparison-matrix__td ks-comparison-matrix__td--value">
-              <span v-if="typeof f.values[p.id] === 'boolean'" :style="{ color: f.values[p.id] ? 'var(--color-primary)' : '#B54A4A' }">
-                {{ f.values[p.id] ? '✓' : '✗' }}
+            <td
+              v-for="p in papers"
+              :key="p.id"
+              class="ks-comparison-matrix__td ks-comparison-matrix__td--value"
+            >
+              <span
+                v-if="typeof f.values[p.id] === 'boolean'"
+                :style="{
+                  color: f.values[p.id] ? 'var(--color-primary)' : '#B54A4A',
+                }"
+              >
+                {{ f.values[p.id] ? "✓" : "✗" }}
               </span>
-              <span v-else class="ks-type-data">{{ f.values[p.id] || '—' }}</span>
+              <span v-else class="ks-type-data">{{
+                f.values[p.id] || "—"
+              }}</span>
             </td>
           </tr>
         </tbody>

@@ -13,31 +13,37 @@
  */
 
 export interface OutlineItem {
-  id: string
-  title: string
-  level: number // 1 = page section, 2 = H2, 3+ = H3+
+  id: string;
+  title: string;
+  level: number; // 1 = page section, 2 = H2, 3+ = H3+
 }
 
 const props = defineProps<{
-  items: OutlineItem[]
-  activeIdx: number
-}>()
+  items: OutlineItem[];
+  activeIdx: number;
+}>();
 
 const emit = defineEmits<{
-  jump: [id: string]
-}>()
+  jump: [id: string];
+}>();
 
-const hoveredIdx = ref<number | null>(null)
+const hoveredIdx = ref<number | null>(null);
+const hoveredItem = computed(() =>
+  hoveredIdx.value === null ? null : (props.items[hoveredIdx.value] ?? null),
+);
+const hoveredTop = computed(() =>
+  hoveredIdx.value === null ? null : topPct(hoveredIdx.value),
+);
 
 function topPct(i: number): number {
-  if (props.items.length <= 1) return 50
-  return (i / (props.items.length - 1)) * 100
+  if (props.items.length <= 1) return 50;
+  return (i / (props.items.length - 1)) * 100;
 }
 
 function tickWidth(level: number): number {
-  if (level <= 1) return 26   // page section — longest
-  if (level === 2) return 16  // H2
-  return 9                    // H3+
+  if (level <= 1) return 26; // page section — longest
+  if (level === 2) return 16; // H2
+  return 9; // H3+
 }
 </script>
 
@@ -68,11 +74,11 @@ function tickWidth(level: number): number {
       <!-- Single shared tooltip -->
       <Transition name="ao-fade">
         <div
-          v-if="hoveredIdx !== null"
+          v-if="hoveredItem && hoveredTop !== null"
           class="ao-tooltip"
-          :style="{ top: `${topPct(hoveredIdx)}%` }"
+          :style="{ top: `${hoveredTop}%` }"
         >
-          {{ items[hoveredIdx].title }}
+          {{ hoveredItem.title }}
         </div>
       </Transition>
     </div>
@@ -86,7 +92,7 @@ function tickWidth(level: number): number {
   top: 50%;
   transform: translateY(-50%);
   height: 72vh;
-  width: 34px;       /* accommodate max tick length + a touch of breathing room */
+  width: 34px; /* accommodate max tick length + a touch of breathing room */
   z-index: 60;
   pointer-events: none;
 }
@@ -152,7 +158,11 @@ function tickWidth(level: number): number {
 }
 
 .ao-fade-enter-active,
-.ao-fade-leave-active { transition: opacity 0.12s; }
+.ao-fade-leave-active {
+  transition: opacity 0.12s;
+}
 .ao-fade-enter-from,
-.ao-fade-leave-to    { opacity: 0; }
+.ao-fade-leave-to {
+  opacity: 0;
+}
 </style>

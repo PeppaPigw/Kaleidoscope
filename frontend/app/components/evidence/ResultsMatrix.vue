@@ -4,47 +4,64 @@
  */
 
 export interface MatrixResult {
-  id: string
-  method: string
-  metrics: Record<string, string | number>
-  isBest: boolean
-  source: string
+  id: string;
+  method: string;
+  metrics: Record<string, string | number>;
+  isBest: boolean;
+  source: string;
 }
 
 export interface ResultsMatrixProps {
-  results: MatrixResult[]
-  metricNames: string[]
-  title?: string
+  results: MatrixResult[];
+  metricNames: string[];
+  title?: string;
 }
 
-defineProps<ResultsMatrixProps>()
+defineProps<ResultsMatrixProps>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-results-matrix ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">{{ title || 'Results Comparison' }}</h2>
+  <section
+    class="ks-results-matrix ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      {{ title || "Results Comparison" }}
+    </h2>
 
     <div class="ks-results-matrix__wrapper">
       <table class="ks-results-matrix__table">
         <thead>
           <tr>
             <th class="ks-results-matrix__th">Method</th>
-            <th v-for="metric in metricNames" :key="metric" class="ks-results-matrix__th ks-results-matrix__th--metric">
+            <th
+              v-for="metric in metricNames"
+              :key="metric"
+              class="ks-results-matrix__th ks-results-matrix__th--metric"
+            >
               {{ metric }}
             </th>
             <th class="ks-results-matrix__th">Source</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in results" :key="r.id" :class="{ 'ks-results-matrix__row--best': r.isBest }">
+          <tr
+            v-for="r in results"
+            :key="r.id"
+            :class="{ 'ks-results-matrix__row--best': r.isBest }"
+          >
             <td class="ks-results-matrix__td ks-results-matrix__td--method">
               {{ r.method }}
               <KsTag v-if="r.isBest" variant="success">best</KsTag>
             </td>
-            <td v-for="metric in metricNames" :key="metric" class="ks-results-matrix__td ks-results-matrix__td--value">
-              {{ r.metrics[metric] ?? '—' }}
+            <td
+              v-for="metric in metricNames"
+              :key="metric"
+              class="ks-results-matrix__td ks-results-matrix__td--value"
+            >
+              {{ r.metrics[metric] ?? "—" }}
             </td>
             <td class="ks-results-matrix__td ks-type-data">{{ r.source }}</td>
           </tr>

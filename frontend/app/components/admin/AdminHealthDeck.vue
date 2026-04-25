@@ -1,48 +1,48 @@
 <script setup lang="ts">
-import type { AdminProbeCard } from '~/composables/useAdminConsole'
+import type { AdminProbeCard } from "~/composables/useAdminConsole";
 
 const props = defineProps<{
-  probes: AdminProbeCard[]
-  pending?: boolean
-  lastLoadedAt?: string | null
-}>()
+  probes: AdminProbeCard[];
+  pending?: boolean;
+  lastLoadedAt?: string | null;
+}>();
 
-function statusLabel(status: AdminProbeCard['status']) {
+function statusLabel(status: AdminProbeCard["status"]) {
   switch (status) {
-    case 'ok':
-      return 'Healthy'
-    case 'warning':
-      return 'Degraded'
-    case 'error':
-      return 'Broken'
+    case "ok":
+      return "Healthy";
+    case "warning":
+      return "Degraded";
+    case "error":
+      return "Broken";
     default:
-      return 'Pending'
+      return "Pending";
   }
 }
 
-function tagVariant(status: AdminProbeCard['status']) {
+function tagVariant(status: AdminProbeCard["status"]) {
   switch (status) {
-    case 'ok':
-      return 'success'
-    case 'warning':
-      return 'accent'
-    case 'error':
-      return 'danger'
+    case "ok":
+      return "success";
+    case "warning":
+      return "accent";
+    case "error":
+      return "danger";
     default:
-      return 'neutral'
+      return "neutral";
   }
 }
 
 function formatLoadedAt(timestamp?: string | null) {
   if (!timestamp) {
-    return 'Not refreshed yet'
+    return "Not refreshed yet";
   }
 
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
+  return new Date(timestamp).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 </script>
 
@@ -54,7 +54,11 @@ function formatLoadedAt(timestamp?: string | null) {
         <h2 class="ks-type-section-title admin-health__title">System Health</h2>
       </div>
       <p class="ks-type-data admin-health__meta">
-        {{ pending ? 'Refreshing…' : `Last refresh ${formatLoadedAt(props.lastLoadedAt)}` }}
+        {{
+          pending
+            ? "Refreshing…"
+            : `Last refresh ${formatLoadedAt(props.lastLoadedAt)}`
+        }}
       </p>
     </div>
 
@@ -74,7 +78,9 @@ function formatLoadedAt(timestamp?: string | null) {
         </div>
         <div class="admin-health__value">{{ probe.value }}</div>
         <p class="ks-type-body-sm admin-health__detail">{{ probe.detail }}</p>
-        <p v-if="probe.note" class="ks-type-data admin-health__note">{{ probe.note }}</p>
+        <p v-if="probe.note" class="ks-type-data admin-health__note">
+          {{ probe.note }}
+        </p>
       </KsCard>
     </div>
   </section>
@@ -117,7 +123,7 @@ function formatLoadedAt(timestamp?: string | null) {
 }
 
 .admin-health__card--error {
-  border-top-color: #B54A4A;
+  border-top-color: #b54a4a;
 }
 
 .admin-health__card-top {

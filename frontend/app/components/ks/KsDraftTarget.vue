@@ -15,50 +15,47 @@
 
 export interface KsDraftTargetProps {
   /** Label shown in the target zone */
-  label?: string
+  label?: string;
   /** Whether a drag operation is actively hovering */
-  active?: boolean
+  active?: boolean;
   /** Section label (e.g. "Introduction", "Methods") */
-  section?: string
+  section?: string;
 }
 
 const props = withDefaults(defineProps<KsDraftTargetProps>(), {
-  label: 'Drop evidence here',
+  label: "Drop evidence here",
   active: false,
   section: undefined,
-})
+});
 
 const emit = defineEmits<{
-  drop: [event: DragEvent]
+  drop: [event: DragEvent];
   /** Keyboard / touch accessible paste action */
-  paste: []
-}>()
+  paste: [];
+}>();
 
-const isHovering = ref(false)
-const isActive = computed(() => props.active || isHovering.value)
+const isHovering = ref(false);
+const isActive = computed(() => props.active || isHovering.value);
 
 function onDragEnter(e: DragEvent) {
-  e.preventDefault()
-  isHovering.value = true
+  e.preventDefault();
+  isHovering.value = true;
 }
 
 function onDragLeave() {
-  isHovering.value = false
+  isHovering.value = false;
 }
 
 function onDrop(e: DragEvent) {
-  e.preventDefault()
-  isHovering.value = false
-  emit('drop', e)
+  e.preventDefault();
+  isHovering.value = false;
+  emit("drop", e);
 }
 </script>
 
 <template>
   <div
-    :class="[
-      'ks-draft-target',
-      { 'ks-draft-target--active': isActive },
-    ]"
+    :class="['ks-draft-target', { 'ks-draft-target--active': isActive }]"
     role="region"
     :aria-label="`Drop zone: ${label}`"
     @dragover.prevent
@@ -66,7 +63,9 @@ function onDrop(e: DragEvent) {
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
-    <span v-if="section" class="ks-draft-target__section ks-type-eyebrow">{{ section }}</span>
+    <span v-if="section" class="ks-draft-target__section ks-type-eyebrow">{{
+      section
+    }}</span>
     <div class="ks-draft-target__content">
       <slot>
         <span class="ks-draft-target__label">{{ label }}</span>
@@ -82,8 +81,10 @@ function onDrop(e: DragEvent) {
     </div>
     <svg class="ks-draft-target__border" aria-hidden="true">
       <rect
-        x="1" y="1"
-        width="calc(100% - 2px)" height="calc(100% - 2px)"
+        x="1"
+        y="1"
+        width="calc(100% - 2px)"
+        height="calc(100% - 2px)"
         rx="2"
         fill="none"
         stroke="var(--color-border)"
@@ -100,8 +101,9 @@ function onDrop(e: DragEvent) {
   padding: 24px 20px;
   text-align: center;
   border-radius: var(--radius-card);
-  transition: background var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-spring);
+  transition:
+    background var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-spring);
 }
 
 .ks-draft-target--active {

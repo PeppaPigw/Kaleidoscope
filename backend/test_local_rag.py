@@ -2,7 +2,9 @@
 
 import asyncio
 import sys
-sys.path.insert(0, '/Users/pigpeppa/Downloads/Kaleidoscope/backend')
+
+sys.path.insert(0, "/Users/pigpeppa/Downloads/Kaleidoscope/backend")
+
 
 async def test_vector_search():
     from app.dependencies import async_session_factory
@@ -17,7 +19,7 @@ async def test_vector_search():
         paper_ids = [
             "66745585-e20d-440e-9484-38a3a9a56a1c",
             "4457a5f1-f038-47ad-bb03-5b5f1a4f7357",
-            "c7d081b9-b4f2-491e-a9d1-3c3c68f95102"
+            "c7d081b9-b4f2-491e-a9d1-3c3c68f95102",
         ]
 
         try:
@@ -25,7 +27,7 @@ async def test_vector_search():
                 query_text="narrative visualization",
                 paper_ids=paper_ids,
                 top_k=3,
-                min_similarity=0.0
+                min_similarity=0.0,
             )
 
             print(f"\n✅ Vector search successful!")
@@ -40,7 +42,9 @@ async def test_vector_search():
         except Exception as e:
             print(f"\n❌ Error: {e}")
             import traceback
+
             traceback.print_exc()
+
 
 if __name__ == "__main__":
     asyncio.run(test_vector_search())

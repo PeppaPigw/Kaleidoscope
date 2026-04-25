@@ -5,81 +5,127 @@
  * session. Provides loadPreferences() and savePreferences() helpers.
  */
 
+import {
+  EMPTY_RESEARCH_FACETS,
+  normalizeResearchFacetPreferences,
+  type ResearchFacetPreferences,
+} from "../utils/researchFacets";
+
 export interface UserPreferences {
-  subscribed_categories: string[]
-  keywords: string[]
-  tracked_authors: string[]
-  interests_set: boolean
-  [key: string]: unknown
+  subscribed_categories: string[];
+  keywords: string[];
+  tracked_authors: string[];
+  research_facets: ResearchFacetPreferences;
+  interests_set: boolean;
+  [key: string]: unknown;
 }
 
-// ─── Singleton state ─────────────────────────────────────────
-const preferences = ref<UserPreferences>({
+const DEFAULT_PREFERENCES: UserPreferences = {
   subscribed_categories: [],
   keywords: [],
   tracked_authors: [],
+  research_facets: { ...EMPTY_RESEARCH_FACETS },
   interests_set: false,
-})
-const loading = ref(false)
-const loaded = ref(false)
+};
+
+function normalizeStringList(
+  value: unknown,
+  options: { caseInsensitive?: boolean } = {},
+): string[] {
+  if (!Array.isArray(value)) return [];
+  const caseInsensitive = options.caseInsensitive === true;
+
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    const cleaned = String(entry ?? "").trim();
+    if (!cleaned) continue;
+    const key = caseInsensitive ? cleaned.toLocaleLowerCase() : cleaned;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(cleaned);
+  }
+
+  return normalized;
+}
+
+export function normalizeUserPreferences(
+  input?: Partial<UserPreferences> | null,
+): UserPreferences {
+  const source = input ?? {};
+  return {
+    ...DEFAULT_PREFERENCES,
+    ...source,
+    subscribed_categories: normalizeStringList(source.subscribed_categories),
+    keywords: normalizeStringList(source.keywords, { caseInsensitive: true }),
+    tracked_authors: normalizeStringList(source.tracked_authors, {
+      caseInsensitive: true,
+    }),
+    research_facets: normalizeResearchFacetPreferences(source.research_facets),
+    interests_set: source.interests_set === true,
+  };
+}
+
+// ─── Singleton state ─────────────────────────────────────────
+const preferences = ref<UserPreferences>({ ...DEFAULT_PREFERENCES });
+const loading = ref(false);
+const loaded = ref(false);
 
 export function useUserPreferences() {
-  const config = useRuntimeConfig()
-  const apiBase = config.public.apiUrl as string
+  const config = useRuntimeConfig();
+  const apiBase = config.public.apiUrl as string;
 
   function _authHeader(): Record<string, string> {
     if (import.meta.client) {
-      const token = localStorage.getItem('ks_access_token')
-      if (token && token !== 'single-user-mode') {
-        return { Authorization: `Bearer ${token}` }
+      const token = localStorage.getItem("ks_access_token");
+      if (token && token !== "single-user-mode") {
+        return { Authorization: `Bearer ${token}` };
       }
     }
-    return {}
+    return {};
   }
 
   async function loadPreferences(): Promise<UserPreferences> {
-    if (loaded.value) return preferences.value
-    loading.value = true
+    if (loaded.value) return preferences.value;
+    loading.value = true;
     try {
       const data = await $fetch<UserPreferences>(
         `${apiBase}/api/v1/users/me/preferences`,
         { headers: _authHeader() },
-      )
-      preferences.value = {
-        subscribed_categories: [],
-        keywords: [],
-        tracked_authors: [],
-        interests_set: false,
-        ...data,
-      }
-      loaded.value = true
+      );
+      preferences.value = normalizeUserPreferences(data);
+      loaded.value = true;
+    } catch (e) {
+      console.error("[useUserPreferences] load error:", e);
+      throw e;
+    } finally {
+      loading.value = false;
     }
-    catch (e) {
-      console.error('[useUserPreferences] load error:', e)
-    }
-    finally {
-      loading.value = false
-    }
-    return preferences.value
+    return preferences.value;
   }
 
-  async function savePreferences(patch: Partial<UserPreferences>): Promise<void> {
-    const merged: UserPreferences = { ...preferences.value, ...patch }
-    preferences.value = merged
+  async function savePreferences(
+    patch: Partial<UserPreferences>,
+  ): Promise<UserPreferences> {
+    const merged = normalizeUserPreferences({ ...preferences.value, ...patch });
+    preferences.value = merged;
     try {
       const data = await $fetch<UserPreferences>(
         `${apiBase}/api/v1/users/me/preferences`,
         {
-          method: 'PUT',
+          method: "PUT",
           body: merged,
           headers: _authHeader(),
         },
-      )
-      preferences.value = { subscribed_categories: [], keywords: [], tracked_authors: [], interests_set: false, ...data }
+      );
+      preferences.value = normalizeUserPreferences(data);
+      loaded.value = true;
+    } catch (e) {
+      console.error("[useUserPreferences] save error:", e);
+      throw e;
     }
-    catch (e) {
-      console.error('[useUserPreferences] save error:', e)
-    }
+    return preferences.value;
   }
 
   return {
@@ -88,5 +134,5 @@ export function useUserPreferences() {
     loaded,
     loadPreferences,
     savePreferences,
-  }
+  };
 }

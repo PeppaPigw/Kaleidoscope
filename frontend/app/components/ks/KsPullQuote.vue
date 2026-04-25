@@ -18,19 +18,16 @@
 
 export interface KsPullQuoteProps {
   /** Align center or left (center = magazine, left = academic) */
-  align?: 'center' | 'left'
+  align?: "center" | "left";
 }
 
 withDefaults(defineProps<KsPullQuoteProps>(), {
-  align: 'center',
-})
+  align: "center",
+});
 </script>
 
 <template>
-  <blockquote
-    class="ks-pull-quote"
-    :class="`ks-pull-quote--${align}`"
-  >
+  <blockquote class="ks-pull-quote" :class="`ks-pull-quote--${align}`">
     <slot />
     <cite v-if="$slots.cite" class="ks-pull-quote__cite">
       <slot name="cite" />

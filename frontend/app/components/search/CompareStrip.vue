@@ -92,11 +92,11 @@ const canCompare = computed(() => props.items.length >= 2);
   justify-content: space-between;
   gap: 16px;
   padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--color-glass-bg);
   backdrop-filter: blur(12px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: 0 -4px 24px rgba(26, 26, 26, 0.08);
+  box-shadow: var(--shadow-float);
   transition:
     left var(--duration-normal) var(--ease-smooth),
     right var(--duration-normal) var(--ease-smooth),

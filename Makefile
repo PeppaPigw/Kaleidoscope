@@ -15,6 +15,7 @@ DEV_INFRA_SERVICES := postgres redis meilisearch qdrant neo4j minio grobid
 DEV_CORE_SERVICES := postgres redis
 DEV_INFRA_WAIT_TIMEOUT ?= 90
 EXPECTED_POSTGRES_VOLUME := kaleidoscope_postgres_data
+CELERY_QUEUES := celery,ingestion,parsing,indexing,embedding,ragflow
 
 # ── Help ──────────────────────────────────────────────
 .PHONY: help
@@ -52,7 +53,7 @@ infra-logs: ## Tail infrastructure logs
 	$(COMPOSE) logs -f --tail=50
 
 # ── Backend ───────────────────────────────────────────
-.PHONY: backend backend-install migrate seed seed-feeds worker
+.PHONY: backend backend-install migrate seed seed-feeds reparse-papers worker beat celery
 backend: ## Start backend dev server
 	cd $(BACKEND_DIR) && uvicorn app.main:create_app --factory --reload --port 8000
 
@@ -71,8 +72,18 @@ seed: ## Seed 50 arXiv papers via MinerU
 seed-feeds: ## Seed RSS feed sources
 	cd $(BACKEND_DIR) && python -m app.scripts.seed_feeds
 
+reparse-papers: ## Backfill legacy arXiv papers through MinerU (usage: make reparse-papers ARGS="--dry-run --limit 50")
+	cd $(BACKEND_DIR) && python -m app.scripts.reparse_papers $(ARGS)
+
 worker: ## Start Celery worker
-	cd $(BACKEND_DIR) && celery -A app.worker worker -l info
+	cd $(BACKEND_DIR) && celery -A app.worker.celery_app worker --loglevel=info -Q $(CELERY_QUEUES)
+
+beat: ## Start Celery beat scheduler
+	cd $(BACKEND_DIR) && celery -A app.worker.celery_app beat --loglevel=info
+
+celery: ## Start both Celery worker and beat
+	@echo "🔄 Starting Celery worker and beat..."
+	@$(MAKE) -j2 worker beat
 
 # ── Frontend ──────────────────────────────────────────
 .PHONY: frontend frontend-install frontend-build
@@ -89,10 +100,10 @@ frontend-build: ## Build frontend for production
 .PHONY: dev setup dev-bootstrap
 dev-bootstrap: infra-dev migrate ## Ensure infra is ready and schema is up to date
 
-dev: ## Start backend + frontend in parallel
-	@echo "🚀 Starting Kaleidoscope..."
+dev: ## Start backend + frontend + celery in parallel
+	@echo "🚀 Starting Kaleidoscope (backend + frontend + celery worker + celery beat)..."
 	@$(MAKE) dev-bootstrap
-	@$(MAKE) -j2 backend frontend
+	@$(MAKE) -j4 backend frontend worker beat
 
 setup: infra backend-install frontend-install migrate ## Full project setup
 	@echo "✅ Kaleidoscope is ready! Run 'make dev' to start."

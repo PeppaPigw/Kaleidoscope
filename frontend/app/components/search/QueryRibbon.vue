@@ -6,42 +6,42 @@
  * and quick stats (result count + search time).
  */
 
-export type SearchMode = 'keyword' | 'semantic' | 'claim'
+export type SearchMode = "keyword" | "semantic" | "claim";
 
 export interface QueryRibbonProps {
-  modelValue: string
-  mode: SearchMode
-  resultCount: number
-  searchTimeMs: number
+  modelValue: string;
+  mode: SearchMode;
+  resultCount: number;
+  searchTimeMs: number;
 }
 
 const props = withDefaults(defineProps<QueryRibbonProps>(), {
-  modelValue: '',
-  mode: 'keyword',
+  modelValue: "",
+  mode: "keyword",
   resultCount: 0,
   searchTimeMs: 0,
-})
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'update:mode': [mode: SearchMode]
-  'submit': [query: string]
-}>()
+  "update:modelValue": [value: string];
+  "update:mode": [mode: SearchMode];
+  submit: [query: string];
+}>();
 
-const uid = useId()
+const uid = useId();
 const modes: { value: SearchMode; label: string }[] = [
-  { value: 'keyword', label: 'Keyword' },
-  { value: 'semantic', label: 'Semantic' },
-  { value: 'claim', label: 'Claim-first' },
-]
+  { value: "keyword", label: "Keyword" },
+  { value: "semantic", label: "Semantic" },
+  { value: "claim", label: "Claim-first" },
+];
 
 function handleInput(e: Event) {
-  emit('update:modelValue', (e.target as HTMLInputElement).value)
+  emit("update:modelValue", (e.target as HTMLInputElement).value);
 }
 
 function handleSubmit() {
   if (props.modelValue.trim()) {
-    emit('submit', props.modelValue.trim())
+    emit("submit", props.modelValue.trim());
   }
 }
 </script>
@@ -51,7 +51,20 @@ function handleSubmit() {
     <form class="ks-query-ribbon__form" @submit.prevent="handleSubmit">
       <label :for="`${uid}-input`" class="sr-only">Search query</label>
       <div class="ks-query-ribbon__input-wrap">
-        <svg class="ks-query-ribbon__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <svg
+          class="ks-query-ribbon__icon"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
         <input
           :id="`${uid}-input`"
           type="search"
@@ -59,16 +72,23 @@ function handleSubmit() {
           :value="modelValue"
           placeholder="Search papers, claims, authors..."
           @input="handleInput"
-        >
+        />
       </div>
-      <div class="ks-query-ribbon__modes" role="radiogroup" aria-label="Search mode">
+      <div
+        class="ks-query-ribbon__modes"
+        role="radiogroup"
+        aria-label="Search mode"
+      >
         <button
           v-for="m in modes"
           :key="m.value"
           type="button"
           role="radio"
           :aria-checked="mode === m.value"
-          :class="['ks-query-ribbon__mode', { 'ks-query-ribbon__mode--active': mode === m.value }]"
+          :class="[
+            'ks-query-ribbon__mode',
+            { 'ks-query-ribbon__mode--active': mode === m.value },
+          ]"
           @click="emit('update:mode', m.value)"
         >
           {{ m.label }}
@@ -79,7 +99,7 @@ function handleSubmit() {
       </KsButton>
     </form>
     <div v-if="resultCount > 0" class="ks-query-ribbon__stats">
-      <span class="ks-type-data" style="color: var(--color-primary);">
+      <span class="ks-type-data" style="color: var(--color-primary)">
         {{ resultCount.toLocaleString() }} results
       </span>
       <span class="ks-type-data">
@@ -92,8 +112,14 @@ function handleSubmit() {
 <style scoped>
 .sr-only {
   position: absolute;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .ks-query-ribbon {
@@ -104,7 +130,7 @@ function handleSubmit() {
   flex-direction: column;
   gap: 8px;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--color-glass-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border);
 }
@@ -124,8 +150,9 @@ function handleSubmit() {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-query-ribbon__input-wrap:focus-within {
@@ -170,8 +197,9 @@ function handleSubmit() {
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              color var(--duration-fast) var(--ease-smooth);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-query-ribbon__mode:hover {

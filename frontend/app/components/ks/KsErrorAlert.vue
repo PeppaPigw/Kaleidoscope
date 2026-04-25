@@ -12,22 +12,22 @@
  *
  * @slot default — Override the message content
  */
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from "lucide-vue-next";
 
 export interface KsErrorAlertProps {
   /** Error message to display */
-  message: string
+  message: string;
   /** Show a Retry button */
-  retryable?: boolean
+  retryable?: boolean;
 }
 
 withDefaults(defineProps<KsErrorAlertProps>(), {
   retryable: false,
-})
+});
 
 defineEmits<{
-  retry: []
-}>()
+  retry: [];
+}>();
 </script>
 
 <template>
@@ -56,14 +56,14 @@ defineEmits<{
   gap: 12px;
   padding: 16px 20px;
   border: 1px solid rgba(204, 68, 68, 0.2);
-  border-left: 3px solid #CC4444;
+  border-left: 3px solid #cc4444;
   border-radius: var(--radius-card);
   background: rgba(204, 68, 68, 0.03);
 }
 
 .ks-error-alert__icon {
   flex-shrink: 0;
-  color: #CC4444;
+  color: #cc4444;
   margin-top: 2px;
 }
 

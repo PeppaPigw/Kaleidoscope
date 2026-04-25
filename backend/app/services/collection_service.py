@@ -215,6 +215,7 @@ class CollectionService:
         max_pos = max_pos_result.scalar()
 
         added = 0
+        newly_added_ids = []
         for pid in paper_ids:
             if str(pid) not in existing_ids:
                 max_pos += 1
@@ -227,12 +228,78 @@ class CollectionService:
                     )
                 )
                 added += 1
+                newly_added_ids.append(str(pid))
 
         # Update denormalized count
         if added > 0:
             await self._refresh_paper_count(collection_id)
 
+        # Auto-trigger processing pipeline for newly added papers
+        if newly_added_ids:
+            await self._ensure_papers_processed(newly_added_ids)
+
         return added
+
+    async def _ensure_papers_processed(self, paper_ids: list[str]) -> None:
+        """
+        Ensure papers are parsed and embedded.
+        Triggers background tasks for papers that need processing.
+        """
+        from app.models.paper_qa import PaperEmbeddingJob
+
+        for paper_id in paper_ids:
+            try:
+                # Get paper
+                paper_result = await self.db.execute(
+                    select(Paper).where(Paper.id == paper_id)
+                )
+                paper = paper_result.scalar_one_or_none()
+                if not paper:
+                    continue
+
+                # Check if parsing is needed
+                if not paper.full_text_markdown:
+                    # Trigger parsing if we have a URL
+                    if paper.remote_urls and len(paper.remote_urls) > 0:
+                        url = paper.remote_urls[0].get("url")
+                        if url:
+                            is_html = "html" in url.lower() or "htm" in url.lower()
+                            logger.info(
+                                "auto_trigger_parse",
+                                paper_id=paper_id,
+                                url=url[:80],
+                                is_html=is_html,
+                            )
+                            # Import here to avoid circular dependency
+                            from app.tasks.ingest_tasks import parse_via_mineru
+
+                            parse_via_mineru.delay(paper_id, url, is_html=is_html)
+
+                # Check if embedding is needed
+                job_result = await self.db.execute(
+                    select(PaperEmbeddingJob).where(
+                        PaperEmbeddingJob.paper_id == paper_id
+                    )
+                )
+                job = job_result.scalar_one_or_none()
+
+                if not job or job.status in ("failed", "pending"):
+                    # Trigger embedding with high priority (user-initiated)
+                    logger.info(
+                        "auto_trigger_embedding",
+                        paper_id=paper_id,
+                        current_status=job.status if job else None,
+                    )
+                    from app.tasks.embedding_tasks import process_paper_embedding
+
+                    process_paper_embedding.delay(paper_id, priority=10)
+
+            except Exception as exc:
+                logger.warning(
+                    "auto_trigger_failed",
+                    paper_id=paper_id,
+                    error=str(exc),
+                )
 
     async def remove_paper(self, collection_id: str, paper_id: str) -> bool:
         """Remove a paper from a collection."""
@@ -550,8 +617,7 @@ class CollectionChatService:
         thread_id: str,
     ) -> CollectionChatThread | None:
         result = await self.db.execute(
-            select(CollectionChatThread)
-            .where(
+            select(CollectionChatThread).where(
                 CollectionChatThread.id == thread_id,
                 CollectionChatThread.collection_id == collection_id,
                 CollectionChatThread.user_id == self.user_id,

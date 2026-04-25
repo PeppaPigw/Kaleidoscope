@@ -3,104 +3,100 @@
  * GroupPickerModal — choose a paper_group collection to save a paper to.
  * Opens as a teleport overlay. Fetches user's groups from the API.
  */
-import { X, Plus, Check, Bookmark } from 'lucide-vue-next'
+import { X, Plus, Check, Bookmark } from "lucide-vue-next";
 
 const props = defineProps<{
-  arxivId: string
-  title: string
-}>()
+  arxivId: string;
+  title: string;
+}>();
 
-const emit = defineEmits<{ close: []; saved: [groupId: string] }>()
+const emit = defineEmits<{ close: []; saved: [groupId: string] }>();
 
-const config = useRuntimeConfig()
-const apiBase = config.public.apiUrl as string
+const config = useRuntimeConfig();
+const apiBase = config.public.apiUrl as string;
 
 interface Group {
-  id: string
-  name: string
-  paper_count: number
+  id: string;
+  name: string;
+  paper_count: number;
 }
 
-const groups = ref<Group[]>([])
-const loadingGroups = ref(true)
-const saving = ref<string | null>(null) // collection_id being saved
-const savedSet = ref<Set<string>>(new Set())
-const showNewGroupForm = ref(false)
-const newGroupName = ref('')
-const creatingGroup = ref(false)
+const groups = ref<Group[]>([]);
+const loadingGroups = ref(true);
+const saving = ref<string | null>(null); // collection_id being saved
+const savedSet = ref<Set<string>>(new Set());
+const showNewGroupForm = ref(false);
+const newGroupName = ref("");
+const creatingGroup = ref(false);
 
-function _authHeaders() {
-  const token = import.meta.client ? localStorage.getItem('ks_access_token') : null
-  if (token && token !== 'single-user-mode') {
-    return { Authorization: `Bearer ${token}` }
+function _authHeaders(): Record<string, string> | undefined {
+  const token = import.meta.client
+    ? localStorage.getItem("ks_access_token")
+    : null;
+  if (token && token !== "single-user-mode") {
+    return { Authorization: `Bearer ${token}` };
   }
-  return {}
+  return undefined;
 }
 
 onMounted(async () => {
-  await loadGroups()
-})
+  await loadGroups();
+});
 
 async function loadGroups() {
-  loadingGroups.value = true
+  loadingGroups.value = true;
   try {
     const data = await $fetch<Group[]>(`${apiBase}/api/v1/collections`, {
-      params: { kind: 'paper_group' },
+      params: { kind: "paper_group" },
       headers: _authHeaders(),
-    })
-    groups.value = data
-  }
-  catch (e) {
-    console.error('[GroupPickerModal] failed to load groups', e)
-  }
-  finally {
-    loadingGroups.value = false
+    });
+    groups.value = data;
+  } catch (e) {
+    console.error("[GroupPickerModal] failed to load groups", e);
+  } finally {
+    loadingGroups.value = false;
   }
 }
 
 async function handleSelect(groupId: string) {
-  if (savedSet.value.has(groupId) || saving.value === groupId) return
-  saving.value = groupId
+  if (savedSet.value.has(groupId) || saving.value === groupId) return;
+  saving.value = groupId;
   try {
     await $fetch(`${apiBase}/api/v1/deepxiv/papers/${props.arxivId}/bookmark`, {
-      method: 'POST',
+      method: "POST",
       body: { collection_id: groupId },
       headers: _authHeaders(),
-    })
-    savedSet.value.add(groupId)
-    emit('saved', groupId)
+    });
+    savedSet.value.add(groupId);
+    emit("saved", groupId);
     // Auto-close after short delay
-    setTimeout(() => emit('close'), 1200)
-  }
-  catch (e) {
-    console.error('[GroupPickerModal] bookmark failed', e)
-  }
-  finally {
-    saving.value = null
+    setTimeout(() => emit("close"), 1200);
+  } catch (e) {
+    console.error("[GroupPickerModal] bookmark failed", e);
+  } finally {
+    saving.value = null;
   }
 }
 
 async function createGroup() {
-  const name = newGroupName.value.trim()
-  if (!name) return
-  creatingGroup.value = true
+  const name = newGroupName.value.trim();
+  if (!name) return;
+  creatingGroup.value = true;
   try {
     const created = await $fetch<Group>(`${apiBase}/api/v1/collections`, {
-      method: 'POST',
-      body: { name, kind: 'paper_group' },
+      method: "POST",
+      body: { name, kind: "paper_group" },
       headers: _authHeaders(),
-    })
-    groups.value.push(created)
-    showNewGroupForm.value = false
-    newGroupName.value = ''
+    });
+    groups.value.push(created);
+    showNewGroupForm.value = false;
+    newGroupName.value = "";
     // Immediately save to the newly created group
-    await handleSelect(created.id)
-  }
-  catch (e) {
-    console.error('[GroupPickerModal] create group failed', e)
-  }
-  finally {
-    creatingGroup.value = false
+    await handleSelect(created.id);
+  } catch (e) {
+    console.error("[GroupPickerModal] create group failed", e);
+  } finally {
+    creatingGroup.value = false;
   }
 }
 </script>
@@ -108,7 +104,12 @@ async function createGroup() {
 <template>
   <Teleport to="body">
     <div class="ks-gpm-overlay" @click.self="emit('close')">
-      <div class="ks-gpm" role="dialog" aria-modal="true" aria-label="Save to group">
+      <div
+        class="ks-gpm"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Save to group"
+      >
         <!-- Header -->
         <div class="ks-gpm-header">
           <div class="ks-gpm-header-icon">
@@ -116,39 +117,54 @@ async function createGroup() {
           </div>
           <div class="ks-gpm-header-text">
             <h3 class="ks-gpm-title">Save to group</h3>
-            <p class="ks-gpm-subtitle" :title="title">{{ title.length > 60 ? title.slice(0, 60) + '…' : title }}</p>
+            <p class="ks-gpm-subtitle" :title="title">
+              {{ title.length > 60 ? title.slice(0, 60) + "…" : title }}
+            </p>
           </div>
-          <button class="ks-gpm-close" aria-label="Close" @click="emit('close')">
+          <button
+            class="ks-gpm-close"
+            aria-label="Close"
+            @click="emit('close')"
+          >
             <X :size="16" :stroke-width="2" />
           </button>
         </div>
 
         <!-- Group list -->
         <div class="ks-gpm-body">
-          <div v-if="loadingGroups" class="ks-gpm-loading">
-            Loading groups…
-          </div>
+          <div v-if="loadingGroups" class="ks-gpm-loading">Loading groups…</div>
           <template v-else>
             <button
               v-for="group in groups"
               :key="group.id"
               type="button"
-              :class="['ks-gpm-group', { 'ks-gpm-group--saved': savedSet.has(group.id) }]"
+              :class="[
+                'ks-gpm-group',
+                { 'ks-gpm-group--saved': savedSet.has(group.id) },
+              ]"
               :disabled="saving === group.id || savedSet.has(group.id)"
               @click="handleSelect(group.id)"
             >
               <span class="ks-gpm-group-name">{{ group.name }}</span>
-              <span class="ks-gpm-group-count">{{ group.paper_count }} papers</span>
+              <span class="ks-gpm-group-count"
+                >{{ group.paper_count }} papers</span
+              >
               <Check
                 v-if="savedSet.has(group.id)"
                 :size="14"
                 :stroke-width="2.5"
                 class="ks-gpm-group-check"
               />
-              <span v-else-if="saving === group.id" class="ks-gpm-group-spinner" />
+              <span
+                v-else-if="saving === group.id"
+                class="ks-gpm-group-spinner"
+              />
             </button>
 
-            <p v-if="groups.length === 0 && !showNewGroupForm" class="ks-gpm-empty">
+            <p
+              v-if="groups.length === 0 && !showNewGroupForm"
+              class="ks-gpm-empty"
+            >
               No groups yet. Create one below.
             </p>
           </template>
@@ -167,16 +183,30 @@ async function createGroup() {
                 autofocus
                 @keydown.enter="createGroup"
                 @keydown.esc="showNewGroupForm = false"
+              />
+              <button
+                type="button"
+                class="ks-gpm-new-save"
+                :disabled="!newGroupName.trim() || creatingGroup"
+                @click="createGroup"
               >
-              <button type="button" class="ks-gpm-new-save" :disabled="!newGroupName.trim() || creatingGroup" @click="createGroup">
-                {{ creatingGroup ? '…' : 'Create' }}
+                {{ creatingGroup ? "…" : "Create" }}
               </button>
-              <button type="button" class="ks-gpm-new-cancel" @click="showNewGroupForm = false">
+              <button
+                type="button"
+                class="ks-gpm-new-cancel"
+                @click="showNewGroupForm = false"
+              >
                 <X :size="14" />
               </button>
             </div>
           </template>
-          <button v-else type="button" class="ks-gpm-new-btn" @click="showNewGroupForm = true">
+          <button
+            v-else
+            type="button"
+            class="ks-gpm-new-btn"
+            @click="showNewGroupForm = true"
+          >
             <Plus :size="14" :stroke-width="2.5" /> New Group
           </button>
         </div>
@@ -338,7 +368,9 @@ async function createGroup() {
 }
 
 @keyframes ks-gpm-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ks-gpm-empty {

@@ -4,19 +4,19 @@
  */
 export default defineNuxtRouteMiddleware((to) => {
   // Skip server-side rendering
-  if (import.meta.server) return
+  if (import.meta.server) return;
 
-  const publicRoutes = ['/login']
-  const isPublic = publicRoutes.some(r => to.path === r)
+  const publicRoutes = ["/login"];
+  const isPublic = publicRoutes.some((r) => to.path === r);
 
-  const token = localStorage.getItem('ks_access_token')
-  const hasToken = Boolean(token)
+  const token = localStorage.getItem("ks_access_token");
+  const hasToken = Boolean(token);
 
   if (!hasToken && !isPublic) {
-    return navigateTo('/login')
+    return navigateTo("/login");
   }
 
-  if (hasToken && to.path === '/login') {
-    return navigateTo('/dashboard')
+  if (hasToken && to.path === "/login") {
+    return navigateTo("/dashboard");
   }
-})
+});

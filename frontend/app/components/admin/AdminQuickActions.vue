@@ -1,56 +1,61 @@
 <script setup lang="ts">
-import { RefreshCcw, RotateCw, ShieldAlert, Workflow } from 'lucide-vue-next'
+import { RefreshCcw, RotateCw, ShieldAlert, Workflow } from "lucide-vue-next";
 
-import type { AdminQuickActionResult } from '~/composables/useAdminConsole'
+import type { AdminQuickActionResult } from "~/composables/useAdminConsole";
 
 const props = defineProps<{
-  samplePaperId?: string | null
-  sampleCollectionId?: string | null
-  pending?: boolean
-  result?: AdminQuickActionResult | null
-}>()
+  samplePaperId?: string | null;
+  sampleCollectionId?: string | null;
+  pending?: boolean;
+  result?: AdminQuickActionResult | null;
+}>();
 
 const emit = defineEmits<{
-  refresh: []
-  reprocess: [payload: { limit: number; parserVersionLt?: string }]
-  sync: [payload: { mode: 'collection' | 'paper'; targetId: string }]
-  retraction: [payload: { paperId: string }]
-}>()
+  refresh: [];
+  reprocess: [payload: { limit: number; parserVersionLt?: string }];
+  sync: [payload: { mode: "collection" | "paper"; targetId: string }];
+  retraction: [payload: { paperId: string }];
+}>();
 
-const reprocessLimit = ref(10)
-const reprocessVersion = ref('')
-const syncMode = ref<'collection' | 'paper'>('collection')
-const syncTargetId = ref('')
-const retractionPaperId = ref('')
+const reprocessLimit = ref(10);
+const reprocessVersion = ref("");
+const syncMode = ref<"collection" | "paper">("collection");
+const syncTargetId = ref("");
+const retractionPaperId = ref("");
 
 watch(
   () => props.sampleCollectionId,
-  sampleCollectionId => {
-    if (syncMode.value === 'collection' && !syncTargetId.value && sampleCollectionId) {
-      syncTargetId.value = sampleCollectionId
+  (sampleCollectionId) => {
+    if (
+      syncMode.value === "collection" &&
+      !syncTargetId.value &&
+      sampleCollectionId
+    ) {
+      syncTargetId.value = sampleCollectionId;
     }
   },
   { immediate: true },
-)
+);
 
 watch(
   () => props.samplePaperId,
-  samplePaperId => {
+  (samplePaperId) => {
     if (!retractionPaperId.value && samplePaperId) {
-      retractionPaperId.value = samplePaperId
+      retractionPaperId.value = samplePaperId;
     }
-    if (syncMode.value === 'paper' && !syncTargetId.value && samplePaperId) {
-      syncTargetId.value = samplePaperId
+    if (syncMode.value === "paper" && !syncTargetId.value && samplePaperId) {
+      syncTargetId.value = samplePaperId;
     }
   },
   { immediate: true },
-)
+);
 
-watch(syncMode, mode => {
-  syncTargetId.value = mode === 'collection'
-    ? (props.sampleCollectionId ?? '')
-    : (props.samplePaperId ?? '')
-})
+watch(syncMode, (mode) => {
+  syncTargetId.value =
+    mode === "collection"
+      ? (props.sampleCollectionId ?? "")
+      : (props.samplePaperId ?? "");
+});
 </script>
 
 <template>
@@ -58,7 +63,9 @@ watch(syncMode, mode => {
     <div class="admin-actions__head">
       <div>
         <p class="ks-type-eyebrow">Operator Console</p>
-        <h2 class="ks-type-section-title admin-actions__title">Quick Actions</h2>
+        <h2 class="ks-type-section-title admin-actions__title">
+          Quick Actions
+        </h2>
       </div>
       <KsButton variant="secondary" :loading="pending" @click="emit('refresh')">
         <template #icon-left><RefreshCcw :size="16" /></template>
@@ -74,7 +81,13 @@ watch(syncMode, mode => {
         </div>
         <label class="admin-actions__field">
           <span class="ks-type-data">Limit</span>
-          <input v-model.number="reprocessLimit" class="admin-actions__input" type="number" min="1" max="500">
+          <input
+            v-model.number="reprocessLimit"
+            class="admin-actions__input"
+            type="number"
+            min="1"
+            max="500"
+          />
         </label>
         <label class="admin-actions__field">
           <span class="ks-type-data">Parser version lower than</span>
@@ -83,12 +96,17 @@ watch(syncMode, mode => {
             class="admin-actions__input"
             type="text"
             placeholder="Optional version string"
-          >
+          />
         </label>
         <KsButton
           variant="primary"
           :loading="pending"
-          @click="emit('reprocess', { limit: Math.max(1, Number(reprocessLimit) || 1), parserVersionLt: reprocessVersion || undefined })"
+          @click="
+            emit('reprocess', {
+              limit: Math.max(1, Number(reprocessLimit) || 1),
+              parserVersionLt: reprocessVersion || undefined,
+            })
+          "
         >
           Queue Reprocess
         </KsButton>
@@ -112,11 +130,18 @@ watch(syncMode, mode => {
             v-model="syncTargetId"
             class="admin-actions__input"
             type="text"
-            :placeholder="syncMode === 'collection' ? 'Collection UUID' : 'Paper UUID'"
-          >
+            :placeholder="
+              syncMode === 'collection' ? 'Collection UUID' : 'Paper UUID'
+            "
+          />
         </label>
         <p class="ks-type-data admin-actions__hint">
-          Sample: {{ syncMode === 'collection' ? (sampleCollectionId ?? 'none loaded') : (samplePaperId ?? 'none loaded') }}
+          Sample:
+          {{
+            syncMode === "collection"
+              ? (sampleCollectionId ?? "none loaded")
+              : (samplePaperId ?? "none loaded")
+          }}
         </p>
         <KsButton
           variant="primary"
@@ -140,10 +165,10 @@ watch(syncMode, mode => {
             class="admin-actions__input"
             type="text"
             placeholder="Paper UUID"
-          >
+          />
         </label>
         <p class="ks-type-data admin-actions__hint">
-          Sample: {{ samplePaperId ?? 'none loaded' }}
+          Sample: {{ samplePaperId ?? "none loaded" }}
         </p>
         <KsButton
           variant="secondary"
@@ -156,7 +181,12 @@ watch(syncMode, mode => {
       </KsCard>
     </div>
 
-    <KsCard v-if="props.result" padding="sm" class="admin-actions__result" :static="true">
+    <KsCard
+      v-if="props.result"
+      padding="sm"
+      class="admin-actions__result"
+      :static="true"
+    >
       <div class="admin-actions__result-head">
         <p class="ks-type-label">{{ props.result.label }}</p>
         <KsTag :variant="props.result.ok ? 'success' : 'danger'">
@@ -164,9 +194,12 @@ watch(syncMode, mode => {
         </KsTag>
       </div>
       <p class="ks-type-data admin-actions__result-meta">
-        {{ props.result.method }} {{ props.result.path }} · {{ props.result.durationMs }} ms
+        {{ props.result.method }} {{ props.result.path }} ·
+        {{ props.result.durationMs }} ms
       </p>
-      <pre class="admin-actions__result-body">{{ JSON.stringify(props.result.data, null, 2) }}</pre>
+      <pre class="admin-actions__result-body">{{
+        JSON.stringify(props.result.data, null, 2)
+      }}</pre>
     </KsCard>
   </section>
 </template>
@@ -249,7 +282,7 @@ watch(syncMode, mode => {
   max-height: 240px;
   overflow: auto;
   padding: 14px;
-  background: rgba(26, 26, 26, 0.03);
+  background: var(--color-overlay-light);
   font: 500 0.78rem / 1.55 var(--font-mono);
   white-space: pre-wrap;
   word-break: break-word;

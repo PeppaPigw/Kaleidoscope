@@ -7,36 +7,45 @@
  */
 
 export interface PaperClaim {
-  id: string
-  text: string
-  category: string
-  confidence: number
-  evidenceCount: number
-  status: 'verified' | 'unverified' | 'disputed'
+  id: string;
+  text: string;
+  category: string;
+  confidence: number;
+  evidenceCount: number;
+  status: "verified" | "unverified" | "disputed";
 }
 
 export interface ClaimsLedgerProps {
-  claims: PaperClaim[]
+  claims: PaperClaim[];
 }
 
-defineProps<ClaimsLedgerProps>()
-defineEmits<{ 'claim-click': [claim: PaperClaim] }>()
+defineProps<ClaimsLedgerProps>();
+defineEmits<{ "claim-click": [claim: PaperClaim] }>();
 
-const uid = useId()
+const uid = useId();
 
-function statusIcon(s: PaperClaim['status']): string {
+function statusIcon(s: PaperClaim["status"]): string {
   switch (s) {
-    case 'verified': return '✓'
-    case 'disputed': return '✗'
-    case 'unverified': return '?'
+    case "verified":
+      return "✓";
+    case "disputed":
+      return "✗";
+    case "unverified":
+      return "?";
   }
 }
 </script>
 
 <template>
-  <section class="ks-claims-ledger ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-claims-ledger ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Claims Ledger</h2>
-    <p class="ks-type-body-sm" style="color: var(--color-secondary); margin-bottom: 16px;">
+    <p
+      class="ks-type-body-sm"
+      style="color: var(--color-secondary); margin-bottom: 16px"
+    >
       {{ claims.length }} atomic claims extracted
     </p>
 
@@ -46,7 +55,9 @@ function statusIcon(s: PaperClaim['status']): string {
         :key="claim.id"
         class="ks-claims-ledger__item"
       >
-        <div class="ks-claims-ledger__index" aria-hidden="true">{{ i + 1 }}</div>
+        <div class="ks-claims-ledger__index" aria-hidden="true">
+          {{ i + 1 }}
+        </div>
         <div class="ks-claims-ledger__body">
           <button
             type="button"
@@ -57,12 +68,24 @@ function statusIcon(s: PaperClaim['status']): string {
             {{ claim.text }}
           </button>
           <div class="ks-claims-ledger__meta">
-            <KsTag :variant="claim.status === 'verified' ? 'primary' : claim.status === 'disputed' ? 'danger' : 'neutral'">
+            <KsTag
+              :variant="
+                claim.status === 'verified'
+                  ? 'primary'
+                  : claim.status === 'disputed'
+                    ? 'danger'
+                    : 'neutral'
+              "
+            >
               <span aria-hidden="true">{{ statusIcon(claim.status) }}</span>
               {{ claim.status }}
             </KsTag>
-            <span class="ks-type-data" style="color: var(--color-accent);">{{ claim.category }}</span>
-            <span class="ks-type-data">{{ (claim.confidence * 100).toFixed(0) }}%</span>
+            <span class="ks-type-data" style="color: var(--color-accent)">{{
+              claim.category
+            }}</span>
+            <span class="ks-type-data"
+              >{{ (claim.confidence * 100).toFixed(0) }}%</span
+            >
             <span class="ks-type-data">{{ claim.evidenceCount }} evidence</span>
           </div>
         </div>

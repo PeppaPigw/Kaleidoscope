@@ -142,7 +142,9 @@ class Paper(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # --- Chinese Translation of Deep Analysis ---
     deep_analysis_zh: Mapped[dict | None] = mapped_column(JSONB)
     # {status: "ok"|"translating"|"error", analysis, translated_at, error}
-    deep_analysis_zh_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deep_analysis_zh_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
 
     # --- Structured Taxonomy Labels (labeling_service.py) ---
     paper_labels: Mapped[dict | None] = mapped_column(JSONB)

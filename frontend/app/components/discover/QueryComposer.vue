@@ -9,39 +9,39 @@
 
 export interface QueryComposerProps {
   /** Placeholder text for the textarea */
-  placeholder?: string
+  placeholder?: string;
   /** Suggestion chips displayed below */
-  suggestions?: string[]
+  suggestions?: string[];
   /** Model value for v-model support */
-  modelValue?: string
+  modelValue?: string;
 }
 
 const props = withDefaults(defineProps<QueryComposerProps>(), {
-  placeholder: 'Describe a research frontier to discover papers...',
+  placeholder: "Describe a research frontier to discover papers...",
   suggestions: () => [],
-  modelValue: '',
-})
+  modelValue: "",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'submit': [query: string]
-  'suggestion-click': [suggestion: string]
-}>()
+  "update:modelValue": [value: string];
+  submit: [query: string];
+  "suggestion-click": [suggestion: string];
+}>();
 
-const uid = useId()
+const uid = useId();
 
 function handleInput(e: Event) {
-  emit('update:modelValue', (e.target as HTMLTextAreaElement).value)
+  emit("update:modelValue", (e.target as HTMLTextAreaElement).value);
 }
 
 function handleSuggestionClick(s: string) {
-  emit('update:modelValue', s)
-  emit('suggestion-click', s)
+  emit("update:modelValue", s);
+  emit("suggestion-click", s);
 }
 
 function handleSubmit() {
   if (props.modelValue.trim()) {
-    emit('submit', props.modelValue.trim())
+    emit("submit", props.modelValue.trim());
   }
 }
 </script>
@@ -51,9 +51,14 @@ function handleSubmit() {
     class="ks-query-composer ks-card ks-motion-paper-reveal ks-motion-paper-reveal--delay-1"
     :aria-labelledby="`${uid}-title`"
   >
-    <h3 :id="`${uid}-title`" class="ks-type-section-title">Compose Discovery</h3>
+    <h3 :id="`${uid}-title`" class="ks-type-section-title">
+      Compose Discovery
+    </h3>
     <form class="ks-query-composer__form" @submit.prevent="handleSubmit">
-      <label :for="`${uid}-input`" class="ks-type-body-sm ks-query-composer__desc">
+      <label
+        :for="`${uid}-input`"
+        class="ks-type-body-sm ks-query-composer__desc"
+      >
         Describe a research frontier, not just keywords.
       </label>
       <textarea
@@ -115,8 +120,9 @@ function handleSubmit() {
   font: 400 1rem / 1.6 var(--font-serif);
   color: var(--color-text);
   resize: none;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              box-shadow var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-query-composer__input:focus {
@@ -146,8 +152,9 @@ function handleSubmit() {
   font: 600 0.6875rem / 1.2 var(--font-sans);
   color: var(--color-primary);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-smooth),
-              transform var(--duration-fast) var(--ease-spring);
+  transition:
+    background-color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-spring);
 }
 
 .ks-query-composer__chip:hover {

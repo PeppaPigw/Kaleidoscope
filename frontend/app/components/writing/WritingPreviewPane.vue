@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { renderPaperMarkdown } from '~/utils/markdown'
+import { renderPaperMarkdown } from "~/utils/markdown";
 
 export interface WritingPreviewPaneProps {
-  title: string
-  markdown: string
+  title: string;
+  markdown: string;
 }
 
-const props = defineProps<WritingPreviewPaneProps>()
+const props = defineProps<WritingPreviewPaneProps>();
 
-const renderedHtml = ref('')
-const renderPending = ref(false)
-const renderError = ref<string | null>(null)
+const renderedHtml = ref("");
+const renderPending = ref(false);
+const renderError = ref<string | null>(null);
 
 watch(
   () => ({
@@ -18,37 +18,35 @@ watch(
     markdown: props.markdown,
   }),
   async ({ title, markdown }, _previous, onCleanup) => {
-    let cancelled = false
+    let cancelled = false;
     onCleanup(() => {
-      cancelled = true
-    })
+      cancelled = true;
+    });
 
-    renderPending.value = true
-    renderError.value = null
+    renderPending.value = true;
+    renderError.value = null;
 
     try {
-      const rendered = await renderPaperMarkdown(markdown, { title, sections: [] })
-      if (cancelled)
-        return
+      const rendered = await renderPaperMarkdown(markdown, {
+        title,
+        sections: [],
+        includeHeadings: false,
+      });
+      if (cancelled) return;
 
-      renderedHtml.value = rendered.html
-    }
-    catch (error) {
-      if (cancelled)
-        return
+      renderedHtml.value = rendered.html;
+    } catch (error) {
+      if (cancelled) return;
 
-      renderedHtml.value = ''
-      renderError.value = error instanceof Error
-        ? error.message
-        : 'Preview rendering failed'
-    }
-    finally {
-      if (!cancelled)
-        renderPending.value = false
+      renderedHtml.value = "";
+      renderError.value =
+        error instanceof Error ? error.message : "Preview rendering failed";
+    } finally {
+      if (!cancelled) renderPending.value = false;
     }
   },
   { immediate: true },
-)
+);
 </script>
 
 <template>
@@ -63,7 +61,9 @@ watch(
 
     <div v-else class="ks-writing-preview__viewport">
       <article class="ks-writing-preview__paper ks-prose">
-        <h1 class="ks-writing-preview__paper-title">{{ title || 'Untitled' }}</h1>
+        <h1 class="ks-writing-preview__paper-title">
+          {{ title || "Untitled" }}
+        </h1>
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-html="renderedHtml" />
       </article>
@@ -91,7 +91,11 @@ watch(
   padding: 0.4rem;
   border-radius: 1.1rem;
   background:
-    linear-gradient(180deg, rgba(239, 234, 225, 0.94), rgba(235, 229, 219, 0.9)),
+    linear-gradient(
+      180deg,
+      rgba(239, 234, 225, 0.94),
+      rgba(235, 229, 219, 0.9)
+    ),
     radial-gradient(circle at top, rgba(196, 163, 90, 0.08), transparent 22rem);
 }
 
@@ -177,18 +181,20 @@ watch(
   font-size: 0.62rem;
 }
 
-:deep(.ks-writing-preview__paper mjx-container[jax='SVG']) {
+:deep(.ks-writing-preview__paper mjx-container[jax="SVG"]) {
   max-width: 100%;
   overflow: hidden;
 }
 
-:deep(.ks-writing-preview__paper mjx-container[jax='SVG']:not([display='true'])) {
+:deep(
+  .ks-writing-preview__paper mjx-container[jax="SVG"]:not([display="true"])
+) {
   display: inline;
   margin: 0;
   white-space: normal;
 }
 
-:deep(.ks-writing-preview__paper mjx-container[jax='SVG'][display='true']) {
+:deep(.ks-writing-preview__paper mjx-container[jax="SVG"][display="true"]) {
   margin: 0.65rem 0;
   overflow: hidden;
 }

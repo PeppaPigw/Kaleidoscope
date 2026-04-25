@@ -7,43 +7,62 @@
  */
 
 export interface TopicPeriod {
-  id: string
-  label: string
-  years: string
-  paperCount: number
-  active: boolean
+  id: string;
+  label: string;
+  years: string;
+  paperCount: number;
+  active: boolean;
 }
 
 export interface TopicEvolutionProps {
-  topics: TopicPeriod[]
+  topics: TopicPeriod[];
 }
 
-const props = defineProps<TopicEvolutionProps>()
-defineEmits<{ 'topic-click': [topic: TopicPeriod] }>()
+const props = defineProps<TopicEvolutionProps>();
+defineEmits<{ "topic-click": [topic: TopicPeriod] }>();
 
-const uid = useId()
-const maxPaperCount = computed(() => Math.max(...props.topics.map(t => t.paperCount), 1))
+const uid = useId();
+const maxPaperCount = computed(() =>
+  Math.max(...props.topics.map((t) => t.paperCount), 1),
+);
 </script>
 
 <template>
-  <section class="ks-topic-evolution ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
+  <section
+    class="ks-topic-evolution ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
     <h2 :id="`${uid}-title`" class="ks-type-section-title">Topic Evolution</h2>
 
-    <div class="ks-topic-evolution__timeline" role="group" :aria-label="`${topics.length} research topics`">
+    <div
+      class="ks-topic-evolution__timeline"
+      role="group"
+      :aria-label="`${topics.length} research topics`"
+    >
       <button
         v-for="topic in topics"
         :key="topic.id"
         type="button"
-        :class="['ks-topic-evolution__item', { 'ks-topic-evolution__item--active': topic.active }]"
+        :class="[
+          'ks-topic-evolution__item',
+          { 'ks-topic-evolution__item--active': topic.active },
+        ]"
         :aria-pressed="topic.active"
         @click="$emit('topic-click', topic)"
       >
         <div class="ks-topic-evolution__bar" aria-hidden="true">
-          <div class="ks-topic-evolution__fill" :style="{ height: `${(topic.paperCount / maxPaperCount) * 100}%` }"/>
+          <div
+            class="ks-topic-evolution__fill"
+            :style="{ height: `${(topic.paperCount / maxPaperCount) * 100}%` }"
+          />
         </div>
         <span class="ks-topic-evolution__label">{{ topic.label }}</span>
         <span class="ks-type-data">{{ topic.years }}</span>
-        <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">{{ topic.paperCount }} papers</span>
+        <span
+          class="ks-type-data"
+          style="color: var(--color-primary); font-weight: 700"
+          >{{ topic.paperCount }} papers</span
+        >
       </button>
     </div>
   </section>
@@ -69,8 +88,9 @@ const maxPaperCount = computed(() => Math.max(...props.topics.map(t => t.paperCo
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-smooth),
-              background-color var(--duration-fast) var(--ease-smooth);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    background-color var(--duration-fast) var(--ease-smooth);
 }
 
 .ks-topic-evolution__item:hover {
@@ -100,7 +120,11 @@ const maxPaperCount = computed(() => Math.max(...props.topics.map(t => t.paperCo
 
 .ks-topic-evolution__fill {
   width: 100%;
-  background: linear-gradient(180deg, var(--color-primary), var(--color-accent-decorative));
+  background: linear-gradient(
+    180deg,
+    var(--color-primary),
+    var(--color-accent-decorative)
+  );
   border-radius: 2px 2px 0 0;
   transition: height var(--duration-normal) var(--ease-spring);
 }

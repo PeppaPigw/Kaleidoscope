@@ -31,7 +31,7 @@ dependencies = [
     "neo4j>=5.27.0",
     # Object storage
     "minio>=7.2.0",
-    "oss2>=2.18.0",           # Aliyun OSS (image hosting)
+    "oss2>=2.18.0", # Aliyun OSS (image hosting)
     # PDF parsing
     "lxml>=5.3.0",
     # Text similarity
@@ -44,6 +44,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     # DeepXiv paper search & reading
     "deepxiv-sdk>=0.2.4",
+    "tenacity>=9.0.0",
 ]
 
 [project.optional-dependencies]

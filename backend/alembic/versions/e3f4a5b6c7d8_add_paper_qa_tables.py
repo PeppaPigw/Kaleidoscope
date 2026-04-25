@@ -47,9 +47,7 @@ def upgrade() -> None:
         ),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["paper_id"], ["papers.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_paper_chunks_paper_id", "paper_chunks", ["paper_id"])
@@ -78,9 +76,7 @@ def upgrade() -> None:
         ),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["paper_id"], ["papers.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("paper_id", name="uq_paper_embedding_jobs_paper_id"),
     )
@@ -95,9 +91,7 @@ def upgrade() -> None:
         sa.Column("paper_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("role", sa.String(20), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column(
-            "sources", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("sources", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -106,9 +100,7 @@ def upgrade() -> None:
         ),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["paper_id"], ["papers.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_qa_messages_paper_id", "qa_messages", ["paper_id"])

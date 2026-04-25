@@ -7,28 +7,36 @@
  */
 
 export interface Collaborator {
-  id: string
-  name: string
-  affiliation: string
-  sharedPapers: number
-  lastCollabYear: number
-  intensity: 'high' | 'medium' | 'low'
+  id: string;
+  name: string;
+  affiliation: string;
+  sharedPapers: number;
+  lastCollabYear: number;
+  intensity: "high" | "medium" | "low";
 }
 
 export interface CollaborationAtlasProps {
-  collaborators: Collaborator[]
+  collaborators: Collaborator[];
 }
 
-defineProps<CollaborationAtlasProps>()
-defineEmits<{ 'collaborator-click': [collaborator: Collaborator] }>()
+defineProps<CollaborationAtlasProps>();
+defineEmits<{ "collaborator-click": [collaborator: Collaborator] }>();
 
-const uid = useId()
+const uid = useId();
 </script>
 
 <template>
-  <section class="ks-collab-atlas ks-motion-paper-reveal" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="ks-type-section-title">Collaboration Atlas</h2>
-    <p class="ks-type-body-sm" style="color: var(--color-secondary); margin-bottom: 16px;">
+  <section
+    class="ks-collab-atlas ks-motion-paper-reveal"
+    :aria-labelledby="`${uid}-title`"
+  >
+    <h2 :id="`${uid}-title`" class="ks-type-section-title">
+      Collaboration Atlas
+    </h2>
+    <p
+      class="ks-type-body-sm"
+      style="color: var(--color-secondary); margin-bottom: 16px"
+    >
       {{ collaborators.length }} collaborators
     </p>
 
@@ -43,14 +51,23 @@ const uid = useId()
       >
         <div class="ks-collab-atlas__card-header">
           <div
-            :class="['ks-collab-atlas__intensity', `ks-collab-atlas__intensity--${c.intensity}`]"
+            :class="[
+              'ks-collab-atlas__intensity',
+              `ks-collab-atlas__intensity--${c.intensity}`,
+            ]"
             :aria-label="`${c.intensity} collaboration`"
           />
           <span class="ks-collab-atlas__name">{{ c.name }}</span>
         </div>
-        <span class="ks-type-data" style="color: var(--color-secondary);">{{ c.affiliation }}</span>
+        <span class="ks-type-data" style="color: var(--color-secondary)">{{
+          c.affiliation
+        }}</span>
         <div class="ks-collab-atlas__card-footer">
-          <span class="ks-type-data" style="color: var(--color-primary); font-weight: 700;">{{ c.sharedPapers }} papers</span>
+          <span
+            class="ks-type-data"
+            style="color: var(--color-primary); font-weight: 700"
+            >{{ c.sharedPapers }} papers</span
+          >
           <span class="ks-type-data">last {{ c.lastCollabYear }}</span>
         </div>
       </button>
@@ -72,8 +89,9 @@ const uid = useId()
   padding: 14px 16px;
   text-align: left;
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-smooth);
+  transition:
+    transform var(--duration-normal) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-smooth);
 }
 
 .ks-collab-atlas__card:hover {
@@ -99,9 +117,15 @@ const uid = useId()
   flex-shrink: 0;
 }
 
-.ks-collab-atlas__intensity--high { background: var(--color-primary); }
-.ks-collab-atlas__intensity--medium { background: var(--color-accent-decorative); }
-.ks-collab-atlas__intensity--low { background: var(--color-border); }
+.ks-collab-atlas__intensity--high {
+  background: var(--color-primary);
+}
+.ks-collab-atlas__intensity--medium {
+  background: var(--color-accent-decorative);
+}
+.ks-collab-atlas__intensity--low {
+  background: var(--color-border);
+}
 
 .ks-collab-atlas__name {
   font: 600 0.9375rem / 1.3 var(--font-serif);

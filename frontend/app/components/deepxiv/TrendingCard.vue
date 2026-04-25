@@ -5,41 +5,60 @@
  * Accepts the raw DeepXivTrendingPaper shape from the API plus an optional
  * brief (title, TLDR, keywords, citations) fetched separately.
  */
-import { Eye, Heart, MessageCircle, ExternalLink, Quote } from 'lucide-vue-next'
-import type { DeepXivTrendingPaper, DeepXivBriefResponse } from '~/composables/useDeepXiv'
+import {
+  Eye,
+  Heart,
+  MessageCircle,
+  ExternalLink,
+  Quote,
+} from "lucide-vue-next";
+import type {
+  DeepXivTrendingPaper,
+  DeepXivBriefResponse,
+} from "~/composables/useDeepXiv";
 
 interface TrendingCardProps {
-  paper: DeepXivTrendingPaper
-  brief?: DeepXivBriefResponse
-  rank?: number
+  paper: DeepXivTrendingPaper;
+  brief?: DeepXivBriefResponse;
+  rank?: number;
 }
 
-const props = defineProps<TrendingCardProps>()
+const props = defineProps<TrendingCardProps>();
 
-defineEmits<{ click: [paper: DeepXivTrendingPaper] }>()
+defineEmits<{ click: [paper: DeepXivTrendingPaper] }>();
 
 function fmt(n: number | undefined): string {
-  if (!n) return '0'
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+  if (!n) return "0";
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
 }
 
 function fmtDate(d: string | null | undefined): string {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
-const displayRank = computed(() => props.paper.rank ?? props.rank ?? 0)
-const title = computed(() => props.brief?.title ?? props.paper.arxiv_id)
-const tldr = computed(() => props.brief?.tldr ?? null)
-const keywords = computed(() => props.brief?.keywords?.slice(0, 4) ?? [])
-const citations = computed(() => props.brief?.citations ?? 0)
-const publishedAt = computed(() => fmtDate(props.brief?.publish_at))
+const displayRank = computed(() => props.paper.rank ?? props.rank ?? 0);
+const title = computed(
+  () => props.brief?.title ?? props.paper.title ?? props.paper.arxiv_id,
+);
+const tldr = computed(() => props.brief?.tldr ?? null);
+const keywords = computed(() => props.brief?.keywords?.slice(0, 4) ?? []);
+const citations = computed(
+  () => props.brief?.citations ?? props.paper.citation_count ?? 0,
+);
+const publishedAt = computed(() =>
+  fmtDate(props.brief?.publish_at ?? props.paper.publish_at),
+);
 
-const views = computed(() => props.paper.stats?.total_views ?? 0)
-const likes = computed(() => props.paper.stats?.total_likes ?? 0)
-const mentions = computed(() => props.paper.stats?.total_mentions ?? 0)
-const mentionedBy = computed(() => props.paper.mentioned_by?.slice(0, 3) ?? [])
+const views = computed(() => props.paper.stats?.total_views ?? 0);
+const likes = computed(() => props.paper.stats?.total_likes ?? 0);
+const mentions = computed(() => props.paper.stats?.total_mentions ?? 0);
+const mentionedBy = computed(() => props.paper.mentioned_by?.slice(0, 3) ?? []);
 </script>
 
 <template>
@@ -87,7 +106,10 @@ const mentionedBy = computed(() => props.paper.mentioned_by?.slice(0, 3) ?? [])
         >
           @{{ user.username }}
         </span>
-        <span v-if="(paper.mentioned_by?.length ?? 0) > 3" class="ks-tc__mention ks-tc__mention--more">
+        <span
+          v-if="(paper.mentioned_by?.length ?? 0) > 3"
+          class="ks-tc__mention ks-tc__mention--more"
+        >
           +{{ (paper.mentioned_by?.length ?? 0) - 3 }} more
         </span>
       </div>
@@ -126,7 +148,10 @@ const mentionedBy = computed(() => props.paper.mentioned_by?.slice(0, 3) ?? [])
   border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .ks-tc:hover {
@@ -277,7 +302,9 @@ const mentionedBy = computed(() => props.paper.mentioned_by?.slice(0, 3) ?? [])
 .ks-tc__open {
   color: var(--color-secondary);
   opacity: 0.4;
-  transition: opacity 0.15s, color 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
 }
 
 .ks-tc:hover .ks-tc__open {

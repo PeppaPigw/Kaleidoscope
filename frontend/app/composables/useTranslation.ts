@@ -321,7 +321,7 @@ export function useTranslation() {
    */
   async function translate(
     text: string,
-    options?: { paperId?: string; fieldType?: "title" | "abstract" }
+    options?: { paperId?: string; fieldType?: "title" | "abstract" },
   ): Promise<string> {
     if (!text || text.length < 2) return text;
 

@@ -183,7 +183,7 @@ async def list_papers(
                 id=p.id,
                 doi=p.doi,
                 arxiv_id=p.arxiv_id,
-                title=p.title,
+                title=p.title or "",
                 abstract=(
                     p.abstract[:300] + "..."
                     if p.abstract and len(p.abstract) > 300
@@ -192,7 +192,7 @@ async def list_papers(
                 published_at=p.published_at,
                 citation_count=p.citation_count,
                 has_full_text=p.has_full_text,
-                ingestion_status=p.ingestion_status,
+                ingestion_status=p.ingestion_status or "unknown",
                 created_at=p.created_at,
             )
             for p in papers

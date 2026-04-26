@@ -37,6 +37,7 @@ _DATASET_PATTERNS = [
     "MIMIC",
     "arXiv",
     "WikiText",
+    "SciAgent",
 ]
 _METRIC_PATTERNS = [
     "accuracy",
@@ -312,10 +313,21 @@ class AgentInformationService:
 
         records = [self.extract_benchmark_record(source) for source in sources]
         records = [record for record in records if record["signals_found"]]
+        datasets = self._dedupe(item for record in records for item in record.get("datasets", []))
+        metrics = self._dedupe(item for record in records for item in record.get("metrics", []))
+        baselines = self._dedupe(item for record in records for item in record.get("baselines", []))
+        hardware = self._dedupe(item for record in records for item in record.get("hardware", []))
+        result_values = [item for record in records for item in record.get("result_values", [])]
         return {
             "total_sources": len(sources),
             "records_found": len(records),
             "records": records,
+            "datasets": datasets,
+            "metrics": metrics,
+            "baselines": baselines,
+            "hardware": hardware,
+            "settings": [{"paper_id": record.get("paper_id"), "source": record.get("paper_title") or "provided_text"} for record in records],
+            "result_values": result_values,
             "schema": {
                 "datasets": "list[str]",
                 "metrics": "list[str]",
@@ -955,6 +967,8 @@ class AgentInformationService:
                     "title": section.get("title"),
                     "level": section.get("level"),
                     "paragraphs": section.get("paragraphs") or [],
+                    "page_range": section.get("page_range"),
+                    "page_spans": section.get("page_spans") or [],
                     "token_estimate": self._estimate_text_tokens(
                         " ".join(section.get("paragraphs") or [])
                     ),

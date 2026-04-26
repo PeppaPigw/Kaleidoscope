@@ -3,7 +3,6 @@
 import {
   AlertTriangle,
   BookOpen,
-  Braces,
   CheckCircle2,
   Copy,
   KeyRound,
@@ -91,6 +90,7 @@ const API_DOCS_COPY = {
     parameters: "Parameters",
     noParameters:
       "This endpoint declares no path, query, header, or cookie parameters.",
+    name: "Name",
     location: "Location",
     required: "Required",
     schema: "Schema",
@@ -125,7 +125,7 @@ const API_DOCS_COPY = {
     openApiVersion: "OpenAPI",
   },
   zh: {
-    eyebrow: "开发者服务 · 面向 Agent 的 JSON API",
+    eyebrow: "开发者服务 · 面向智能体的 JSON API",
     title: "论文分析的 API 地图。",
     subtitle:
       "在同一页面浏览所有对外路由、查看 schema、顶部填写 API key，并直接发起真实调试请求。",
@@ -154,6 +154,7 @@ const API_DOCS_COPY = {
     operationId: "Operation ID",
     parameters: "参数",
     noParameters: "此接口未声明 path、query、header 或 cookie 参数。",
+    name: "名称",
     location: "位置",
     required: "必填",
     schema: "Schema",
@@ -219,18 +220,18 @@ const DOMAIN_LABELS = {
   },
   zh: {
     admin: "管理与运维",
-    "agent-acquisition": "Agent 论文获取",
-    "agent-citation-intelligence": "Agent 引用智能",
-    "agent-external-artifacts": "Agent 外部资产",
-    "agent-monitoring-memory": "Agent 监控与记忆",
-    "agent-orchestration": "Agent 编排",
-    "agent-paper-access": "Agent 论文精读",
-    "agent-reproducibility-quality": "Agent 复现与质量",
-    "agent-research-output": "Agent 科研输出",
-    "agent-scientific-extraction": "Agent 科学抽取",
-    "agent-synthesis-planning": "Agent 综合与规划",
-    "agent-topic-intelligence": "Agent 主题趋势",
-    "agent-visual-artifacts": "Agent 图表资产",
+    "agent-acquisition": "智能体论文获取",
+    "agent-citation-intelligence": "智能体引用分析",
+    "agent-external-artifacts": "智能体外部资产",
+    "agent-monitoring-memory": "智能体监控与记忆",
+    "agent-orchestration": "智能体编排",
+    "agent-paper-access": "智能体论文精读",
+    "agent-reproducibility-quality": "智能体复现与质量",
+    "agent-research-output": "智能体科研输出",
+    "agent-scientific-extraction": "智能体科学抽取",
+    "agent-synthesis-planning": "智能体综合与规划",
+    "agent-topic-intelligence": "智能体主题趋势",
+    "agent-visual-artifacts": "智能体图表资产",
     analytics: "分析统计",
     auth: "身份与用户",
     claims: "论证与证据",
@@ -325,6 +326,18 @@ const API_TERM_ZH: Record<string, string> = {
   rebuttal: "回复审稿",
   regenerate: "重新生成",
   related: "相关",
+  related_work: "相关工作",
+  related_work_pack: "相关工作包",
+  literature: "文献",
+  build: "构建",
+  map: "图谱",
+  maps: "图谱",
+  pack: "包",
+  packs: "包",
+  plan: "计划",
+  review: "综述",
+  reviews: "综述",
+  work: "工作",
   replication: "复现",
   repo: "代码仓库",
   repository: "代码仓库",
@@ -355,7 +368,7 @@ const API_TERM_ZH: Record<string, string> = {
   writing: "写作",
   add: "添加",
   admin: "管理",
-  agent: "Agent",
+  agent: "智能体",
   alert: "告警",
   alerts: "告警",
   all: "全部",
@@ -493,7 +506,7 @@ const API_SUMMARY_ZH: Record<string, string> = {
   "Delete Saved Search": "删除保存的搜索",
   "Delete Webhook": "删除 Webhook",
   "Export Paper Citation": "导出论文引用",
-  "Get Agent Summary": "获取 Agent 友好的结构化论文摘要",
+  "Get Agent Summary": "获取智能体友好的结构化论文摘要",
   "Get Bridge Papers": "查找连接两个主题领域的桥接论文",
   "Get Citation Timeline": "获取论文引用时间线",
   "Get Collection": "获取集合详情",
@@ -511,6 +524,17 @@ const API_SUMMARY_ZH: Record<string, string> = {
   "Get Reading Path": "查找论文之间的引用路径",
   "Get Reading Status": "获取阅读状态",
   "Get Related Work Pack": "获取相关工作包",
+  "Related Work Pack": "生成相关工作包",
+  "Build Related Work Pack": "生成相关工作包",
+  "Review Map": "生成综述图谱",
+  "Literature Review Map": "生成文献综述图谱",
+  "Contradiction Map": "生成矛盾图谱",
+  "Minimal Reading Set": "生成最小阅读集合",
+  "Research Timeline": "生成研究时间线",
+  "Plan Review": "评审研究计划",
+  "Literature Plan Review": "评审文献综述计划",
+  "Consensus Map": "生成共识图谱",
+  "Literature Consensus Map": "生成文献共识图谱",
   "Get Reproductions": "获取复现记录",
   "Get Similar Papers": "获取相似论文",
   "Graph Stats": "获取图谱统计",
@@ -562,6 +586,7 @@ const runnerPending = ref(false);
 const runnerResult = ref<AdminRunResult | null>(null);
 const runnerError = ref<string | null>(null);
 const copiedCurl = ref(false);
+let endpointObserver: IntersectionObserver | null = null;
 
 const uiText = computed(() => API_DOCS_COPY[locale.value]);
 const apiBaseUrl = computed(() => String(config.public.apiUrl || ""));
@@ -570,6 +595,10 @@ const domainOptions = computed(() => [
   "all",
   ...new Set(endpoints.value.map((endpoint) => endpoint.domain)),
 ]);
+
+function domainEndpointCount(domain: string): number {
+  return endpoints.value.filter((endpoint) => endpoint.domain === domain).length;
+}
 
 const selectedEndpoint = computed(() => {
   return (
@@ -629,46 +658,8 @@ const endpointGroups = computed<EndpointGroup[]>(() => {
   }));
 });
 
-const summaryCards = computed(() => {
-  const domainCount = new Set(
-    endpoints.value.map((endpoint) => endpoint.domain),
-  ).size;
-  const safeCount = endpoints.value.filter(
-    (endpoint) => endpoint.probeMode === "safe",
-  ).length;
-
-  return [
-    {
-      label: uiText.value.endpoints,
-      value: endpoints.value.length,
-      tone: "ink",
-    },
-    {
-      label: uiText.value.domains,
-      value: domainCount,
-      tone: "cyan",
-    },
-    {
-      label: uiText.value.jsonFirst,
-      value: safeCount,
-      tone: "green",
-    },
-    {
-      label: uiText.value.liveDebug,
-      value: "X-API-Key",
-      tone: "amber",
-    },
-  ];
-});
-
-const selectedParameters = computed(
-  () => selectedEndpoint.value?.parameters ?? [],
-);
 const selectedRequestBody = computed(
   () => selectedEndpoint.value?.requestBody ?? null,
-);
-const responseCodes = computed(
-  () => selectedEndpoint.value?.responseCodes ?? [],
 );
 
 const requestPathPreview = computed(() => {
@@ -704,10 +695,6 @@ const curlSnippet = computed(() => {
     query: preview.query,
     body: preview.body,
   });
-});
-
-const requestBodySchemaText = computed(() => {
-  return formatJsonPreview(selectedRequestBody.value?.schema ?? null, "null");
 });
 
 const responseBodyText = computed(() => {
@@ -756,6 +743,15 @@ watch(apiKey, (nextKey) => {
   }
 });
 
+watch(
+  endpointGroups,
+  async () => {
+    await nextTick();
+    setupEndpointObserver();
+  },
+  { flush: "post" },
+);
+
 onMounted(() => {
   try {
     const storedKey = localStorage.getItem(API_DOCS_KEY_STORAGE);
@@ -767,6 +763,12 @@ onMounted(() => {
   }
 
   void loadCatalog();
+  void nextTick().then(setupEndpointObserver);
+});
+
+onBeforeUnmount(() => {
+  endpointObserver?.disconnect();
+  endpointObserver = null;
 });
 
 function resetRunnerSeed(endpoint = selectedEndpoint.value) {
@@ -791,6 +793,70 @@ function resetRunnerSeed(endpoint = selectedEndpoint.value) {
 function selectEndpoint(endpoint: AdminEndpoint) {
   selectedEndpointId.value = endpoint.id;
 }
+
+function anchorSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function domainAnchorId(domain: string): string {
+  return `api-domain-${anchorSlug(domain)}`;
+}
+
+function endpointAnchorId(endpoint: AdminEndpoint): string {
+  return `api-endpoint-${anchorSlug(endpoint.id)}`;
+}
+
+function endpointRequestBodySchemaText(endpoint: AdminEndpoint): string {
+  return formatJsonPreview(endpoint.requestBody?.schema ?? null, "null");
+}
+
+function setupEndpointObserver() {
+  if (!import.meta.client) {
+    return;
+  }
+
+  endpointObserver?.disconnect();
+  endpointObserver = null;
+
+  const visibleEndpoints = endpointGroups.value.flatMap((group) => group.endpoints);
+  const endpointByAnchor = new Map(
+    visibleEndpoints.map((endpoint) => [endpointAnchorId(endpoint), endpoint]),
+  );
+  const targets = visibleEndpoints
+    .map((endpoint) => document.getElementById(endpointAnchorId(endpoint)))
+    .filter((element): element is HTMLElement => Boolean(element));
+
+  if (!targets.length) {
+    return;
+  }
+
+  endpointObserver = new IntersectionObserver(
+    (entries) => {
+      const activeEntry = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+      const endpoint = activeEntry
+        ? endpointByAnchor.get(activeEntry.target.id)
+        : null;
+
+      if (endpoint && endpoint.id !== selectedEndpointId.value) {
+        selectedEndpointId.value = endpoint.id;
+      }
+    },
+    {
+      rootMargin: "-18% 0px -68% 0px",
+      threshold: [0, 0.16, 0.35, 0.6],
+    },
+  );
+
+  for (const target of targets) {
+    endpointObserver.observe(target);
+  }
+}
+
 
 function ensureSelectedEndpoint() {
   if (
@@ -965,7 +1031,7 @@ function normalizeSummaryKey(value: string): string {
 }
 
 function translateApiLabelToZh(value: string): string {
-  const normalized = normalizeSummaryKey(value);
+  const normalized = normalizeSummaryKey(value.replace(/[_-]+/g, " "));
   const exact = API_SUMMARY_ZH[normalized];
   if (exact) {
     return exact;
@@ -1039,12 +1105,12 @@ function endpointPurpose(endpoint: AdminEndpoint): string {
   const domain = domainLabel(endpoint.domain);
   const payload = endpoint.requestBody
     ? "请求体使用 JSON，响应也按结构化 JSON 返回。"
-    : "响应按结构化 JSON 返回，便于下游 Agent 直接解析。";
+    : "响应按结构化 JSON 返回，便于下游智能体直接解析。";
   const parameters = endpointParameterHint(endpoint);
 
   if (endpoint.path.startsWith("/api/v1/agent/")) {
     const agentPurpose = AGENT_DOMAIN_PURPOSE_ZH[endpoint.domain];
-    return `用于${title}。这是${domain}接口，面向自主科研 Agent 提供${agentPurpose ?? "论文分析与科研任务编排"}能力，主要用途是${endpointPurposeVerb(endpoint)}。${parameters}${payload}`;
+    return `用于${title}。这是${domain}接口，面向自主科研智能体提供${agentPurpose ?? "论文分析与科研任务编排"}能力，主要用途是${endpointPurposeVerb(endpoint)}。${parameters}${payload}`;
   }
 
   return `用于${title}，属于${domain}能力，主要用途是${endpointPurposeVerb(endpoint)}。${parameters}${payload}`;
@@ -1109,8 +1175,26 @@ function schemaSummary(schema: Record<string, unknown> | null): string {
   return type ?? "object";
 }
 
+function parameterLocationLabel(location: string): string {
+  if (locale.value === "en") {
+    return location;
+  }
+
+  const labels: Record<string, string> = {
+    path: "路径",
+    query: "查询",
+    header: "请求头",
+    cookie: "Cookie",
+  };
+  return labels[location] ?? location;
+}
+
 function parameterRequirement(parameter: EndpointParameter): string {
-  return parameter.required ? "yes" : "no";
+  if (locale.value === "en") {
+    return parameter.required ? "yes" : "no";
+  }
+
+  return parameter.required ? "是" : "否";
 }
 
 function summarizeError(payload: unknown): string {
@@ -1145,291 +1229,220 @@ function formatTimestamp(timestamp: string | null): string {
 
 <template>
   <div :class="['api-docs-page', { 'api-docs-page--dark': isDark }]">
-    <section class="api-docs-hero" aria-labelledby="api-docs-title">
-      <div class="api-docs-hero__grain" aria-hidden="true" />
-      <div class="api-docs-hero__copy">
-        <div class="api-docs-hero__eyebrow">
-          <Braces :size="18" />
-          <span>{{ uiText.eyebrow }}</span>
-        </div>
-        <h1 id="api-docs-title">{{ uiText.title }}</h1>
-        <p>{{ uiText.subtitle }}</p>
-        <div class="api-docs-metrics" aria-label="API summary">
-          <div
-            v-for="card in summaryCards"
-            :key="card.label"
-            :class="['api-docs-metric', `api-docs-metric--${card.tone}`]"
-          >
-            <span>{{ card.label }}</span>
-            <strong>{{ card.value }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="api-docs-access" aria-label="API access controls">
-        <div class="api-docs-access__row api-docs-access__row--key">
-          <label for="api-docs-key">
-            <KeyRound :size="16" />
-            {{ uiText.apiKeyLabel }}
-          </label>
-          <input
-            id="api-docs-key"
-            v-model="apiKey"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            :placeholder="uiText.apiKeyPlaceholder"
-          />
-          <p>{{ uiText.apiKeyHelp }}</p>
-        </div>
-
-        <div class="api-docs-access__grid">
-          <div class="api-docs-access__row">
-            <span class="api-docs-access__label">{{
-              uiText.baseUrlLabel
-            }}</span>
-            <code>{{ apiBaseUrl }}</code>
-          </div>
-          <div class="api-docs-access__row">
-            <span class="api-docs-access__label">{{
-              uiText.openApiVersion
-            }}</span>
-            <code>{{ openApiVersion ?? "—" }}</code>
-          </div>
-        </div>
-
-        <div class="api-docs-access__actions">
-          <button
-            type="button"
-            class="api-docs-action"
-            :disabled="catalogPending"
-            @click="loadCatalog"
-          >
-            <Loader2 v-if="catalogPending" :size="16" class="api-docs-spin" />
-            <RefreshCcw v-else :size="16" />
-            {{ catalogPending ? uiText.loadingSchema : uiText.reloadSchema }}
-          </button>
-        </div>
-
-        <div
-          :class="[
-            'api-docs-schema-state',
-            catalogError
-              ? 'api-docs-schema-state--error'
-              : 'api-docs-schema-state--ok',
-          ]"
-        >
-          <XCircle v-if="catalogError" :size="16" />
-          <CheckCircle2 v-else :size="16" />
-          <span>{{
-            catalogError ? uiText.schemaFailed : uiText.schemaReady
-          }}</span>
-          <small v-if="catalogLoadedAt">{{
-            formatTimestamp(catalogLoadedAt)
-          }}</small>
-        </div>
-      </div>
-    </section>
-
     <section v-if="catalogError" class="api-docs-error" role="alert">
       <AlertTriangle :size="18" />
       <span>{{ catalogError }}</span>
     </section>
 
-    <section class="api-docs-shell">
-      <aside class="api-docs-catalog" aria-label="Endpoint catalog">
-        <div class="api-docs-panel-title">
-          <BookOpen :size="18" />
-          <h2>{{ uiText.catalogTitle }}</h2>
-        </div>
-
-        <label class="api-docs-search">
-          <Search :size="16" />
-          <input
-            v-model="searchQuery"
-            type="search"
-            :placeholder="uiText.searchPlaceholder"
-          />
-        </label>
-
-        <div class="api-docs-filter-row">
-          <button
-            v-for="domain in domainOptions"
-            :key="domain"
-            type="button"
-            :class="[
-              'api-docs-filter-chip',
-              { 'api-docs-filter-chip--active': activeDomain === domain },
-            ]"
-            @click="activeDomain = domain"
-          >
-            {{ domain === "all" ? uiText.allDomains : domainLabel(domain) }}
-          </button>
-        </div>
-
-        <div class="api-docs-filter-row api-docs-filter-row--methods">
-          <button
-            v-for="method in METHOD_OPTIONS"
-            :key="method"
-            type="button"
-            :class="[
-              'api-docs-filter-chip',
-              method !== 'all' ? methodClass(method) : '',
-              { 'api-docs-filter-chip--active': activeMethod === method },
-            ]"
-            @click="activeMethod = method"
-          >
-            {{ method === "all" ? uiText.allMethods : method }}
-          </button>
-        </div>
-
-        <div class="api-docs-endpoint-groups">
-          <section
-            v-for="group in endpointGroups"
-            :key="group.domain"
-            class="api-docs-endpoint-group"
-          >
-            <header>
-              <span>{{ domainLabel(group.domain) }}</span>
-              <small>{{ group.endpoints.length }}</small>
-            </header>
-
-            <button
-              v-for="endpoint in group.endpoints"
-              :key="endpoint.id"
-              type="button"
-              :class="[
-                'api-docs-endpoint-card',
-                {
-                  'api-docs-endpoint-card--active':
-                    endpoint.id === selectedEndpointId,
-                },
-              ]"
-              @click="selectEndpoint(endpoint)"
-            >
-              <span :class="['api-docs-method', methodClass(endpoint.method)]">
-                {{ endpoint.method }}
-              </span>
-              <span class="api-docs-endpoint-card__summary">
-                {{ endpointTitle(endpoint) }}
-              </span>
-              <code>{{ endpoint.path }}</code>
-            </button>
-          </section>
-        </div>
-      </aside>
-
-      <main class="api-docs-contract" aria-live="polite">
-        <template v-if="selectedEndpoint">
-          <div class="api-docs-contract__header">
-            <div>
-              <p class="api-docs-kicker">{{ uiText.selectedContract }}</p>
-              <h2>{{ endpointTitle(selectedEndpoint) }}</h2>
-            </div>
-            <span
-              :class="[
-                'api-docs-method api-docs-method--large',
-                methodClass(selectedEndpoint.method),
-              ]"
-            >
-              {{ selectedEndpoint.method }}
-            </span>
+    <section class="api-docs-shell api-docs-shell--reader">
+      <div class="api-docs-reader">
+        <aside class="api-docs-toc" aria-label="Endpoint table of contents">
+          <div class="api-docs-panel-title">
+            <BookOpen :size="18" />
+            <h2>{{ uiText.catalogTitle }}</h2>
           </div>
 
-          <p class="api-docs-contract__description">
-            {{ endpointPurpose(selectedEndpoint) }}
-          </p>
+          <label class="api-docs-search">
+            <Search :size="16" />
+            <input
+              v-model="searchQuery"
+              type="search"
+              :placeholder="uiText.searchPlaceholder"
+            />
+          </label>
 
-          <dl class="api-docs-facts">
-            <div>
-              <dt>{{ uiText.path }}</dt>
-              <dd>
-                <code>{{ selectedEndpoint.path }}</code>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ uiText.domain }}</dt>
-              <dd>{{ domainLabel(selectedEndpoint.domain) }}</dd>
-            </div>
-            <div>
-              <dt>{{ uiText.operationId }}</dt>
-              <dd>
-                <code>{{ selectedEndpoint.operationId }}</code>
-              </dd>
-            </div>
-            <div>
-              <dt>{{ uiText.operation }}</dt>
-              <dd>{{ routeModeText(selectedEndpoint) }}</dd>
-            </div>
-          </dl>
+          <div class="api-docs-filter-stack">
+            <p class="api-docs-toc-label">{{ uiText.domain }}</p>
+            <button
+              v-for="domain in domainOptions"
+              :key="domain"
+              type="button"
+              :class="[
+                'api-docs-filter-row-button',
+                { 'api-docs-filter-row-button--active': activeDomain === domain },
+              ]"
+              @click="activeDomain = domain"
+            >
+              <span>{{ domain === "all" ? uiText.allDomains : domainLabel(domain) }}</span>
+              <small v-if="domain !== 'all'">{{ domainEndpointCount(domain) }}</small>
+            </button>
+          </div>
 
-          <section class="api-docs-section">
-            <div class="api-docs-section__heading">
-              <h3>{{ uiText.parameters }}</h3>
-              <span>{{ selectedParameters.length }}</span>
-            </div>
+          <div class="api-docs-filter-stack">
+            <p class="api-docs-toc-label">{{ uiText.operation }}</p>
+            <button
+              v-for="method in METHOD_OPTIONS"
+              :key="method"
+              type="button"
+              :class="[
+                'api-docs-filter-row-button',
+                method !== 'all' ? methodClass(method) : '',
+                { 'api-docs-filter-row-button--active': activeMethod === method },
+              ]"
+              @click="activeMethod = method"
+            >
+              <span>{{ method === "all" ? uiText.allMethods : method }}</span>
+            </button>
+          </div>
 
-            <div v-if="selectedParameters.length" class="api-docs-table-wrap">
-              <table class="api-docs-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>{{ uiText.location }}</th>
-                    <th>{{ uiText.required }}</th>
-                    <th>{{ uiText.schema }}</th>
-                    <th>{{ uiText.description }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="parameter in selectedParameters"
-                    :key="`${parameter.location}-${parameter.name}`"
-                  >
-                    <td>
-                      <code>{{ parameter.name }}</code>
-                    </td>
-                    <td>{{ parameter.location }}</td>
-                    <td>{{ parameterRequirement(parameter) }}</td>
-                    <td>{{ schemaSummary(parameter.schema) }}</td>
-                    <td>{{ parameter.description || "—" }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p v-else class="api-docs-empty-line">{{ uiText.noParameters }}</p>
+          <nav class="api-docs-toc__groups">
+            <p class="api-docs-toc-label">{{ uiText.catalogTitle }}</p>
+            <section
+              v-for="group in endpointGroups"
+              :key="group.domain"
+              class="api-docs-toc-group"
+            >
+              <a
+                class="api-docs-toc-group__title"
+                :href="`#${domainAnchorId(group.domain)}`"
+              >
+                <span>{{ domainLabel(group.domain) }}</span>
+                <small>{{ group.endpoints.length }}</small>
+              </a>
+
+              <a
+                v-for="endpoint in group.endpoints"
+                :key="endpoint.id"
+                :href="`#${endpointAnchorId(endpoint)}`"
+                :class="[
+                  'api-docs-toc-link',
+                  { 'api-docs-toc-link--active': endpoint.id === selectedEndpointId },
+                ]"
+                @click="selectEndpoint(endpoint)"
+              >
+                <span :class="['api-docs-method', methodClass(endpoint.method)]">
+                  {{ endpoint.method }}
+                </span>
+                <span>{{ endpointTitle(endpoint) }}</span>
+              </a>
+            </section>
+          </nav>
+        </aside>
+
+        <main class="api-docs-document" aria-live="polite">
+          <section class="api-docs-document__lead">
+            <p class="api-docs-kicker">{{ uiText.selectedContract }}</p>
+            <h2>{{ uiText.catalogTitle }}</h2>
+            <p>{{ uiText.subtitle }}</p>
           </section>
 
-          <section class="api-docs-section">
-            <div class="api-docs-section__heading">
-              <h3>{{ uiText.requestBody }}</h3>
-              <span v-if="selectedRequestBody">
-                {{ selectedRequestBody.contentTypes.join(", ") }}
-              </span>
-            </div>
-            <pre
-              v-if="selectedRequestBody"
-              class="api-docs-code-block"
-            ><code>{{ requestBodySchemaText }}</code></pre>
-            <p v-else class="api-docs-empty-line">{{ uiText.noRequestBody }}</p>
-          </section>
+          <template v-if="endpointGroups.length">
+            <section
+              v-for="group in endpointGroups"
+              :id="domainAnchorId(group.domain)"
+              :key="group.domain"
+              class="api-docs-doc-domain"
+            >
+              <header class="api-docs-doc-domain__header">
+                <p class="api-docs-kicker">{{ group.endpoints.length }} {{ uiText.endpoints }}</p>
+                <h2>{{ domainLabel(group.domain) }}</h2>
+              </header>
 
-          <section class="api-docs-section api-docs-section--responses">
-            <div class="api-docs-section__heading">
-              <h3>{{ uiText.responses }}</h3>
-              <span>{{ uiText.responseCodes }}</span>
-            </div>
-            <div class="api-docs-response-codes">
-              <span v-for="code in responseCodes" :key="code">{{ code }}</span>
-            </div>
-          </section>
-        </template>
+              <article
+                v-for="endpoint in group.endpoints"
+                :id="endpointAnchorId(endpoint)"
+                :key="endpoint.id"
+                :class="[
+                  'api-docs-doc-endpoint',
+                  { 'api-docs-doc-endpoint--active': endpoint.id === selectedEndpointId },
+                ]"
+                @click="selectEndpoint(endpoint)"
+              >
+                <header class="api-docs-doc-endpoint__header">
+                  <div>
+                    <p class="api-docs-kicker">{{ routeModeText(endpoint) }}</p>
+                    <h3>{{ endpointTitle(endpoint) }}</h3>
+                  </div>
+                  <span :class="['api-docs-method api-docs-method--large', methodClass(endpoint.method)]">
+                    {{ endpoint.method }}
+                  </span>
+                </header>
 
-        <div v-else class="api-docs-empty-state">
-          <Terminal :size="34" />
-          <h2>{{ uiText.noEndpoint }}</h2>
-          <p>{{ uiText.noEndpointDetail }}</p>
-        </div>
-      </main>
+                <p class="api-docs-contract__description">
+                  {{ endpointPurpose(endpoint) }}
+                </p>
+
+                <code class="api-docs-doc-path">{{ endpoint.path }}</code>
+
+                <dl class="api-docs-facts api-docs-facts--compact">
+                  <div>
+                    <dt>{{ uiText.domain }}</dt>
+                    <dd>{{ domainLabel(endpoint.domain) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ uiText.operationId }}</dt>
+                    <dd><code>{{ endpoint.operationId }}</code></dd>
+                  </div>
+                </dl>
+
+                <details class="api-docs-doc-details">
+                  <summary>
+                    <span>{{ uiText.parameters }}</span>
+                    <small>{{ endpoint.parameters.length }}</small>
+                  </summary>
+
+                  <div v-if="endpoint.parameters.length" class="api-docs-table-wrap">
+                    <table class="api-docs-table">
+                      <thead>
+                        <tr>
+                          <th>{{ uiText.name }}</th>
+                          <th>{{ uiText.location }}</th>
+                          <th>{{ uiText.required }}</th>
+                          <th>{{ uiText.schema }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="parameter in endpoint.parameters"
+                          :key="`${endpoint.id}-${parameter.location}-${parameter.name}`"
+                        >
+                          <td><code>{{ parameter.name }}</code></td>
+                          <td>{{ parameterLocationLabel(parameter.location) }}</td>
+                          <td>{{ parameterRequirement(parameter) }}</td>
+                          <td>{{ schemaSummary(parameter.schema) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p v-else class="api-docs-empty-line">{{ uiText.noParameters }}</p>
+                </details>
+
+                <details class="api-docs-doc-details">
+                  <summary>
+                    <span>{{ uiText.requestBody }}</span>
+                    <small v-if="endpoint.requestBody">
+                      {{ endpoint.requestBody.contentTypes.join(", ") }}
+                    </small>
+                  </summary>
+                  <pre
+                    v-if="endpoint.requestBody"
+                    class="api-docs-code-block"
+                  ><code>{{ endpointRequestBodySchemaText(endpoint) }}</code></pre>
+                  <p v-else class="api-docs-empty-line">{{ uiText.noRequestBody }}</p>
+                </details>
+
+                <section class="api-docs-section api-docs-section--responses">
+                  <div class="api-docs-section__heading">
+                    <h3>{{ uiText.responses }}</h3>
+                    <span>{{ uiText.responseCodes }}</span>
+                  </div>
+                  <div class="api-docs-response-codes">
+                    <span v-for="code in endpoint.responseCodes" :key="`${endpoint.id}-${code}`">
+                      {{ code }}
+                    </span>
+                  </div>
+                </section>
+              </article>
+            </section>
+          </template>
+
+          <div v-else class="api-docs-empty-state">
+            <Terminal :size="34" />
+            <h2>{{ uiText.noEndpoint }}</h2>
+            <p>{{ uiText.noEndpointDetail }}</p>
+          </div>
+        </main>
+      </div>
 
       <aside class="api-docs-runner" aria-label="Online API debugger">
         <div class="api-docs-runner__sticky">
@@ -1437,12 +1450,54 @@ function formatTimestamp(timestamp: string | null): string {
             <Terminal :size="18" />
             <h2>{{ uiText.debugger }}</h2>
           </div>
+
+          <div class="api-docs-runner-access" aria-label="API access controls">
+            <label class="api-docs-runner-field api-docs-runner-field--key" for="api-docs-key">
+              <span><KeyRound :size="14" /> {{ uiText.apiKeyLabel }}</span>
+              <input
+                id="api-docs-key"
+                v-model="apiKey"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="uiText.apiKeyPlaceholder"
+              />
+            </label>
+
+            <div class="api-docs-runner-access__meta">
+              <code>{{ apiBaseUrl }}</code>
+              <code>{{ openApiVersion ?? "—" }}</code>
+            </div>
+
+            <button
+              type="button"
+              class="api-docs-action api-docs-action--compact"
+              :disabled="catalogPending"
+              @click="loadCatalog"
+            >
+              <Loader2 v-if="catalogPending" :size="14" class="api-docs-spin" />
+              <RefreshCcw v-else :size="14" />
+              {{ catalogPending ? uiText.loadingSchema : uiText.reloadSchema }}
+            </button>
+
+            <div
+              :class="[
+                'api-docs-schema-state',
+                catalogError
+                  ? 'api-docs-schema-state--error'
+                  : 'api-docs-schema-state--ok',
+              ]"
+            >
+              <XCircle v-if="catalogError" :size="14" />
+              <CheckCircle2 v-else :size="14" />
+              <span>{{ catalogError ? uiText.schemaFailed : uiText.schemaReady }}</span>
+            </div>
+          </div>
+
           <p class="api-docs-runner__hint">{{ uiText.debuggerHint }}</p>
 
           <div v-if="selectedEndpoint" class="api-docs-runner__request-line">
-            <span
-              :class="['api-docs-method', methodClass(selectedEndpoint.method)]"
-            >
+            <span :class="['api-docs-method', methodClass(selectedEndpoint.method)]">
               {{ selectedEndpoint.method }}
             </span>
             <code>{{ requestPathPreview }}</code>
@@ -1487,11 +1542,7 @@ function formatTimestamp(timestamp: string | null): string {
               <Play v-else :size="16" />
               {{ runnerPending ? uiText.sending : uiText.sendRequest }}
             </button>
-            <button
-              type="button"
-              class="api-docs-reset"
-              @click="resetRunnerSeed()"
-            >
+            <button type="button" class="api-docs-reset" @click="resetRunnerSeed()">
               {{ uiText.resetExample }}
             </button>
           </div>
@@ -1573,14 +1624,6 @@ function formatTimestamp(timestamp: string | null): string {
   --api-docs-surface-tint: rgba(13, 115, 119, 0.08);
   --api-docs-input-bg: rgba(255, 255, 255, 0.72);
   --api-docs-code-bg: rgba(26, 26, 26, 0.045);
-  --api-docs-hero-bg:
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.78),
-      rgba(255, 250, 238, 0.42) 48%,
-      rgba(13, 115, 119, 0.08)
-    ),
-    rgba(250, 250, 247, 0.86);
   --api-docs-page-bg:
     radial-gradient(
       circle at 15% 8%,
@@ -1603,8 +1646,10 @@ function formatTimestamp(timestamp: string | null): string {
 
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - var(--topbar-height));
-  padding: clamp(14px, 2vw, 28px);
+  height: calc(100dvh - var(--topbar-height));
+  min-height: 0;
+  overflow: hidden;
+  padding: clamp(10px, 1.4vw, 18px);
   color: var(--api-docs-text);
   background: var(--api-docs-page-bg);
 }
@@ -1629,9 +1674,6 @@ function formatTimestamp(timestamp: string | null): string {
   --api-docs-surface-tint: rgba(152, 244, 238, 0.075);
   --api-docs-input-bg: rgba(0, 0, 0, 0.34);
   --api-docs-code-bg: rgba(0, 0, 0, 0.34);
-  --api-docs-hero-bg:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%),
-    rgba(13, 15, 16, 0.82);
   --api-docs-page-bg:
     radial-gradient(
       circle at 15% 8%,
@@ -1653,170 +1695,15 @@ function formatTimestamp(timestamp: string | null): string {
   --api-docs-method-ink: #101214;
 }
 
-.api-docs-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
-  gap: clamp(14px, 2vw, 24px);
-  padding: clamp(16px, 2.4vw, 28px);
-  overflow: hidden;
-  border: 1px solid var(--api-docs-border-strong);
-  border-radius: 24px;
-  background: var(--api-docs-hero-bg);
-  box-shadow: var(--api-docs-shadow);
-}
-
-.api-docs-hero::before {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  content: "";
-  background-image:
-    linear-gradient(var(--api-docs-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--api-docs-grid-line) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: linear-gradient(120deg, black, transparent 78%);
-}
-
-.api-docs-hero__grain {
-  position: absolute;
-  inset: -40%;
-  pointer-events: none;
-  opacity: 0.22;
-  background-image: repeating-linear-gradient(
-    115deg,
-    transparent 0,
-    transparent 12px,
-    var(--api-docs-grain) 13px,
-    transparent 14px
-  );
-  transform: rotate(-3deg);
-}
-
-.api-docs-hero__copy,
-.api-docs-access {
-  position: relative;
-  z-index: 1;
-}
-
-.api-docs-hero__eyebrow,
 .api-docs-kicker,
-.api-docs-access__label,
 .api-docs-panel-title,
-.api-docs-section__heading span,
-.api-docs-endpoint-group header {
+.api-docs-section__heading span {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.api-docs-hero__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  color: var(--api-docs-cyan);
-  border: 1px solid color-mix(in srgb, var(--api-docs-cyan) 32%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--api-docs-surface-tint) 74%, transparent);
-  font-size: 0.68rem;
-}
-
-.api-docs-hero h1 {
-  max-width: 900px;
-  margin: 16px 0 10px;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(2.2rem, 5.4vw, 4.9rem);
-  font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.06em;
-}
-
-.api-docs-hero__copy > p {
-  max-width: 640px;
-  margin: 0;
-  color: var(--api-docs-text-muted);
-  font-family: "Source Serif Pro", Georgia, serif;
-  font-size: clamp(0.96rem, 1.25vw, 1.12rem);
-  line-height: 1.38;
-}
-
-.api-docs-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.api-docs-metric {
-  min-height: 72px;
-  padding: 10px;
-  border: 1px solid var(--api-docs-border);
-  border-radius: 14px;
-  background: var(--api-docs-surface-soft);
-}
-
-.api-docs-metric span {
-  display: block;
-  color: var(--api-docs-text-soft);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.api-docs-metric strong {
-  display: block;
-  margin-top: 10px;
-  color: var(--api-docs-text-strong);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: clamp(1rem, 1.45vw, 1.45rem);
-  line-height: 1;
-}
-
-.api-docs-metric--cyan {
-  border-color: color-mix(in srgb, var(--api-docs-cyan) 32%, transparent);
-}
-
-.api-docs-metric--green {
-  border-color: color-mix(in srgb, var(--api-docs-green) 38%, transparent);
-}
-
-.api-docs-metric--amber {
-  border-color: color-mix(in srgb, var(--api-docs-accent) 40%, transparent);
-}
-
-.api-docs-access {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-self: start;
-  padding: 12px;
-  border: 1px solid var(--api-docs-border);
-  border-radius: 18px;
-  background: var(--api-docs-surface);
-  box-shadow: var(--api-docs-inset);
-  backdrop-filter: blur(18px);
-}
-
-.api-docs-access__row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.api-docs-access__row label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--api-docs-accent-strong);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.api-docs-access input,
+.api-docs-runner-field input,
 .api-docs-search input,
 .api-docs-runner-field textarea {
   width: 100%;
@@ -1831,13 +1718,13 @@ function formatTimestamp(timestamp: string | null): string {
     background 160ms ease;
 }
 
-.api-docs-access input {
+.api-docs-runner-field input {
   padding: 10px 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
-.api-docs-access input:focus,
+.api-docs-runner-field input:focus,
 .api-docs-search input:focus,
 .api-docs-runner-field textarea:focus {
   border-color: color-mix(in srgb, var(--api-docs-cyan) 72%, transparent);
@@ -1849,34 +1736,13 @@ function formatTimestamp(timestamp: string | null): string {
   box-shadow: 0 0 0 4px var(--api-docs-focus);
 }
 
-.api-docs-access p {
-  margin: 0;
-  color: var(--api-docs-text-soft);
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
-.api-docs-access__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.api-docs-access__grid code,
 .api-docs-facts code,
+.api-docs-runner-access__meta code,
 .api-docs-runner__request-line code,
 .api-docs-response-meta code {
   overflow-wrap: anywhere;
   color: var(--api-docs-cyan);
   font-family: "JetBrains Mono", ui-monospace, monospace;
-}
-
-.api-docs-access__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
 }
 
 .api-docs-action,
@@ -1902,8 +1768,7 @@ function formatTimestamp(timestamp: string | null): string {
 .api-docs-send,
 .api-docs-reset,
 .api-docs-curl__header button,
-.api-docs-filter-chip,
-.api-docs-endpoint-card {
+.api-docs-filter-row-button {
   cursor: pointer;
 }
 
@@ -1950,38 +1815,48 @@ function formatTimestamp(timestamp: string | null): string {
 
 .api-docs-shell {
   display: grid;
-  grid-template-columns: minmax(280px, 0.76fr) minmax(0, 1.42fr) minmax(
-      360px,
-      0.92fr
-    );
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(252px, 292px);
+  gap: 12px;
   align-items: stretch;
+  height: 100%;
   flex: 1;
-  margin-top: 22px;
+  margin-top: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
-.api-docs-catalog,
-.api-docs-contract,
+.api-docs-reader,
 .api-docs-runner__sticky {
-  min-height: 100%;
   border: 1px solid var(--api-docs-border);
   border-radius: 28px;
   background: var(--api-docs-surface-soft);
   box-shadow: var(--api-docs-panel-shadow);
 }
 
-.api-docs-catalog,
-.api-docs-contract {
-  padding: 18px;
+.api-docs-reader {
+  display: grid;
+  grid-template-columns: minmax(148px, 188px) minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-.api-docs-catalog,
-.api-docs-runner__sticky {
-  position: sticky;
-  top: 20px;
-  max-height: calc(100vh - 40px);
+.api-docs-toc {
+  height: 100%;
+  min-height: 0;
   overflow: auto;
+  padding: 12px;
+  border-right: 1px solid var(--api-docs-border);
+}
+
+.api-docs-document {
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(18px, 2.2vw, 34px);
 }
 
 .api-docs-panel-title {
@@ -2018,79 +1893,124 @@ function formatTimestamp(timestamp: string | null): string {
   padding: 13px 14px 13px 42px;
 }
 
-.api-docs-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.api-docs-filter-chip {
-  padding: 8px 10px;
-  color: var(--api-docs-text-soft);
-  border: 1px solid var(--api-docs-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--api-docs-surface-soft) 72%, transparent);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.7rem;
-}
-
-.api-docs-filter-chip--active {
-  color: var(--api-docs-method-ink);
-  border-color: var(--api-docs-accent);
-  background: var(--api-docs-accent);
-}
-
-.api-docs-endpoint-groups {
+.api-docs-filter-stack {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-top: 20px;
+  gap: 6px;
+  margin-top: 16px;
 }
 
-.api-docs-endpoint-group header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.api-docs-toc-label {
+  margin: 0 0 4px;
   color: var(--api-docs-text-faint);
-  font-size: 0.7rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.api-docs-endpoint-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px 10px;
+.api-docs-filter-row-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  padding: 12px;
+  min-height: 32px;
+  padding: 7px 9px;
+  color: var(--api-docs-text-soft);
   text-align: left;
-  color: var(--api-docs-text-strong);
   border: 1px solid transparent;
-  border-radius: 17px;
+  border-radius: 12px;
   background: transparent;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
 }
 
-.api-docs-endpoint-card:hover,
-.api-docs-endpoint-card--active {
+.api-docs-filter-row-button small {
+  color: var(--api-docs-text-faint);
+}
+
+.api-docs-filter-row-button:hover,
+.api-docs-filter-row-button--active {
+  color: var(--api-docs-text-strong);
   border-color: color-mix(in srgb, var(--api-docs-cyan) 28%, transparent);
   background: var(--api-docs-surface-tint);
 }
 
-.api-docs-endpoint-card__summary {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
+.api-docs-filter-row-button.api-docs-method--get,
+.api-docs-filter-row-button.api-docs-method--post,
+.api-docs-filter-row-button.api-docs-method--put,
+.api-docs-filter-row-button.api-docs-method--patch,
+.api-docs-filter-row-button.api-docs-method--delete {
+  color: var(--api-docs-method-ink);
+  font-weight: 800;
 }
 
-.api-docs-endpoint-card code {
-  grid-column: 1 / -1;
-  overflow: hidden;
+.api-docs-toc__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.api-docs-toc-group {
+  padding-top: 12px;
+  border-top: 1px solid var(--api-docs-border);
+}
+
+.api-docs-toc-group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.api-docs-toc-group__title,
+.api-docs-toc-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--api-docs-text-muted);
+  text-decoration: none;
+}
+
+.api-docs-toc-group__title {
+  justify-content: space-between;
+  margin-bottom: 7px;
+  color: var(--api-docs-text-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.api-docs-toc-group__title small {
   color: var(--api-docs-text-faint);
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.68rem;
+}
+
+.api-docs-toc-link {
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.api-docs-toc-link span:last-child {
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.api-docs-toc-link:hover,
+.api-docs-toc-link--active {
+  color: var(--api-docs-text-strong);
+  border-color: color-mix(in srgb, var(--api-docs-cyan) 28%, transparent);
+  background: var(--api-docs-surface-tint);
 }
 
 .api-docs-method {
@@ -2135,12 +2055,131 @@ function formatTimestamp(timestamp: string | null): string {
   background: #d94b43;
 }
 
-.api-docs-filter-chip.api-docs-method--get,
-.api-docs-filter-chip.api-docs-method--post,
-.api-docs-filter-chip.api-docs-method--put,
-.api-docs-filter-chip.api-docs-method--patch,
-.api-docs-filter-chip.api-docs-method--delete {
-  color: var(--api-docs-method-ink);
+.api-docs-document__lead {
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--api-docs-border);
+}
+
+.api-docs-document__lead h2,
+.api-docs-doc-domain__header h2 {
+  margin: 0;
+  color: var(--api-docs-text-strong);
+  font-family: "Playfair Display", Georgia, serif;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.api-docs-document__lead h2 {
+  font-size: clamp(2.4rem, 5vw, 5.6rem);
+}
+
+.api-docs-document__lead p:last-child {
+  max-width: 760px;
+  margin: 16px 0 0;
+  color: var(--api-docs-text-muted);
+  font-family: "Source Serif Pro", Georgia, serif;
+  font-size: 1.16rem;
+  line-height: 1.6;
+}
+
+.api-docs-doc-domain {
+  scroll-margin-top: 24px;
+  margin-top: 48px;
+}
+
+.api-docs-doc-domain__header {
+  margin-bottom: 18px;
+}
+
+.api-docs-doc-domain__header h2 {
+  font-size: clamp(2rem, 3.4vw, 4rem);
+}
+
+.api-docs-doc-endpoint {
+  scroll-margin-top: 24px;
+  padding: clamp(18px, 2.4vw, 28px);
+  border: 1px solid transparent;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--api-docs-surface) 58%, transparent);
+}
+
+.api-docs-doc-endpoint + .api-docs-doc-endpoint {
+  margin-top: 18px;
+}
+
+.api-docs-doc-endpoint:hover {
+  border-color: color-mix(in srgb, var(--api-docs-cyan) 30%, transparent);
+  background: color-mix(in srgb, var(--api-docs-surface-tint) 72%, var(--api-docs-surface));
+}
+
+.api-docs-doc-endpoint--active,
+.api-docs-doc-endpoint--active:hover {
+  border-color: color-mix(in srgb, var(--api-docs-cyan) 62%, transparent);
+  background: color-mix(in srgb, var(--api-docs-surface) 58%, transparent);
+}
+
+.api-docs-doc-endpoint__header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.api-docs-doc-endpoint__header h3 {
+  margin: 0;
+  color: var(--api-docs-text-strong);
+  font-family: "Source Serif Pro", Georgia, serif;
+  font-size: clamp(1.45rem, 2vw, 2.2rem);
+  line-height: 1.08;
+}
+
+.api-docs-doc-path {
+  display: block;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--api-docs-cyan) 75%, var(--api-docs-text-strong));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+}
+
+.api-docs-facts--compact {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+}
+
+.api-docs-doc-details {
+  margin-top: 14px;
+  border: 1px solid var(--api-docs-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--api-docs-code-bg) 38%, transparent);
+}
+
+.api-docs-doc-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  color: var(--api-docs-text-strong);
+  cursor: pointer;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.api-docs-doc-details summary::marker {
+  color: var(--api-docs-cyan);
+}
+
+.api-docs-doc-details summary small {
+  color: var(--api-docs-text-faint);
+  font-weight: 600;
+  text-transform: none;
+}
+
+.api-docs-doc-details > :not(summary) {
+  margin: 0 14px 14px;
 }
 
 .api-docs-contract__header {
@@ -2332,7 +2371,49 @@ function formatTimestamp(timestamp: string | null): string {
 }
 
 .api-docs-runner__sticky {
-  padding: 16px;
+  position: sticky;
+  top: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: auto;
+  padding: 14px;
+}
+
+.api-docs-runner-access {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid var(--api-docs-border);
+  border-radius: 18px;
+  background: var(--api-docs-surface);
+  box-shadow: var(--api-docs-inset);
+}
+
+.api-docs-runner-field--key {
+  margin-top: 0;
+}
+
+.api-docs-runner-access__meta {
+  display: grid;
+  gap: 6px;
+}
+
+.api-docs-runner-access__meta code {
+  display: block;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--api-docs-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--api-docs-code-bg) 64%, transparent);
+  font-size: 0.68rem;
+}
+
+.api-docs-action--compact {
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+  font-size: 0.68rem;
 }
 
 .api-docs-runner__hint {
@@ -2372,6 +2453,9 @@ function formatTimestamp(timestamp: string | null): string {
 }
 
 .api-docs-runner-field span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--api-docs-text-soft);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.72rem;
@@ -2380,8 +2464,8 @@ function formatTimestamp(timestamp: string | null): string {
 }
 
 .api-docs-runner-field textarea {
-  min-height: 92px;
-  padding: 12px;
+  min-height: 66px;
+  padding: 10px;
   resize: vertical;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.82rem;
@@ -2474,37 +2558,48 @@ function formatTimestamp(timestamp: string | null): string {
 
 @media (max-width: 1280px) {
   .api-docs-shell {
-    grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1.14fr);
+    grid-template-columns: minmax(0, 1fr) minmax(248px, 280px);
   }
 
-  .api-docs-runner {
-    grid-column: 1 / -1;
-  }
-
-  .api-docs-runner__sticky {
-    position: static;
-    max-height: none;
+  .api-docs-reader {
+    grid-template-columns: minmax(140px, 176px) minmax(0, 1fr);
   }
 }
 
 @media (max-width: 980px) {
   .api-docs-page {
+    height: auto;
+    min-height: calc(100dvh - var(--topbar-height));
+    overflow: auto;
     padding: 16px;
   }
 
-  .api-docs-hero,
   .api-docs-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
   }
 
-  .api-docs-catalog {
+  .api-docs-reader {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .api-docs-toc,
+  .api-docs-document,
+  .api-docs-runner__sticky {
     position: static;
+    height: auto;
     max-height: none;
+    overflow: auto;
   }
 
-  .api-docs-metrics,
-  .api-docs-facts,
-  .api-docs-access__grid {
+  .api-docs-toc {
+    border-right: 0;
+    border-bottom: 1px solid var(--api-docs-border);
+  }
+
+  .api-docs-facts {
     grid-template-columns: 1fr;
   }
 }

@@ -2,10 +2,11 @@
 
 The verifier performs real HTTP requests against BASE_URL (default
 http://127.0.0.1:8000). It is designed for development environments: generated
-inputs use smoke-test identifiers and payloads, and success means the endpoint
-responded without a server-side failure. 4xx responses are recorded as handled
-API responses; 5xx, timeouts, connection errors, and invalid response bodies are
-reported as failures.
+inputs use smoke-test identifiers and payloads. Agent research APIs receive a
+real local paper id when one is available and are checked for semantic JSON
+envelopes, non-placeholder data, and honest missing-data responses. Generic 5xx,
+timeouts, connection errors, unexpected content types, and empty Agent responses
+reported as success are failures.
 """
 
 from __future__ import annotations
@@ -26,9 +27,29 @@ ARXIV_ID = "2401.00001"
 DOI = "10.1000/smoke-test"
 OPENALEX_ID = "W2741809807"
 PMCID = "PMC7339034"
-BASE_TIMEOUT = httpx.Timeout(connect=3.0, read=8.0, write=8.0, pool=3.0)
+BASE_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
 DEFAULT_API_KEY = "sk-kaleidoscope"
 STREAMING_PATHS = {"/api/v1/sse", "/api/v1/subscriptions/events"}
+FAKE_AGENT_MARKERS = (
+    "available_contract",
+    "roadmap_contract",
+    "sample-source",
+    "paper_sample",
+    "artifact_sample",
+    "structured agent response placeholder",
+    "https://example.local",
+)
+AGENT_METADATA_KEYS = {
+    "endpoint_id",
+    "endpoint",
+    "http_method",
+    "priority",
+    "capability",
+    "use_case",
+    "path_params",
+    "request_query",
+    "query",
+}
 
 SAFE_4XX = {400, 401, 403, 404, 405, 409, 410, 415, 422, 424, 429}
 ACCEPTED_TEXT_TYPES = {
@@ -67,9 +88,19 @@ class ApiResult:
 class OpenAPISampler:
     """Generate small route-specific requests from an OpenAPI document."""
 
-    def __init__(self, openapi: dict[str, Any]):
+    def __init__(
+        self,
+        openapi: dict[str, Any],
+        *,
+        paper_id: str = UUID,
+        topic: str = "retrieval augmented generation",
+        artifact_id: str = "artifact_missing",
+    ):
         self.openapi = openapi
         self.components = openapi.get("components", {}).get("schemas", {})
+        self.paper_id = paper_id
+        self.topic = topic
+        self.artifact_id = artifact_id
 
     def resolve_ref(self, schema: dict[str, Any]) -> dict[str, Any]:
         ref = schema.get("$ref")
@@ -234,6 +265,25 @@ class OpenAPISampler:
 
     def sample_for_parameter(self, name: str, schema: dict[str, Any], path: str) -> Any:
         lowered = name.lower()
+        if path.startswith("/api/v1/agent/"):
+            if lowered == "paper_id":
+                return self.paper_id
+            if lowered == "topic":
+                return self.topic
+            if lowered == "section_type":
+                return "introduction"
+            if lowered == "figure_id":
+                return "figure_1"
+            if lowered == "table_id":
+                return "table_1"
+            if lowered == "artifact_id":
+                return self.artifact_id
+            if lowered == "workflow_id":
+                return "workflow_smoke"
+            if lowered == "job_id":
+                return "job_smoke"
+            if lowered == "alert_id":
+                return "alert_smoke"
         if path == "/api/v1/search" and lowered == "mode":
             return "keyword"
         if path == "/api/v1/search" and lowered == "per_page":
@@ -303,9 +353,57 @@ class OpenAPISampler:
             return "smoke.zip", b"PK\x05\x06" + b"\x00" * 18, "application/zip"
         return "smoke.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf"
 
-    @staticmethod
-    def apply_body_overrides(path: str, body: Any) -> Any:
+    def apply_body_overrides(self, path: str, body: Any) -> Any:
         if not isinstance(body, dict):
+            return body
+        if "/agent/call" in path:
+            body.update({"tool": "search_papers", "arguments": {"query": self.topic}})
+            return body
+        if path.endswith("/agent/batch"):
+            body.update(
+                {
+                    "calls": [
+                        {
+                            "id": "smoke",
+                            "tool": "search_papers",
+                            "arguments": {"query": self.topic},
+                        }
+                    ]
+                }
+            )
+            return body
+        if path.endswith("/agent/context-pack"):
+            body.update({"paper_ids": [self.paper_id], "question": self.topic})
+            return body
+        if path.startswith("/api/v1/agent/"):
+            body.update(
+                {
+                    "scope": {"paper_ids": [self.paper_id], "topic": self.topic},
+                    "language": "auto",
+                    "token_budget": 2048,
+                    "include_provenance": True,
+                    "include_confidence": True,
+                    "async": False,
+                    "input": {
+                        "query": self.topic,
+                        "source": "https://arxiv.org/abs/2604.15597",
+                        "sources": ["https://arxiv.org/abs/2604.15597"],
+                        "title": self.topic,
+                        "quote": "scientific agents need reliable evidence",
+                        "links": ["https://github.com/example/scientific-agent"],
+                        "claims": ["The system links claims to evidence before writing."],
+                        "comments": ["Needs stronger evidence."],
+                        "topics": [self.topic, "scientific discovery"],
+                        "task": "write a grounded literature review",
+                        "objective": "replicate paper",
+                        "choice": "use retrieval method",
+                        "evidence": [self.paper_id],
+                        "rejected_options": ["ungrounded summary"],
+                        "confidence": 0.72,
+                        "venue": "AI research",
+                    },
+                }
+            )
             return body
         if path.endswith("/papers/import"):
             body.update({"identifier": DOI, "identifier_type": "doi"})
@@ -437,7 +535,62 @@ def iter_operations(openapi: dict[str, Any]) -> list[ApiOperation]:
     return operations
 
 
-def accepted_response(response: httpx.Response) -> tuple[bool, str]:
+def is_meaningful_agent_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return True
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(is_meaningful_agent_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(is_meaningful_agent_value(item) for item in value.values())
+    return True
+
+
+def accepted_agent_response(response: httpx.Response) -> tuple[bool, str]:
+    lowered = response.text.lower()
+    if any(marker in lowered for marker in FAKE_AGENT_MARKERS):
+        return False, "agent_placeholder_payload"
+    content_type = response.headers.get("content-type", "").split(";", 1)[0]
+    if response.status_code in SAFE_4XX:
+        try:
+            payload = response.json()
+        except ValueError:
+            return False, "agent_4xx_non_json"
+        code = str(payload.get("code") or payload.get("detail", {}).get("code") or "")
+        return (bool(code), "agent_missing_or_rejected_input" if code else "agent_4xx_without_code")
+    if response.status_code not in {200, 201, 202, 206}:
+        return False, "agent_unexpected_status"
+    if content_type != "application/json":
+        return False, "agent_unexpected_content_type"
+    try:
+        payload = response.json()
+    except ValueError:
+        return False, "agent_invalid_json"
+    if set(payload) != {"data", "meta", "warnings", "provenance"}:
+        return (bool(payload), "agent_legacy_json" if payload else "agent_invalid_envelope")
+    meta = payload.get("meta") or {}
+    if meta.get("source") != "local_runtime":
+        return False, "agent_not_live_runtime"
+    if meta.get("implementation_status") == "available_contract":
+        return False, "agent_contract_status"
+    data = payload.get("data") or {}
+    user_values = [value for key, value in data.items() if key not in AGENT_METADATA_KEYS]
+    if not any(is_meaningful_agent_value(value) for value in user_values):
+        warnings = payload.get("warnings") or []
+        if is_meaningful_agent_value(warnings):
+            return True, "agent_live_missing_data"
+        return False, "agent_empty_data"
+    return True, "agent_live_json"
+
+
+def accepted_response(response: httpx.Response, path: str) -> tuple[bool, str]:
+    if path.startswith("/api/v1/agent/"):
+        return accepted_agent_response(response)
     if response.status_code >= 500:
         return False, "server_error"
     content_type = response.headers.get("content-type", "").split(";", 1)[0]
@@ -449,7 +602,7 @@ def accepted_response(response: httpx.Response) -> tuple[bool, str]:
         if content_type in ACCEPTED_TEXT_TYPES or content_type.startswith("image/"):
             return True, "success"
         if not response.content:
-            return True, "success_empty"
+            return False, "success_empty_unexpected"
         return False, "unexpected_content_type"
     return False, "unexpected_status"
 
@@ -478,7 +631,7 @@ def request_operation(
                 follow_redirects=False,
             ) as response:
                 elapsed = (datetime.now(tz=UTC) - started).total_seconds() * 1000
-                ok, category = accepted_response(response)
+                ok, category = accepted_response(response, operation.path)
                 if ok and response.status_code == 200:
                     category = "success_stream"
                 return ApiResult(
@@ -504,7 +657,7 @@ def request_operation(
             follow_redirects=False,
         )
         elapsed = (datetime.now(tz=UTC) - started).total_seconds() * 1000
-        ok, category = accepted_response(response)
+        ok, category = accepted_response(response, operation.path)
         return ApiResult(
             method=operation.method,
             path=operation.path,
@@ -536,7 +689,7 @@ def verify_health(client: httpx.Client, base_url: str, api_key: str) -> ApiResul
     try:
         response = client.get(url, headers=api_key_headers(api_key))
         elapsed = (datetime.now(tz=UTC) - started).total_seconds() * 1000
-        ok, category = accepted_response(response)
+        ok, category = accepted_response(response, "/health")
         return ApiResult(
             method="GET",
             path="/health",
@@ -581,9 +734,11 @@ def render_report(base_url: str, results: list[ApiResult], operation_count: int)
         f"Failed: {len(failed)}",
         f"Status counts: `{json.dumps(status_counts, sort_keys=True)}`",
         "",
-        "Pass criteria: every endpoint is actually requested; 2xx/3xx and "
-        "handled 4xx responses count as responsive API behavior; 5xx, "
-        "timeouts, connection errors, and unexpected content types fail.",
+        "Pass criteria: every endpoint is actually requested. Agent APIs must "
+        "return a live JSON envelope with meaningful data, or an honest coded "
+        "missing-data/validation response. Placeholder payloads, empty Agent "
+        "responses, 5xx, timeouts, connection errors, and unexpected content "
+        "types fail.",
         "",
         "## Failures",
         "",
@@ -637,14 +792,50 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def fetch_runtime_samples(client: httpx.Client, base_url: str, api_key: str) -> dict[str, str]:
+    samples = {"paper_id": UUID, "topic": "retrieval augmented generation", "artifact_id": "artifact_missing"}
+    try:
+        response = client.get(
+            f"{base_url.rstrip('/')}/api/v1/papers",
+            params={"per_page": 50},
+            headers=api_key_headers(api_key),
+        )
+        response.raise_for_status()
+        items = response.json().get("items") or []
+        paper = next((item for item in items if item.get("has_full_text") and item.get("id")), None)
+        paper = paper or next((item for item in items if item.get("id")), None)
+        if paper:
+            samples["paper_id"] = str(paper["id"])
+            title = str(paper.get("title") or "").strip()
+            if title:
+                samples["topic"] = title[:120]
+    except Exception:
+        return samples
+
+    try:
+        response = client.get(
+            f"{base_url.rstrip('/')}/api/v1/agent/papers/{samples['paper_id']}/artifact-links",
+            headers=api_key_headers(api_key),
+        )
+        if response.status_code == 200:
+            artifacts = response.json().get("data", {}).get("artifacts") or []
+            if artifacts:
+                samples["artifact_id"] = str(artifacts[0].get("artifact_id") or samples["artifact_id"])
+    except Exception:
+        pass
+    return samples
+
+
 def main() -> int:
     args = parse_args()
     base_url = args.base_url.rstrip("/")
     openapi = fetch_openapi(base_url, args.api_key)
     operations = iter_operations(openapi)
-    sampler = OpenAPISampler(openapi)
     results: list[ApiResult] = []
     with httpx.Client(timeout=BASE_TIMEOUT) as client:
+        samples = fetch_runtime_samples(client, base_url, args.api_key)
+        print(f"SAMPLES paper_id={samples['paper_id']} topic={samples['topic']!r} artifact_id={samples['artifact_id']}")
+        sampler = OpenAPISampler(openapi, **samples)
         for index, operation in enumerate(operations, 1):
             result = request_operation(client, base_url, sampler, operation, args.api_key)
             results.append(result)

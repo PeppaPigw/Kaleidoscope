@@ -959,6 +959,7 @@ def create_app() -> FastAPI:
     # --- Register Routers ---
     from app.api.v1 import ragflow as ragflow_router
     from app.api.v1.agent import router as agent_router
+    from app.api.v1.agent_research import router as agent_research_router
     from app.api.v1.agent_services import router as agent_services_router
     from app.api.v1.alerts import router as alerts_router
     from app.api.v1.analysis import router as analysis_router
@@ -1003,6 +1004,7 @@ def create_app() -> FastAPI:
     app.include_router(intelligence_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
+    app.include_router(agent_research_router, prefix="/api/v1")
     app.include_router(agent_services_router, prefix="/api/v1")
     app.include_router(api_keys_router, prefix="/api/v1")
     app.include_router(answers_router, prefix="/api/v1")

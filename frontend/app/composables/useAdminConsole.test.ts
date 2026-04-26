@@ -59,11 +59,26 @@ describe("normalizeOpenApiCatalog", () => {
             operationId: "event_stream",
           },
         },
+        "/api/v1/agent/ingest/source": {
+          post: {
+            tags: ["agent-acquisition"],
+            summary: "Import one paper from arXiv URL.",
+            operationId: "agent_a01_post_api_v1_agent_ingest_source",
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { type: "object" },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     expect(endpoints.map((endpoint) => endpoint.id)).toEqual([
       "POST /api/v1/admin/reprocess",
+      "POST /api/v1/agent/ingest/source",
       "GET /api/v1/papers/{paper_id}",
       "GET /api/v1/sse",
       "GET /health",
@@ -83,6 +98,12 @@ describe("normalizeOpenApiCatalog", () => {
     });
 
     expect(endpoints[1]).toMatchObject({
+      domain: "agent-acquisition",
+      tag: "agent-acquisition",
+      probeMode: "mutating",
+    });
+
+    expect(endpoints[2]).toMatchObject({
       domain: "papers",
       probeMode: "safe",
       autoProbeEligible: true,
@@ -95,12 +116,12 @@ describe("normalizeOpenApiCatalog", () => {
       ],
     });
 
-    expect(endpoints[2]).toMatchObject({
+    expect(endpoints[3]).toMatchObject({
       isStream: true,
       probeMode: "stream",
     });
 
-    expect(endpoints[3]).toMatchObject({
+    expect(endpoints[4]).toMatchObject({
       domain: "system",
       probeMode: "safe",
     });

@@ -362,10 +362,8 @@ const META_DIMS = [
 
 async function loadLabels(id: string) {
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const data = await $fetch<{ labels: PaperLabels }>(
-      `${apiBase}/api/v1/papers/${id}/labels`,
+    const data = await apiFetch<{ labels: PaperLabels }>(
+      `/papers/${id}/labels`,
     );
     paperLabels.value = data.labels;
   } catch {
@@ -387,10 +385,8 @@ let overviewImagePollTimer: ReturnType<typeof setInterval> | null = null;
 
 async function loadOverviewImage(id: string) {
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const data = await $fetch<OverviewImageRecord>(
-      `${apiBase}/api/v1/papers/${id}/overview-image`,
+    const data = await apiFetch<OverviewImageRecord>(
+      `/papers/${id}/overview-image`,
     );
     overviewImage.value = data;
   } catch {
@@ -419,10 +415,8 @@ async function triggerOverviewImage() {
   if (!paperId.value || overviewImageLoading.value) return;
   overviewImageLoading.value = true;
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const result = await $fetch<{ status: string }>(
-      `${apiBase}/api/v1/papers/${paperId.value}/overview-image`,
+    const result = await apiFetch<{ status: string }>(
+      `/papers/${paperId.value}/overview-image`,
       {
         method: "POST",
       },
@@ -516,10 +510,8 @@ function handleOutlineJump(id: string) {
 
 async function loadDeepAnalysis(id: string) {
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const data = await $fetch<{ analysis: string }>(
-      `${apiBase}/api/v1/papers/${id}/deep-analysis`,
+    const data = await apiFetch<{ analysis: string }>(
+      `/papers/${id}/deep-analysis`,
     );
     deepAnalysisText.value = data.analysis ?? null;
   } catch {
@@ -531,10 +523,8 @@ async function loadDeepAnalysisZh(id: string) {
   if (deepAnalysisZhStatus.value === "loading") return;
   deepAnalysisZhStatus.value = "loading";
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const data = await $fetch<{ analysis: string }>(
-      `${apiBase}/api/v1/papers/${id}/deep-analysis-zh`,
+    const data = await apiFetch<{ analysis: string }>(
+      `/papers/${id}/deep-analysis-zh`,
     );
     deepAnalysisZhText.value = data.analysis ?? null;
     deepAnalysisZhStatus.value = "ok";
@@ -589,11 +579,7 @@ const paperLinks = ref<PaperLinksData | null>(null);
 
 async function loadPaperLinks(id: string) {
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    paperLinks.value = await $fetch<PaperLinksData>(
-      `${apiBase}/api/v1/papers/${id}/links`,
-    );
+    paperLinks.value = await apiFetch<PaperLinksData>(`/papers/${id}/links`);
   } catch {
     paperLinks.value = null;
   }

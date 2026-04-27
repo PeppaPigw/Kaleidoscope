@@ -23,6 +23,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.governance import SavedSearch
 from app.models.paper import MetadataProvenance, Paper, PaperReference
 from app.services.agent_api_catalog import AgentApiSpec, load_agent_api_specs
+from app.services.agent_endpoint_profiles import (
+    AgentEndpointProfile,
+    iter_agent_endpoint_profiles,
+    profile_for_spec,
+)
+from app.services.agent_workflow_profiles import (
+    iter_agent_workflow_profiles,
+    workflow_refs_for_endpoint,
+)
 from app.services.agent_information_service import AgentInformationService
 
 
@@ -31,6 +40,7 @@ class AgentRuntimeContext:
     """Normalized request context shared by all dynamic agent routes."""
 
     spec: AgentApiSpec
+    profile: AgentEndpointProfile
     request: Request
     body: dict[str, Any]
     path_params: dict[str, Any]
@@ -73,8 +83,10 @@ class AgentResearchRuntime:
         path_params: dict[str, Any],
     ) -> tuple[dict[str, Any], list[dict[str, Any] | str], list[dict[str, Any]]]:
         query = self._request_query(request)
+        profile = profile_for_spec(spec)
         ctx = AgentRuntimeContext(
             spec=spec,
+            profile=profile,
             request=request,
             body=body,
             path_params=path_params,
@@ -92,6 +104,20 @@ class AgentResearchRuntime:
             }
         )
 
+        if profile.status == "planned":
+            ctx.warnings.append(
+                {
+                    "code": "ENDPOINT_NOT_PRODUCTIZED",
+                    "message": (
+                        "This roadmap endpoint is available for discovery but "
+                        "is not yet productized for autonomous agent execution."
+                    ),
+                    "status": profile.status,
+                    "workflow_stage": profile.workflow_stage,
+                }
+            )
+            return self._planned_endpoint_payload(ctx), ctx.warnings, ctx.provenance
+
         handlers = {
             "A": self._acquisition,
             "B": self._paper_access,
@@ -107,6 +133,20 @@ class AgentResearchRuntime:
             "L": self._monitoring_memory,
         }
         data = await handlers.get(spec.id[:1], self._generic)(ctx)
+        if (
+            data.get("status") == "live_generic"
+            and not profile.allow_generic_runtime
+        ):
+            ctx.warnings.append(
+                {
+                    "code": "GENERIC_RUNTIME_FALLBACK",
+                    "message": (
+                        "Production agent endpoint reached the generic runtime "
+                        "fallback; endpoint-specific behavior should be added."
+                    ),
+                    "endpoint_id": spec.id,
+                }
+            )
         data = self._ensure_contract_fields(ctx, data)
         data.update(
             {
@@ -116,12 +156,36 @@ class AgentResearchRuntime:
                 "priority": spec.priority,
                 "capability": spec.section,
                 "use_case": spec.use_case,
+                "implementation_status": profile.status,
+                "workflow_stage": profile.workflow_stage,
                 "path_params": path_params,
             }
         )
         data.setdefault("request_query", query)
         data.setdefault("query", query)
         return data, ctx.warnings, ctx.provenance
+
+    @staticmethod
+    def _planned_endpoint_payload(ctx: AgentRuntimeContext) -> dict[str, Any]:
+        return {
+            "endpoint_id": ctx.spec.id,
+            "endpoint": ctx.spec.path,
+            "http_method": ctx.spec.method,
+            "priority": ctx.spec.priority,
+            "capability": ctx.spec.section,
+            "use_case": ctx.spec.use_case,
+            "implementation_status": ctx.profile.status,
+            "workflow_stage": ctx.profile.workflow_stage,
+            "path_params": ctx.path_params,
+            "request_query": ctx.query,
+            "query": ctx.query,
+            "productization": {
+                "status": "not_productized",
+                "minimum_data_keys": list(ctx.profile.minimum_data_keys),
+                "request_example": ctx.profile.request_example,
+                "semantic_assertions": list(ctx.profile.semantic_assertions),
+            },
+        }
 
     @staticmethod
     def _dict(value: Any) -> dict[str, Any]:
@@ -901,7 +965,18 @@ class AgentResearchRuntime:
             return {"datasets": benchmarks.get("datasets", []), "baselines": benchmarks.get("baselines", []), "metrics": benchmarks.get("metrics", []), "settings": benchmarks.get("settings", []), "hardware": benchmarks.get("hardware", []), "seeds": seeds}
         if ctx.spec.id == "D08":
             result_values = benchmarks.get("result_values", [])
-            return {"results": result_values, "metric": [r.get("metric") for r in result_values], "value": [r.get("value") for r in result_values], "baseline": benchmarks.get("baselines", []), "delta": self._extract_regex_items(text, r"improves? by [^.]{0,80}"), "table_or_figure": [item.get("label") for item in (paper.parsed_figures or []) if isinstance(item, dict)]}
+            deltas = self._extract_regex_items(text, r"improves? by [^.]{0,80}")
+            if not result_values and deltas:
+                result_values = [
+                    {
+                        "metric": "reported_delta",
+                        "value": None,
+                        "text": delta,
+                        "source": "paper_text_regex",
+                    }
+                    for delta in deltas[:10]
+                ]
+            return {"results": result_values, "metric": [r.get("metric") for r in result_values], "value": [r.get("value") for r in result_values], "baseline": benchmarks.get("baselines", []), "delta": deltas, "table_or_figure": [item.get("label") for item in (paper.parsed_figures or []) if isinstance(item, dict)]}
         if ctx.spec.id in {"D09", "D10", "D11", "D12", "D13"}:
             key = ctx.spec.id
             if key == "D09":
@@ -917,7 +992,8 @@ class AgentResearchRuntime:
             threats = self._extract_regex_items(text, r"(?:threats? to validity|limitation|future work)[^.]{0,260}[.]")
             return {"threats": [{"text": item, "severity": "medium", "mitigation": "test broader domains", "missing_tests": ["external domain replication"]} for item in threats], "severity": ["medium"] if threats else [], "mitigation": ["test broader domains"] if threats else [], "missing_tests": ["external domain replication"] if threats else []}
         if ctx.spec.id == "D14":
-            claims = paper.contributions or paper.highlights or []
+            claims = self._list(ctx.input.get("claims") or ctx.body.get("claims"))
+            claims = claims or paper.contributions or paper.highlights or []
             mapped = []
             for claim in claims[:20]:
                 verification = await self.info.verify_claim(str(claim), paper_ids=[paper_id])
@@ -952,11 +1028,18 @@ class AgentResearchRuntime:
         code_data = assets.get("code_and_data") or {}
         repo_url = (code_data.get("code_urls") or [None])[0]
         if ctx.spec.id == "E01":
-            return {"artifacts": artifacts, "artifact_type": sorted({a["artifact_type"] for a in artifacts}), "url": [a.get("url") for a in artifacts if a.get("url")], "source": "paper_links+full_text_regex", "confidence": 0.7 if artifacts else 0.0}
+            missing_artifacts = []
+            if not code_data.get("code_urls"):
+                missing_artifacts.append("repository")
+            if not code_data.get("dataset_urls"):
+                missing_artifacts.append("dataset")
+            if not code_data.get("model_weights_url"):
+                missing_artifacts.append("model_weights")
+            return {"artifacts": artifacts, "artifact_type": sorted({a["artifact_type"] for a in artifacts}), "url": [a.get("url") for a in artifacts if a.get("url")], "source": "paper_links+full_text_regex", "confidence": 0.7 if artifacts else 0.0, "missing_artifacts": missing_artifacts, "recommended_actions": ["Inspect the paper methods and supplementary material manually before reproduction."] if missing_artifacts else []}
         if ctx.spec.id == "E02":
             return await self._acquisition(ctx)
         if ctx.spec.id == "E04":
-            return {"repo_url": repo_url, "languages": ["python"] if repo_url else [], "entrypoints": ["README", "examples"] if repo_url else [], "install": "inspect repository README and environment files" if repo_url else None, "tests": "look for pytest or CI configuration" if repo_url else None, "models": code_data.get("model_weights_url")}
+            return {"repo_url": repo_url, "repo_status": "linked" if repo_url else "missing_in_local_corpus", "languages": ["python"] if repo_url else [], "entrypoints": ["README", "examples"] if repo_url else ["paper_methods", "artifact-links"], "install": "inspect repository README and environment files" if repo_url else "No repository URL is available; derive setup requirements from method, environment-spec, and artifact audit endpoints.", "tests": "look for pytest or CI configuration" if repo_url else "No repository tests are discoverable; create validation checks from reported metrics and reproduction checklist.", "models": code_data.get("model_weights_url"), "recommended_actions": ["Open the repository README and environment files."] if repo_url else ["Use /api/v1/agent/papers/{paper_id}/environment-spec", "Use /api/v1/agent/papers/{paper_id}/reproducibility-checklist", "Record repository URL as missing evidence before claiming reproducibility."]}
         if ctx.spec.id == "E05":
             url = str(ctx.input.get("url") or ctx.body.get("url") or "")
             return {"artifact_id": self._stable_id("artifact", paper_id, url), "link_status": "recorded" if url else "missing_url", "audit_event": {"event_id": self._stable_id("audit", paper_id, url), "timestamp": self._now()}}
@@ -1117,11 +1200,28 @@ class AgentResearchRuntime:
         papers = literature.get("nodes", [])
         if ctx.spec.id == "H01":
             claims = literature.get("claims", [])
+            if not claims:
+                claims = [
+                    {
+                        "claim": item.get("content"),
+                        "paper_id": item.get("paper_id"),
+                        "anchor": item.get("anchor"),
+                        "source": "evidence_pack",
+                    }
+                    for item in evidence.get("evidence", [])[:12]
+                    if item.get("content")
+                ]
             matrix = [{"claim": claim, "papers": [claim.get("paper_id")], "support_level": "stated"} for claim in claims]
             return {"claims": claims, "papers": papers, "matrix": matrix, "support_levels": [m["support_level"] for m in matrix], "citations": evidence.get("citations", [])}
         if ctx.spec.id == "H02":
-            methods = [{"paper_id": p.get("paper_id"), "method": p.get("title"), "dimensions": p.get("keywords", [])} for p in papers]
-            return {"methods": methods, "dimensions": literature.get("themes", []), "tradeoffs": [{"method": item.get("method"), "tradeoff": "evidence coverage vs. implementation cost"} for item in methods], "best_for": [{"method": item.get("method"), "use_case": "grounded literature synthesis"} for item in methods[:5]]}
+            dimensions = literature.get("themes", [])
+            if not dimensions:
+                dimensions = [
+                    {"theme": term, "count": 1}
+                    for term in self.info._terms(" ".join([topic or "", *[str(p.get("title") or "") for p in papers]]))[:8]
+                ]
+            methods = [{"paper_id": p.get("paper_id"), "method": p.get("title"), "dimensions": p.get("keywords", []) or dimensions[:3]} for p in papers]
+            return {"methods": methods, "dimensions": dimensions, "tradeoffs": [{"method": item.get("method"), "tradeoff": "evidence coverage vs. implementation cost"} for item in methods], "best_for": [{"method": item.get("method"), "use_case": "grounded literature synthesis"} for item in methods[:5]]}
         if ctx.spec.id == "H03":
             normalized_metrics = []
             for paper in await self._papers(ctx, limit=20):
@@ -1231,8 +1331,27 @@ class AgentResearchRuntime:
             delta = await self.info.discovery_delta(limit=20)
             return {"event": "agent.discovery_delta", "job_id": self._stable_id("job", "events", delta.get("total")), "payload": delta, "timestamp": self._now()}
         if ctx.spec.id == "J10":
-            specs = load_agent_api_specs()
-            return {"capabilities": [{"id": spec.id, "method": spec.method, "path": spec.path, "priority": spec.priority, "section": spec.section} for spec in specs], "input_schema": "AgentApiRequest", "output_schema": "AgentApiEnvelope", "rate_limits": {"default_api_key": "configured_by_server"}}
+            capabilities = []
+            for profile in iter_agent_endpoint_profiles():
+                entry = profile.manifest_entry()
+                entry["workflow_refs"] = list(workflow_refs_for_endpoint(profile.key))
+                capabilities.append(entry)
+            workflows = [
+                workflow.manifest_entry()
+                for workflow in iter_agent_workflow_profiles()
+                if workflow.status == "production"
+            ]
+            return {
+                "capabilities": capabilities,
+                "workflows": workflows,
+                "input_schema": "AgentApiRequest",
+                "output_schema": "AgentApiEnvelope",
+                "rate_limits": {
+                    "default_api_key": "configured_by_server",
+                    "header": "X-API-Key",
+                },
+                "recommended_workflows": workflows,
+            }
         return await self._generic(ctx)
 
     @staticmethod

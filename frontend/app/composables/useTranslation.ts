@@ -6,6 +6,7 @@
  * - On-demand abstract translation via a small button.
  * - Uses the external LLM translation API.
  */
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
 
 // ─── Shared singleton state ─────────────────────────────────
 const locale = ref<"en" | "zh">("en");
@@ -363,6 +364,7 @@ export function useTranslation() {
           {
             method: "POST",
             body,
+            headers: withKaleidoscopeApiKeyHeaders(),
           },
         );
 

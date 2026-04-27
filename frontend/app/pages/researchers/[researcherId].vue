@@ -155,7 +155,6 @@ const timeline = computed(() => profile.value?.timeline ?? []);
 const hasS2Stats = computed(
   () => !!(profile.value?.citation_count || profile.value?.paper_count),
 );
-const hasLibraryStats = computed(() => !!profile.value?.paper_count_in_library);
 
 async function loadProfile() {
   try {

@@ -23,6 +23,11 @@ from app.models.paper import Paper
 logger = structlog.get_logger(__name__)
 
 
+def _bind_logger(**context):
+    """Return a bound logger, tolerating test loggers that bind to None."""
+    return logger.bind(**context) or logger
+
+
 class PDFBatchImporter:
     """Import local PDFs into Kaleidoscope."""
 
@@ -43,7 +48,7 @@ class PDFBatchImporter:
         Returns:
             {paper_id, status, is_duplicate, matched_paper_id, mineru_url}
         """
-        log = logger.bind(filename=filename)
+        log = _bind_logger(filename=filename)
 
         # 1. Compute content hash for dedup
         content_hash = hashlib.sha256(content).hexdigest()
@@ -79,7 +84,7 @@ class PDFBatchImporter:
         await self.db.flush()
 
         paper_id = str(paper.id)
-        log = log.bind(paper_id=paper_id)
+        log = log.bind(paper_id=paper_id) or log
 
         # 4. Store PDF content (write to MinIO or local)
         pdf_path = await self._store_pdf(paper_id, filename, content)

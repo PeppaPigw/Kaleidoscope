@@ -8,6 +8,7 @@ export interface CurlCommandInput extends ApiRequestPathInput {
   path: string;
   method: string;
   apiKey?: string;
+  mode?: "display" | "copy";
   body?: unknown;
 }
 
@@ -258,10 +259,28 @@ export function buildCurlCommand(input: CurlCommandInput): string {
   const path = buildApiRequestPath(input.path, input);
   const url = resolveApiRequestUrl(input.baseUrl, path);
   const hasBody = input.body !== undefined && input.body !== null;
-  const headers = buildApiHeaders(input.apiKey ?? "", hasBody);
-  const parts = [`curl ${quoteShellValue(url)}`, `-X ${input.method}`];
+  const mode = input.mode ?? "display";
+  const rawApiKey = (input.apiKey ?? "").trim();
+  const trimmedApiKey =
+    mode === "display" ? maskApiKeyForDisplay(rawApiKey) : rawApiKey;
+  const useApiKeyEnv =
+    mode === "copy" &&
+    Boolean(trimmedApiKey) &&
+    trimmedApiKey !== "sk-kaleidoscope";
+  const headers = buildApiHeaders(
+    useApiKeyEnv ? "$KS_API_KEY" : trimmedApiKey,
+    hasBody,
+  );
+  const prefix = useApiKeyEnv
+    ? `KS_API_KEY=${quoteShellValue(trimmedApiKey)} `
+    : "";
+  const parts = [`${prefix}curl ${quoteShellValue(url)}`, `-X ${input.method}`];
 
   for (const [header, value] of Object.entries(headers)) {
+    if (useApiKeyEnv && header === "X-API-Key") {
+      parts.push(`-H "X-API-Key: $KS_API_KEY"`);
+      continue;
+    }
     parts.push(`-H ${quoteShellValue(`${header}: ${value}`)}`);
   }
 

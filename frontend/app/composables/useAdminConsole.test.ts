@@ -4,6 +4,7 @@ import {
   createHistoryRestoreSeed,
   createRunnerSeed,
   normalizeOpenApiCatalog,
+  normalizeOpenApiWorkflows,
   resolveAutoProbePath,
   sliceAutoProbeBatch,
 } from "./useAdminConsole";
@@ -64,6 +65,14 @@ describe("normalizeOpenApiCatalog", () => {
             tags: ["agent-acquisition"],
             summary: "Import one paper from arXiv URL.",
             operationId: "agent_a01_post_api_v1_agent_ingest_source",
+            "x-agent-profile": {
+              status: "production",
+              contract: {
+                purpose: "Import a paper from a source URL.",
+                response_mode: "agent_envelope",
+              },
+              workflow_refs: ["grounded_literature_review"],
+            },
             requestBody: {
               content: {
                 "application/json": {
@@ -101,6 +110,10 @@ describe("normalizeOpenApiCatalog", () => {
       domain: "agent-acquisition",
       tag: "agent-acquisition",
       probeMode: "mutating",
+      agentProfile: expect.objectContaining({
+        status: "production",
+        workflow_refs: ["grounded_literature_review"],
+      }),
     });
 
     expect(endpoints[2]).toMatchObject({
@@ -125,6 +138,58 @@ describe("normalizeOpenApiCatalog", () => {
       domain: "system",
       probeMode: "safe",
     });
+  });
+});
+
+describe("normalizeOpenApiWorkflows", () => {
+  it("normalizes workflow contracts from top-level OpenAPI extensions", () => {
+    const workflows = normalizeOpenApiWorkflows({
+      "x-agent-workflows": [
+        {
+          id: "grounded_literature_review",
+          title: "Build a Grounded Literature Review",
+          status: "production",
+          goal: "Create a cited literature-review plan.",
+          entry_inputs: ["topic", "paper_ids"],
+          final_deliverable: "Evidence-backed outline.",
+          example_entry: { topic: "retrieval" },
+          failure_modes: [{ code: "INSUFFICIENT_LOCAL_CORPUS" }],
+          steps: [
+            {
+              id: "collect_evidence",
+              name: "Collect evidence",
+              endpoint: "POST /api/v1/agent/evidence/search",
+              method: "POST",
+              path: "/api/v1/agent/evidence/search",
+              required: true,
+              why: "Fetch grounded snippets.",
+              input_from: ["entry.topic"],
+              produces: ["evidence"],
+              success_criteria: ["evidence is non-empty"],
+              failure_recovery: "Broaden topic scope.",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(workflows).toEqual([
+      expect.objectContaining({
+        id: "grounded_literature_review",
+        status: "production",
+        entryInputs: ["topic", "paper_ids"],
+        finalDeliverable: "Evidence-backed outline.",
+        steps: [
+          expect.objectContaining({
+            id: "collect_evidence",
+            method: "POST",
+            endpoint: "POST /api/v1/agent/evidence/search",
+            inputFrom: ["entry.topic"],
+            successCriteria: ["evidence is non-empty"],
+          }),
+        ],
+      }),
+    ]);
   });
 });
 

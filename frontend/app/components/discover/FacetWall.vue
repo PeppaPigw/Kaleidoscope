@@ -60,9 +60,7 @@ const uid = useId();
           @click="$emit('facet-toggle', group.title, opt.label, !opt.active)"
         >
           <span class="ks-facet-wall__option-label">{{ opt.label }}</span>
-          <span class="ks-facet-wall__option-count ks-type-data">{{
-            opt.count
-          }}</span>
+          <span class="ks-facet-wall__option-count ks-type-data">{{ opt.count }}</span>
         </button>
       </div>
     </div>

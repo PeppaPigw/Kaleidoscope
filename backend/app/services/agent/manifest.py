@@ -6,10 +6,20 @@ from copy import deepcopy
 from typing import Any
 
 from app.config import settings
+from app.services.agent_endpoint_profiles import (
+    DEFAULT_ARXIV_ID,
+    DEFAULT_PAPER_ID,
+    DEFAULT_TOPIC,
+    iter_agent_endpoint_profiles,
+)
+from app.services.agent_workflow_profiles import (
+    iter_agent_workflow_profiles,
+    workflow_refs_for_endpoint,
+)
 from app.services.agent.tool_dispatcher import TOOLS
 
 MANIFEST_VERSION = "1.0.0"
-MANIFEST_UPDATED_AT = "2026-04-25"
+MANIFEST_UPDATED_AT = "2026-04-26"
 TOOL_VERSION = "1.0.0"
 
 _GENERIC_OUTPUT_SCHEMA: dict[str, Any] = {
@@ -64,7 +74,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Fetch incoming and outgoing citation edges.",
                 "arguments": {
-                    "paper_id": "00000000-0000-0000-0000-000000000001",
+                    "paper_id": DEFAULT_PAPER_ID,
                     "direction": "both",
                     "limit": 20,
                 },
@@ -83,7 +93,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Find papers similar to a seed paper.",
                 "arguments": {
-                    "paper_id": "00000000-0000-0000-0000-000000000001",
+                    "paper_id": DEFAULT_PAPER_ID,
                     "limit": 10,
                 },
             }
@@ -97,7 +107,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Create an executive summary for one paper.",
                 "arguments": {
-                    "paper_id": "00000000-0000-0000-0000-000000000001",
+                    "paper_id": DEFAULT_PAPER_ID,
                     "level": "executive",
                 },
             }
@@ -111,7 +121,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Extract methods from a paper.",
                 "arguments": {
-                    "paper_id": "00000000-0000-0000-0000-000000000001",
+                    "paper_id": DEFAULT_PAPER_ID,
                     "extract_type": "methods",
                 },
             }
@@ -125,8 +135,8 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Ask for evidence-backed details in one paper.",
                 "arguments": {
-                    "paper_id": "00000000-0000-0000-0000-000000000001",
-                    "question": "What dataset and metrics does this paper use?",
+                    "paper_id": DEFAULT_PAPER_ID,
+                    "question": DEFAULT_TOPIC,
                 },
             }
         ],
@@ -140,10 +150,9 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
                 "description": "Compare evidence across a small paper set.",
                 "arguments": {
                     "paper_ids": [
-                        "00000000-0000-0000-0000-000000000001",
-                        "00000000-0000-0000-0000-000000000002",
+                        DEFAULT_PAPER_ID,
                     ],
-                    "question": "Where do these papers disagree?",
+                    "question": DEFAULT_TOPIC,
                 },
             }
         ],
@@ -163,8 +172,8 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Queue DOI ingestion.",
                 "arguments": {
-                    "identifier": "10.1145/3570000.3570001",
-                    "identifier_type": "doi",
+                    "identifier": DEFAULT_ARXIV_ID,
+                    "identifier_type": "arxiv",
                 },
             }
         ],
@@ -197,7 +206,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
                 "description": "Add papers to a workspace.",
                 "arguments": {
                     "collection_id": "00000000-0000-0000-0000-000000000010",
-                    "paper_ids": ["00000000-0000-0000-0000-000000000001"],
+                    "paper_ids": [DEFAULT_PAPER_ID],
                 },
             }
         ],
@@ -217,7 +226,7 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
             {
                 "description": "Export a bibliography as BibTeX.",
                 "arguments": {
-                    "paper_ids": ["00000000-0000-0000-0000-000000000001"],
+                    "paper_ids": [DEFAULT_PAPER_ID],
                     "format": "bibtex",
                 },
             }
@@ -243,6 +252,19 @@ _TOOL_METADATA: dict[str, dict[str, Any]] = {
 
 def build_agent_manifest(api_base_path: str = "/api/v1") -> dict[str, Any]:
     """Build a stable JSON manifest for downstream agent clients."""
+    endpoint_profiles = []
+    for profile in iter_agent_endpoint_profiles():
+        entry = profile.manifest_entry()
+        entry["workflow_refs"] = list(workflow_refs_for_endpoint(profile.key))
+        endpoint_profiles.append(entry)
+    production_profiles = [
+        profile for profile in endpoint_profiles if profile["status"] == "production"
+    ]
+    workflow_profiles = [
+        workflow.manifest_entry()
+        for workflow in iter_agent_workflow_profiles()
+        if workflow.status == "production"
+    ]
     return {
         "schema_version": MANIFEST_VERSION,
         "updated_at": MANIFEST_UPDATED_AT,
@@ -256,11 +278,20 @@ def build_agent_manifest(api_base_path: str = "/api/v1") -> dict[str, Any]:
             "mode": "server-configured",
             "schemes": [
                 {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-API-Key",
+                    "default": "sk-kaleidoscope",
+                    "example": {"X-API-Key": "sk-kaleidoscope"},
+                    "required_for": ["/api/v1", "/api/openapi.json", "/health"],
+                },
+                {
                     "type": "http",
                     "scheme": "bearer",
                     "required_when": "KALEIDOSCOPE_JWT_SECRET is configured",
                 }
             ],
+            "header_example": {"X-API-Key": "sk-kaleidoscope"},
             "scope_model": "tool.scopes lists intended authorization scopes.",
         },
         "limits": {
@@ -279,8 +310,17 @@ def build_agent_manifest(api_base_path: str = "/api/v1") -> dict[str, Any]:
                     "call_tool": f"{api_base_path}/agent/call",
                     "batch_call": f"{api_base_path}/agent/batch",
                     "evidence_search": f"{api_base_path}/evidence/search",
+                    "agent_evidence_search": f"{api_base_path}/agent/evidence/search",
                     "evidence_packs": f"{api_base_path}/evidence/packs",
+                    "agent_evidence_packs": f"{api_base_path}/agent/evidence/packs",
                     "claim_verify": f"{api_base_path}/claims/verify",
+                    "agent_claim_verify": f"{api_base_path}/agent/claims/verify",
+                    "agent_citation_intent": f"{api_base_path}/agent/citations/intent-classify",
+                    "agent_benchmark_extract": f"{api_base_path}/agent/benchmarks/extract",
+                    "agent_literature_review_map": f"{api_base_path}/agent/literature/review-map",
+                    "agent_related_work_pack": f"{api_base_path}/agent/literature/related-work-pack",
+                    "agent_contradiction_map": f"{api_base_path}/agent/literature/contradiction-map",
+                    "agent_capabilities": f"{api_base_path}/agent/capabilities",
                     "grounded_answer": f"{api_base_path}/answers/grounded",
                     "batch": f"{api_base_path}/batch",
                     "discovery_delta": f"{api_base_path}/discovery/delta",
@@ -289,6 +329,10 @@ def build_agent_manifest(api_base_path: str = "/api/v1") -> dict[str, Any]:
                 },
             }
         },
+        "rest_capabilities": endpoint_profiles,
+        "recommended_workflows": workflow_profiles,
+        "workflows": workflow_profiles,
+        "production_rest_capabilities": production_profiles,
         "external_integrations": {
             "deepxiv": {
                 "status": "proxied",

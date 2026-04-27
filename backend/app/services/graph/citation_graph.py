@@ -138,14 +138,22 @@ class CitationGraphService:
         result = {"paper_id": paper_id}
 
         if direction in ("forward", "both"):
-            result["forward_citations"] = await neo4j_driver.run_query(
-                Q.GET_FORWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
-            )
+            try:
+                result["forward_citations"] = await neo4j_driver.run_query(
+                    Q.GET_FORWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
+                )
+            except Exception as exc:
+                logger.warning("graph_forward_citations_unavailable", error=str(exc))
+                result["forward_citations"] = []
 
         if direction in ("backward", "both"):
-            result["backward_citations"] = await neo4j_driver.run_query(
-                Q.GET_BACKWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
-            )
+            try:
+                result["backward_citations"] = await neo4j_driver.run_query(
+                    Q.GET_BACKWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
+                )
+            except Exception as exc:
+                logger.warning("graph_backward_citations_unavailable", error=str(exc))
+                result["backward_citations"] = []
 
         return result
 
@@ -155,9 +163,13 @@ class CitationGraphService:
 
         Co-citation strength = number of papers that cite both.
         """
-        return await neo4j_driver.run_query(
-            Q.CO_CITATION_ANALYSIS, {"paper_id": paper_id, "limit": limit}
-        )
+        try:
+            return await neo4j_driver.run_query(
+                Q.CO_CITATION_ANALYSIS, {"paper_id": paper_id, "limit": limit}
+            )
+        except Exception as exc:
+            logger.warning("graph_co_citation_unavailable", error=str(exc))
+            return []
 
     async def bibliographic_coupling(
         self, paper_id: str, limit: int = 20
@@ -167,24 +179,31 @@ class CitationGraphService:
 
         Coupling strength = number of shared references.
         """
-        return await neo4j_driver.run_query(
-            Q.BIBLIOGRAPHIC_COUPLING, {"paper_id": paper_id, "limit": limit}
-        )
+        try:
+            return await neo4j_driver.run_query(
+                Q.BIBLIOGRAPHIC_COUPLING, {"paper_id": paper_id, "limit": limit}
+            )
+        except Exception as exc:
+            logger.warning("graph_bibliographic_coupling_unavailable", error=str(exc))
+            return []
 
     async def get_neighborhood(
         self, paper_id: str, depth: int = 1, limit: int = 100
     ) -> dict:
         """Get graph neighborhood for visualization."""
-        if depth == 1:
-            results = await neo4j_driver.run_query(
-                Q.GRAPH_NEIGHBORHOOD, {"paper_id": paper_id}
-            )
-            return results[0] if results else {}
-        else:
+        try:
+            if depth == 1:
+                results = await neo4j_driver.run_query(
+                    Q.GRAPH_NEIGHBORHOOD, {"paper_id": paper_id}
+                )
+                return results[0] if results else {}
             nodes = await neo4j_driver.run_query(
                 Q.GRAPH_NEIGHBORHOOD_2HOP, {"paper_id": paper_id, "limit": limit}
             )
             return {"center_id": paper_id, "neighbors": nodes}
+        except Exception as exc:
+            logger.warning("graph_neighborhood_unavailable", error=str(exc))
+            return {"center_id": paper_id, "nodes": [], "edges": []}
 
     async def get_stats(self) -> dict:
         """Get graph statistics."""

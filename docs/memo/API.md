@@ -168,6 +168,31 @@ Externalization recommendation:
 - Add `GET /api/v1/agent/manifest` for an agent-friendly manifest with tool schemas,
   auth requirements, service limits, and examples.
 
+Current productized agent surface:
+
+- `GET /api/v1/agent/manifest` now advertises `X-API-Key` auth, REST capability
+  profiles, production readiness, examples, and recommended workflows.
+- `GET /api/v1/agent/capabilities` returns machine-readable dynamic endpoint
+  profiles with `status`, `workflow_stage`, runnable request examples, response
+  examples, semantic assertions, and minimum data keys.
+- Dynamic agent responses use `meta.implementation_status` values of
+  `production`, `beta`, `planned`, or `degraded_missing_local_data`.
+- Roadmap-only endpoints stay discoverable but return a coded
+  `ENDPOINT_NOT_PRODUCTIZED` warning instead of fabricated sample payloads.
+- Practical service aliases are available under the agent namespace:
+  `POST /api/v1/agent/evidence/search`,
+  `POST /api/v1/agent/evidence/packs`,
+  `POST /api/v1/agent/claims/verify`,
+  `POST /api/v1/agent/citations/intent-classify`,
+  `POST /api/v1/agent/benchmarks/extract`,
+  `POST /api/v1/agent/literature/review-map`,
+  `POST /api/v1/agent/literature/related-work-pack`, and
+  `POST /api/v1/agent/literature/contradiction-map`.
+- Runtime verification writes replayable agent request/response examples to
+  `docs/memo/agent-api-runtime-examples.json`.
+- Endpoint readiness is inventoried in
+  `docs/memo/agent-api-readiness-inventory.md`.
+
 ### 2. Paper Ingestion and Resolution
 
 Current endpoints:

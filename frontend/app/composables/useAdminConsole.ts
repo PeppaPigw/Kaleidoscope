@@ -26,6 +26,7 @@ interface OpenApiOperation {
     >;
   };
   responses?: Record<string, unknown>;
+  "x-agent-profile"?: Record<string, unknown>;
 }
 
 interface OpenApiDocument {
@@ -35,6 +36,33 @@ interface OpenApiDocument {
     string,
     Partial<Record<Lowercase<AdminMethod>, OpenApiOperation>>
   >;
+  "x-agent-workflows"?: unknown;
+}
+
+export interface AgentWorkflowStep {
+  id: string;
+  name: string;
+  endpoint: string;
+  method: AdminMethod;
+  path: string;
+  required: boolean;
+  why: string;
+  inputFrom: string[];
+  produces: string[];
+  successCriteria: string[];
+  failureRecovery: string;
+}
+
+export interface AgentWorkflowProfile {
+  id: string;
+  title: string;
+  status: string;
+  goal: string;
+  entryInputs: string[];
+  steps: AgentWorkflowStep[];
+  finalDeliverable: string;
+  failureModes: Record<string, unknown>[];
+  exampleEntry: Record<string, unknown>;
 }
 
 export interface AdminEndpointParameter {
@@ -64,10 +92,12 @@ export interface AdminEndpoint {
   operationId: string;
   parameters: AdminEndpointParameter[];
   requestBody: AdminRequestBody | null;
+  responseSchema: Record<string, unknown> | null;
   responseCodes: string[];
   isMutation: boolean;
   isStream: boolean;
   probeMode: AdminProbeMode;
+  agentProfile: Record<string, unknown> | null;
   autoProbeEligible: boolean;
   autoProbePath: string | null;
   autoProbeStatus: AdminProbeStatus;
@@ -186,6 +216,10 @@ const SAMPLE_PARAM_MAP: Partial<Record<string, keyof AdminSampleContext>> = {
   webhook_id: "webhookId",
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function humanizeIdentifier(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
@@ -248,6 +282,121 @@ function normalizeRequestBody(
     schema: preferred.schema ?? null,
     example: preferred.example ?? null,
   };
+}
+
+function normalizeResponseSchema(
+  operation: OpenApiOperation,
+): Record<string, unknown> | null {
+  const responses = operation.responses ?? {};
+  const preferred =
+    responses["200"] ??
+    responses["201"] ??
+    responses["202"] ??
+    Object.values(responses)[0];
+
+  if (!preferred || typeof preferred !== "object") {
+    return null;
+  }
+
+  const content = (preferred as { content?: Record<string, unknown> }).content;
+  if (!content || typeof content !== "object") {
+    return null;
+  }
+
+  const jsonContent = content["application/json"];
+  if (!jsonContent || typeof jsonContent !== "object") {
+    return null;
+  }
+
+  const schema = (jsonContent as { schema?: unknown }).schema;
+  return schema && typeof schema === "object"
+    ? (schema as Record<string, unknown>)
+    : null;
+}
+
+function normalizeStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function normalizeWorkflowStep(value: unknown): AgentWorkflowStep | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === "string" ? value.id : "";
+  const name = typeof value.name === "string" ? value.name : id;
+  const method = typeof value.method === "string" ? value.method.toUpperCase() : "";
+  const path = typeof value.path === "string" ? value.path : "";
+  const endpoint =
+    typeof value.endpoint === "string" ? value.endpoint : `${method} ${path}`;
+
+  const methodKey = method.toLowerCase() as Lowercase<AdminMethod>;
+  if (!id || !path || !ROUTE_METHODS.includes(methodKey)) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    endpoint,
+    method: method as AdminMethod,
+    path,
+    required: value.required !== false,
+    why: typeof value.why === "string" ? value.why : "",
+    inputFrom: normalizeStringList(value.input_from),
+    produces: normalizeStringList(value.produces),
+    successCriteria: normalizeStringList(value.success_criteria),
+    failureRecovery:
+      typeof value.failure_recovery === "string" ? value.failure_recovery : "",
+  };
+}
+
+export function normalizeOpenApiWorkflows(
+  schema: OpenApiDocument,
+): AgentWorkflowProfile[] {
+  const workflows = schema["x-agent-workflows"];
+  if (!Array.isArray(workflows)) {
+    return [];
+  }
+
+  return workflows
+    .filter(isRecord)
+    .map((workflow) => {
+      const id = typeof workflow.id === "string" ? workflow.id : "";
+      const title = typeof workflow.title === "string" ? workflow.title : id;
+      const steps = Array.isArray(workflow.steps)
+        ? workflow.steps
+            .map(normalizeWorkflowStep)
+            .filter((step): step is AgentWorkflowStep => step !== null)
+        : [];
+
+      if (!id || !title || steps.length === 0) {
+        return null;
+      }
+
+      return {
+        id,
+        title,
+        status:
+          typeof workflow.status === "string" ? workflow.status : "unknown",
+        goal: typeof workflow.goal === "string" ? workflow.goal : "",
+        entryInputs: normalizeStringList(workflow.entry_inputs),
+        steps,
+        finalDeliverable:
+          typeof workflow.final_deliverable === "string"
+            ? workflow.final_deliverable
+            : "",
+        failureModes: Array.isArray(workflow.failure_modes)
+          ? workflow.failure_modes.filter(isRecord)
+          : [],
+        exampleEntry: isRecord(workflow.example_entry)
+          ? workflow.example_entry
+          : {},
+      } satisfies AgentWorkflowProfile;
+    })
+    .filter((workflow): workflow is AgentWorkflowProfile => workflow !== null);
 }
 
 function inferProbeMode(
@@ -321,10 +470,12 @@ export function normalizeOpenApiCatalog(
               parameter !== null,
           ),
         requestBody: normalizeRequestBody(operation),
+        responseSchema: normalizeResponseSchema(operation),
         responseCodes: Object.keys(operation.responses ?? {}),
         isMutation,
         isStream,
         probeMode: "manual",
+        agentProfile: operation["x-agent-profile"] ?? null,
         autoProbeEligible:
           method === "GET" && !isStream && !normalizeRequestBody(operation),
         autoProbePath: null,

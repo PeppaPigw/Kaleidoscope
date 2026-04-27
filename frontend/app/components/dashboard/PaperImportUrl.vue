@@ -120,9 +120,10 @@ async function handleImport() {
     // Clear form
     url.value = "";
     title.value = "";
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearPollInterval();
-    const detail = err?.data?.detail || err?.message || "Import failed";
+    const fetchError = err as { data?: { detail?: string }; message?: string };
+    const detail = fetchError.data?.detail || fetchError.message || "Import failed";
     result.value = {
       status: "error",
       message: detail,

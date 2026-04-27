@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { withKaleidoscopeApiKeyQuery } from "~/utils/apiKey";
+
 definePageMeta({
   layout: "default",
   title: "Admin Console",
@@ -79,7 +81,9 @@ const summaryItems = computed(() => [
 ]);
 
 const docsUrl = computed(() => `${config.public.apiUrl}/docs`);
-const openApiUrl = computed(() => `${config.public.apiUrl}/api/openapi.json`);
+const openApiUrl = computed(() =>
+  withKaleidoscopeApiKeyQuery(`${config.public.apiUrl}/api/openapi.json`),
+);
 
 async function handleRunEndpoint(payload: {
   pathParams: Record<string, unknown>;

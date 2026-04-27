@@ -26,6 +26,10 @@ class AgentApiSpec:
         return tuple(re.findall(r"\{([^}]+)\}", self.path))
 
     @property
+    def key(self) -> str:
+        return f"{self.method} {self.path}"
+
+    @property
     def operation_id(self) -> str:
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", self.path.strip("/"))
         return f"agent_{self.id.lower()}_{self.method.lower()}_{slug}".strip("_")

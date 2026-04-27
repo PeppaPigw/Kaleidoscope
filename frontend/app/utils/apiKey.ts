@@ -16,6 +16,19 @@ export function withKaleidoscopeApiKeyHeaders(
   return { "X-API-Key": apiKey, ...headers };
 }
 
+export function withKaleidoscopeAuthHeaders(
+  headers: Record<string, string> = {},
+): Record<string, string> {
+  const token = import.meta.client
+    ? localStorage.getItem("ks_access_token")
+    : null;
+  const authHeaders =
+    token && token !== "single-user-mode"
+      ? { Authorization: `Bearer ${token}`, ...headers }
+      : headers;
+  return withKaleidoscopeApiKeyHeaders(authHeaders);
+}
+
 export function withKaleidoscopeApiKeyQuery(url: string): string {
   const apiKey = getKaleidoscopeApiKey();
   if (!apiKey) return url;

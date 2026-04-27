@@ -1147,6 +1147,12 @@ def create_app() -> FastAPI:
     def custom_openapi() -> dict:
         if app.openapi_schema:
             return app.openapi_schema
+        from app.services.agent_endpoint_profiles import profile_for_operation
+        from app.services.agent_workflow_profiles import (
+            iter_agent_workflow_profiles,
+            workflow_refs_for_endpoint,
+        )
+
         openapi_schema = get_openapi(
             title=app.title,
             version=app.version,
@@ -1163,20 +1169,36 @@ def create_app() -> FastAPI:
             "BearerApiKey",
             {"type": "http", "scheme": "bearer"},
         )
+        openapi_schema["x-agent-workflows"] = [
+            workflow.manifest_entry()
+            for workflow in iter_agent_workflow_profiles()
+            if workflow.status == "production"
+        ]
         for path, path_item in openapi_schema.get("paths", {}).items():
             normalized_path = path.rstrip("/") or "/"
             is_protected = normalized_path in API_KEY_PROTECTED_PATHS or any(
                 normalized_path == prefix or normalized_path.startswith(f"{prefix}/")
                 for prefix in API_KEY_PROTECTED_PREFIXES
             )
-            if not is_protected:
-                continue
-            for method_spec in path_item.values():
-                if isinstance(method_spec, dict):
+            for method_name, method_spec in path_item.items():
+                if not isinstance(method_spec, dict):
+                    continue
+                if is_protected:
                     method_spec.setdefault(
                         "security",
                         [{"ApiKeyHeader": []}, {"BearerApiKey": []}],
                     )
+                profile = profile_for_operation(
+                    method_name.upper(),
+                    path,
+                    method_spec.get("operationId"),
+                )
+                if profile:
+                    profile_entry = profile.manifest_entry()
+                    profile_entry["workflow_refs"] = list(
+                        workflow_refs_for_endpoint(profile.key)
+                    )
+                    method_spec["x-agent-profile"] = profile_entry
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 

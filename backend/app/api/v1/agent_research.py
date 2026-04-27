@@ -13,6 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user_id, get_db
 from app.services.agent_api_catalog import AgentApiSpec, load_agent_api_specs
+from app.services.agent_endpoint_profiles import (
+    implementation_status_for_response,
+    profile_for_spec,
+)
+from app.services.agent_workflow_profiles import workflow_refs_for_endpoint
 from app.services.agent_research_runtime import AgentResearchRuntime
 
 router = APIRouter(prefix="/agent")
@@ -61,6 +66,8 @@ def _body_to_dict(body: AgentApiRequest | None) -> dict[str, Any]:
 
 
 def _make_route_handler(spec: AgentApiSpec):
+    profile = profile_for_spec(spec)
+
     async def route_handler(
         request: Request,
         body: AgentApiRequest | None = None,
@@ -76,6 +83,10 @@ def _make_route_handler(spec: AgentApiSpec):
             path_params=path_params,
         )
         generated_at = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+        implementation_status = implementation_status_for_response(
+            profile,
+            warnings,
+        )
         return AgentApiEnvelope(
             data=data,
             meta={
@@ -85,8 +96,13 @@ def _make_route_handler(spec: AgentApiSpec):
                 "generated_at": generated_at,
                 "cache": {"hit": False, "ttl_seconds": 0},
                 "cost": {"estimated_tokens": 0, "external_calls": []},
-                "implementation_status": "live_partial" if warnings else "live",
+                "implementation_status": implementation_status,
                 "catalog_id": spec.id,
+                "readiness": {
+                    "status": profile.status,
+                    "workflow_stage": profile.workflow_stage,
+                    "minimum_data_keys": list(profile.minimum_data_keys),
+                },
             },
             warnings=warnings,
             provenance=provenance,
@@ -119,7 +135,8 @@ def _make_route_handler(spec: AgentApiSpec):
                 default=Body(
                     default=None,
                     examples=[
-                        {
+                        profile.request_example
+                        or {
                             "scope": {"paper_ids": ["<paper_id>"]},
                             "language": "auto",
                             "token_budget": 8000,
@@ -158,6 +175,9 @@ def _make_route_handler(spec: AgentApiSpec):
 
 def _register_routes() -> None:
     for spec in load_agent_api_specs():
+        profile = profile_for_spec(spec)
+        profile_entry = profile.manifest_entry()
+        profile_entry["workflow_refs"] = list(workflow_refs_for_endpoint(profile.key))
         router.add_api_route(
             spec.path.removeprefix("/api/v1/agent"),
             _make_route_handler(spec),
@@ -168,12 +188,16 @@ def _register_routes() -> None:
             summary=spec.use_case,
             description=(
                 f"Agent API {spec.id} ({spec.priority}) in {spec.section}. "
+                f"Readiness status: {profile.status}. "
                 "Returns a JSON envelope backed by the local Kaleidoscope corpus; "
                 "missing artifacts are reported as warnings instead of fabricated samples. "
                 "Response fields include: "
                 f"{', '.join(spec.response_highlights) or 'result, status, warnings'}."
             ),
             operation_id=spec.operation_id,
+            openapi_extra={
+                "x-agent-profile": profile_entry
+            },
         )
 
 

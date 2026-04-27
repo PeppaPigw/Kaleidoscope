@@ -4,6 +4,7 @@
  * Opens as a teleport overlay. Fetches user's groups from the API.
  */
 import { X, Plus, Check, Bookmark } from "lucide-vue-next";
+import { withKaleidoscopeAuthHeaders } from "~/utils/apiKey";
 
 const props = defineProps<{
   arxivId: string;
@@ -29,14 +30,8 @@ const showNewGroupForm = ref(false);
 const newGroupName = ref("");
 const creatingGroup = ref(false);
 
-function _authHeaders(): Record<string, string> | undefined {
-  const token = import.meta.client
-    ? localStorage.getItem("ks_access_token")
-    : null;
-  if (token && token !== "single-user-mode") {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return undefined;
+function _authHeaders(): Record<string, string> {
+  return withKaleidoscopeAuthHeaders();
 }
 
 onMounted(async () => {

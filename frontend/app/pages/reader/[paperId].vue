@@ -201,10 +201,8 @@ async function loadLabels() {
   if (!paperId.value) return;
   labelsLoading.value = true;
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    const data = await $fetch<{ labels: PaperLabels }>(
-      `${apiBase}/api/v1/papers/${paperId.value}/labels`,
+    const data = await apiFetch<{ labels: PaperLabels }>(
+      `/papers/${paperId.value}/labels`,
     );
     paperLabels.value = data.labels;
   } catch {
@@ -283,9 +281,7 @@ async function triggerReprocess() {
   reprocessing.value = true;
   reprocessError.value = null;
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiUrl as string;
-    await $fetch(`${apiBase}/api/v1/papers/${paperId.value}/reparse`, {
+    await apiFetch(`/papers/${paperId.value}/reparse`, {
       method: "POST",
       body: { url: null, is_html: false },
     });

@@ -118,6 +118,7 @@ class CitationCheckRequest(BaseModel):
     paper_ids: list[str] = Field(default_factory=list, max_length=300)
 
 
+@router.post("/agent/evidence/search", operation_id="search_evidence_agent_alias")
 @router.post("/evidence/search")
 async def search_evidence(body: EvidenceSearchRequest, db: DbSession, user_id: UserId):
     """Search local paper chunks and metadata for cited evidence snippets."""
@@ -130,6 +131,7 @@ async def search_evidence(body: EvidenceSearchRequest, db: DbSession, user_id: U
     )
 
 
+@router.post("/agent/evidence/packs", operation_id="build_evidence_pack_agent_alias")
 @router.post("/evidence/packs")
 async def build_evidence_pack(body: EvidencePackRequest, db: DbSession, user_id: UserId):
     """Build a token-budgeted evidence pack for downstream agents."""
@@ -142,6 +144,7 @@ async def build_evidence_pack(body: EvidencePackRequest, db: DbSession, user_id:
     )
 
 
+@router.post("/agent/claims/verify", operation_id="verify_claim_agent_alias")
 @router.post("/claims/verify")
 async def verify_claim(body: ClaimVerifyRequest, db: DbSession, user_id: UserId):
     """Verify a claim against local evidence and return a cited label."""
@@ -153,6 +156,10 @@ async def verify_claim(body: ClaimVerifyRequest, db: DbSession, user_id: UserId)
     )
 
 
+@router.post(
+    "/agent/citations/intent-classify",
+    operation_id="classify_citation_intent_agent_alias",
+)
 @router.post("/citations/intent-classify")
 async def classify_citation_intent(body: CitationIntentRequest):
     """Classify citation context intent as background, method, criticism, etc."""
@@ -203,6 +210,7 @@ async def get_paper_citation_contexts(
     )
 
 
+@router.post("/agent/benchmarks/extract", operation_id="extract_benchmarks_agent_alias")
 @router.post("/benchmarks/extract")
 async def extract_benchmarks(body: BenchmarkExtractRequest, db: DbSession, user_id: UserId):
     """Extract benchmark datasets, metrics, baselines, hardware, and values."""
@@ -342,18 +350,27 @@ async def _literature(body: LiteratureRequest, db: DbSession, user_id: UserId, m
     )
 
 
+@router.post("/agent/literature/review-map", operation_id="literature_review_map_agent_alias")
 @router.post("/literature/review-map")
 async def literature_review_map(body: LiteratureRequest, db: DbSession, user_id: UserId):
     """Build a graph-oriented review map for a topic or paper set."""
     return await _literature(body, db, user_id, "review-map")
 
 
+@router.post(
+    "/agent/literature/related-work-pack",
+    operation_id="related_work_pack_agent_alias",
+)
 @router.post("/literature/related-work-pack")
 async def related_work_pack(body: LiteratureRequest, db: DbSession, user_id: UserId):
     """Build a structured related-work pack with graph and source nodes."""
     return await _literature(body, db, user_id, "related-work-pack")
 
 
+@router.post(
+    "/agent/literature/contradiction-map",
+    operation_id="contradiction_map_agent_alias",
+)
 @router.post("/literature/contradiction-map")
 async def contradiction_map(body: LiteratureRequest, db: DbSession, user_id: UserId):
     """Return graph data plus contradiction-oriented claim candidates."""

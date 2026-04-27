@@ -3,6 +3,7 @@
  * Collections — manage paper groups (bookmarked papers).
  */
 import { Bookmark, Plus, Trash2, FolderOpen, FileText } from "lucide-vue-next";
+import { withKaleidoscopeAuthHeaders } from "~/utils/apiKey";
 
 definePageMeta({ layout: "default" });
 
@@ -33,14 +34,8 @@ const newGroupDesc = ref("");
 const creating = ref(false);
 const deleteTarget = ref<string | null>(null);
 
-function _authHeaders(): Record<string, string> | undefined {
-  const token = import.meta.client
-    ? localStorage.getItem("ks_access_token")
-    : null;
-  if (token && token !== "single-user-mode") {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return undefined;
+function _authHeaders(): Record<string, string> {
+  return withKaleidoscopeAuthHeaders();
 }
 
 onMounted(loadGroups);

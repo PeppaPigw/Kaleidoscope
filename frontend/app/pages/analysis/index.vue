@@ -14,7 +14,6 @@ import type {
 } from "~/composables/useApi";
 
 definePageMeta({ layout: "default" });
-const { t } = useTranslation();
 const api = useApi();
 
 useHead({
@@ -61,8 +60,9 @@ async function loadData() {
         firstError?.reason?.message ||
         "Failed to load analytics — check backend connection";
     }
-  } catch (e: any) {
-    error.value = e?.message || "Failed to load analytics";
+  } catch (errorValue: unknown) {
+    const fetchError = errorValue as { message?: string };
+    error.value = fetchError.message || "Failed to load analytics";
   } finally {
     loading.value = false;
   }

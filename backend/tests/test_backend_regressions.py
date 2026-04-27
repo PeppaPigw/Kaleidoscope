@@ -870,6 +870,12 @@ def test_agent_manifest_exposes_tool_contracts():
     assert manifest["transports"]["rest"]["endpoints"]["claim_verify"] == (
         "/api/v1/claims/verify"
     )
+    assert manifest["auth"]["header_example"] == {"X-API-Key": "sk-kaleidoscope"}
+    assert manifest["transports"]["rest"]["endpoints"]["agent_evidence_search"] == (
+        "/api/v1/agent/evidence/search"
+    )
+    assert manifest["rest_capabilities"]
+    assert manifest["recommended_workflows"][0]["id"] == "grounded_literature_review"
     assert set(tools) == {tool["name"] for tool in TOOLS}
 
     search_tool = tools["search_papers"]

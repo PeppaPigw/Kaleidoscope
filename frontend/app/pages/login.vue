@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { withKaleidoscopeApiKeyHeaders } from "~/utils/apiKey";
+
 definePageMeta({ layout: "auth" });
 
 useHead({
@@ -34,6 +36,7 @@ async function handleSubmit() {
     }>(`${apiBase}/api/v1/auth/login`, {
       method: "POST",
       body: { username: username.value.trim(), password: password.value },
+      headers: withKaleidoscopeApiKeyHeaders(),
     });
     if (import.meta.client) {
       localStorage.setItem(

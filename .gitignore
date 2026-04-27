@@ -58,14 +58,7 @@ skills/
 AGENTS.md
 
 docs/*
-!docs/memo/
-docs/memo/*
-!docs/memo/API.md
-!docs/memo/API-todo.md
-!docs/memo/deepaxiv_api.md
-!docs/memo/LANDSCAPE_TEST_REPORT.md
-!docs/memo/QUICK_START.md
-!docs/memo/RAG_SYSTEM_ANALYSIS.md
+
 .playwright-cli/
 
 backend/tests

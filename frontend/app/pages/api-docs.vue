@@ -17,7 +17,10 @@ import {
 
 import {
   createRunnerSeed,
+  normalizeOpenApiWorkflows,
   normalizeOpenApiCatalog,
+  type AgentWorkflowProfile,
+  type AgentWorkflowStep,
   type AdminEndpoint,
   type AdminMethod,
   type AdminRunResult,
@@ -33,6 +36,7 @@ import {
   parseJsonObjectInput,
   resolveApiRequestUrl,
 } from "~/utils/apiDocs";
+import { getApiExampleProfile } from "~/utils/apiExampleRegistry";
 import { getKaleidoscopeApiKey } from "~/utils/apiKey";
 
 definePageMeta({ layout: "default", apiDocsChrome: true });
@@ -59,19 +63,30 @@ const METHOD_OPTIONS: MethodFilter[] = [
 const API_DOCS_COPY = {
   en: {
     eyebrow: "Developer Surface · Agent-ready JSON APIs",
-    title: "API atlas for paper-analysis agents.",
+    title: "Agent API Workbench.",
     subtitle:
-      "Browse every public route, inspect schemas, fill an API key once, and send real requests from the same control surface.",
+      "Start from production research workflows, inspect each endpoint contract, then run the same requests captured by runtime verification.",
     apiKeyLabel: "API Key",
     apiKeyHelp:
       "Sent as X-API-Key for catalog loading and every debugger request.",
-    apiKeyPlaceholder: "sk-kaleidoscope",
+    apiKeyPlaceholder: "$KS_API_KEY",
     baseUrlLabel: "Base URL",
     reloadSchema: "Reload Schema",
     loadingSchema: "Loading Schema",
     schemaReady: "Schema Ready",
     schemaFailed: "Schema Failed",
     catalogTitle: "Endpoint Catalog",
+    workflowTitle: "Workflow Library",
+    workflowLead: "Production workflows for autonomous research agents.",
+    workflowSteps: "Workflow Steps",
+    workflowStatus: "Status",
+    workflowInputs: "Inputs",
+    workflowOutput: "Final Deliverable",
+    workflowEmpty: "No workflow contracts were published by OpenAPI.",
+    agentContract: "Agent Contract",
+    whenToUse: "When To Use",
+    fallbacks: "Fallbacks",
+    responseMode: "Response Mode",
     searchPlaceholder: "Search path, tag, operation…",
     allDomains: "All Domains",
     allMethods: "All",
@@ -110,6 +125,8 @@ const API_DOCS_COPY = {
     curlPreview: "cURL Preview",
     copyCurl: "Copy cURL",
     copied: "Copied",
+    expectedShape: "Runtime Example Response",
+    expectedShapeHint: "Response body captured by the real HTTP verifier.",
     response: "Response",
     awaitingResponse: "Awaiting a request run.",
     status: "Status",
@@ -126,18 +143,29 @@ const API_DOCS_COPY = {
   },
   zh: {
     eyebrow: "开发者服务 · 面向智能体的 JSON API",
-    title: "论文分析的 API 地图。",
+    title: "Agent API Workbench.",
     subtitle:
-      "在同一页面浏览所有对外路由、查看 schema、顶部填写 API key，并直接发起真实调试请求。",
+      "Start from production research workflows, inspect each endpoint contract, then run the same requests captured by runtime verification.",
     apiKeyLabel: "API Key",
     apiKeyHelp: "用于加载目录和调试请求，统一通过 X-API-Key 发送。",
-    apiKeyPlaceholder: "sk-kaleidoscope",
+    apiKeyPlaceholder: "$KS_API_KEY",
     baseUrlLabel: "基础地址",
     reloadSchema: "重新加载 Schema",
     loadingSchema: "加载中",
     schemaReady: "Schema 已就绪",
     schemaFailed: "Schema 加载失败",
     catalogTitle: "接口目录",
+    workflowTitle: "Workflow Library",
+    workflowLead: "Production workflows for autonomous research agents.",
+    workflowSteps: "Workflow Steps",
+    workflowStatus: "Status",
+    workflowInputs: "Inputs",
+    workflowOutput: "Final Deliverable",
+    workflowEmpty: "No workflow contracts were published by OpenAPI.",
+    agentContract: "Agent Contract",
+    whenToUse: "When To Use",
+    fallbacks: "Fallbacks",
+    responseMode: "Response Mode",
     searchPlaceholder: "搜索路径、标签、operation…",
     allDomains: "全部领域",
     allMethods: "全部",
@@ -174,6 +202,8 @@ const API_DOCS_COPY = {
     curlPreview: "cURL 预览",
     copyCurl: "复制 cURL",
     copied: "已复制",
+    expectedShape: "运行时示例响应",
+    expectedShapeHint: "真实 HTTP verifier 捕获的响应体。",
     response: "响应",
     awaitingResponse: "等待发起请求。",
     status: "状态",
@@ -571,11 +601,13 @@ const { isDark } = useTheme();
 
 const apiKey = ref(getKaleidoscopeApiKey());
 const endpoints = ref<AdminEndpoint[]>([]);
+const workflows = ref<AgentWorkflowProfile[]>([]);
 const openApiVersion = ref<string | null>(null);
 const catalogPending = ref(false);
 const catalogError = ref<string | null>(null);
 const catalogLoadedAt = ref<string | null>(null);
 const selectedEndpointId = ref<string | null>(null);
+const selectedWorkflowId = ref<string | null>(null);
 const searchQuery = ref("");
 const activeDomain = ref("all");
 const activeMethod = ref<MethodFilter>("all");
@@ -607,6 +639,25 @@ const selectedEndpoint = computed(() => {
     ) ?? null
   );
 });
+
+const selectedWorkflow = computed(() => {
+  return (
+    workflows.value.find((workflow) => workflow.id === selectedWorkflowId.value) ??
+    workflows.value[0] ??
+    null
+  );
+});
+
+const selectedWorkflowSteps = computed(() => selectedWorkflow.value?.steps ?? []);
+
+const workflowEndpointIds = computed(
+  () =>
+    new Set(
+      workflows.value.flatMap((workflow) =>
+        workflow.steps.map((step) => step.endpoint),
+      ),
+    ),
+);
 
 const filteredEndpoints = computed(() => {
   const normalizedQuery = searchQuery.value.trim().toLowerCase();
@@ -662,6 +713,26 @@ const selectedRequestBody = computed(
   () => selectedEndpoint.value?.requestBody ?? null,
 );
 
+const selectedExampleProfile = computed(() =>
+  selectedEndpoint.value
+    ? getApiExampleProfile(selectedEndpoint.value.id)
+    : null,
+);
+
+const expectedResponseText = computed(() => {
+  const profileShape = selectedExampleProfile.value?.responseShape;
+  if (profileShape !== undefined) {
+    return formatJsonPreview(profileShape, "");
+  }
+
+  const endpoint = selectedEndpoint.value;
+  if (!endpoint?.responseSchema) {
+    return "";
+  }
+
+  return formatJsonPreview(createJsonExample(endpoint.responseSchema), "");
+});
+
 const requestPathPreview = computed(() => {
   const endpoint = selectedEndpoint.value;
   if (!endpoint) {
@@ -694,6 +765,7 @@ const curlSnippet = computed(() => {
     pathParams: preview.pathParams,
     query: preview.query,
     body: preview.body,
+    mode: "display",
   });
 });
 
@@ -777,21 +849,54 @@ function resetRunnerSeed(endpoint = selectedEndpoint.value) {
   }
 
   const seed = createRunnerSeed(endpoint);
+  const profile = getApiExampleProfile(endpoint.id);
   const generatedBody = endpoint.requestBody
     ? createJsonExample(endpoint.requestBody.schema)
     : null;
 
-  pathParamsText.value = seed.pathParamsText;
-  queryText.value = seed.queryText;
+  pathParamsText.value = formatJsonPreview(
+    profile?.pathParams ?? seed.pathParams,
+    seed.pathParamsText,
+  );
+  queryText.value = formatJsonPreview(profile?.query ?? seed.query, seed.queryText);
   bodyText.value = endpoint.requestBody
-    ? seed.bodyText && seed.bodyText !== "{}"
-      ? seed.bodyText
-      : formatJsonPreview(generatedBody, "{}")
+    ? formatJsonPreview(
+        profile?.body ??
+          (seed.bodyText && seed.bodyText !== "{}" ? seed.body : generatedBody),
+        "{}",
+      )
     : "";
 }
 
 function selectEndpoint(endpoint: AdminEndpoint) {
   selectedEndpointId.value = endpoint.id;
+}
+
+function selectWorkflow(workflow: AgentWorkflowProfile) {
+  selectedWorkflowId.value = workflow.id;
+  const firstStep = workflow.steps.find((step) =>
+    endpoints.value.some((endpoint) => endpoint.id === step.endpoint),
+  );
+  if (firstStep) {
+    selectWorkflowStep(firstStep);
+  }
+}
+
+function selectWorkflowStep(step: AgentWorkflowStep) {
+  const endpoint = endpoints.value.find((item) => item.id === step.endpoint);
+  if (!endpoint) {
+    return;
+  }
+
+  selectedEndpointId.value = endpoint.id;
+  resetRunnerSeed(endpoint);
+  if (!import.meta.client) {
+    return;
+  }
+
+  document
+    .getElementById(endpointAnchorId(endpoint))
+    ?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
 function anchorSlug(value: string): string {
@@ -866,10 +971,29 @@ function ensureSelectedEndpoint() {
     return;
   }
 
+  const firstWorkflowEndpoint = workflows.value
+    .flatMap((workflow) => workflow.steps)
+    .map((step) => step.endpoint)
+    .find((endpointId) =>
+      endpoints.value.some((endpoint) => endpoint.id === endpointId),
+    );
+
   selectedEndpointId.value =
+    firstWorkflowEndpoint ??
     endpoints.value.find((endpoint) => endpoint.id === "GET /health")?.id ??
     endpoints.value[0]?.id ??
     null;
+}
+
+function ensureSelectedWorkflow() {
+  if (
+    selectedWorkflowId.value &&
+    workflows.value.some((workflow) => workflow.id === selectedWorkflowId.value)
+  ) {
+    return;
+  }
+
+  selectedWorkflowId.value = workflows.value[0]?.id ?? null;
 }
 
 async function loadCatalog() {
@@ -886,8 +1010,10 @@ async function loadCatalog() {
     );
     const document = response._data as OpenApiCatalog;
     endpoints.value = normalizeOpenApiCatalog(document);
+    workflows.value = normalizeOpenApiWorkflows(document);
     openApiVersion.value = document.openapi ?? null;
     catalogLoadedAt.value = new Date().toISOString();
+    ensureSelectedWorkflow();
     ensureSelectedEndpoint();
   } catch (error: unknown) {
     const fetchError = error as {
@@ -903,6 +1029,8 @@ async function loadCatalog() {
       ? `HTTP ${status}${detail ? ` · ${detail}` : ""}`
       : (fetchError.message ?? "Failed to load OpenAPI schema");
     endpoints.value = [];
+    workflows.value = [];
+    selectedWorkflowId.value = null;
     selectedEndpointId.value = null;
   } finally {
     catalogPending.value = false;
@@ -1011,12 +1139,25 @@ async function runSelectedEndpoint() {
 }
 
 async function copyCurlSnippet() {
-  if (!import.meta.client || !curlSnippet.value) {
+  const endpoint = selectedEndpoint.value;
+  if (!import.meta.client || !endpoint) {
     return;
   }
 
   try {
-    await navigator.clipboard.writeText(curlSnippet.value);
+    const preview = readRunnerPreview(endpoint);
+    await navigator.clipboard.writeText(
+      buildCurlCommand({
+        baseUrl: apiBaseUrl.value,
+        path: endpoint.path,
+        method: endpoint.method,
+        apiKey: apiKey.value,
+        pathParams: preview.pathParams,
+        query: preview.query,
+        body: preview.body,
+        mode: "copy",
+      }),
+    );
     copiedCurl.value = true;
     window.setTimeout(() => {
       copiedCurl.value = false;
@@ -1049,6 +1190,53 @@ function translateApiLabelToZh(value: string): string {
     .replace(/\s+(到|从|通过|与)\s+/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function endpointAgentContract(endpoint: AdminEndpoint) {
+  return asRecord(endpoint.agentProfile?.contract);
+}
+
+function endpointAgentPurpose(endpoint: AdminEndpoint): string {
+  const contract = endpointAgentContract(endpoint);
+  const purpose = contract?.purpose;
+  return typeof purpose === "string" && purpose.trim()
+    ? purpose
+    : endpoint.description;
+}
+
+function endpointAgentUseCases(endpoint: AdminEndpoint): string[] {
+  return asStringList(endpointAgentContract(endpoint)?.when_to_use).slice(0, 3);
+}
+
+function endpointAgentFallbacks(endpoint: AdminEndpoint): string[] {
+  return asStringList(endpointAgentContract(endpoint)?.fallbacks).slice(0, 4);
+}
+
+function endpointAgentResponseMode(endpoint: AdminEndpoint): string {
+  const contract = endpointAgentContract(endpoint);
+  const responseMode = contract?.response_mode;
+  return typeof responseMode === "string" ? responseMode : "unspecified";
+}
+
+function endpointAgentStatus(endpoint: AdminEndpoint): string {
+  const status = endpoint.agentProfile?.status;
+  return typeof status === "string" ? status : "unknown";
+}
+
+function endpointAgentWorkflowRefs(endpoint: AdminEndpoint): string[] {
+  return asStringList(endpoint.agentProfile?.workflow_refs);
 }
 
 function endpointTitle(endpoint: AdminEndpoint): string {
@@ -1097,8 +1285,10 @@ function endpointParameterHint(endpoint: AdminEndpoint): string {
 }
 
 function endpointPurpose(endpoint: AdminEndpoint): string {
+  const agentPurpose = endpointAgentPurpose(endpoint);
+
   if (locale.value === "en") {
-    return endpoint.description || `${endpoint.summary} in ${endpoint.domain}.`;
+    return agentPurpose || `${endpoint.summary} in ${endpoint.domain}.`;
   }
 
   const title = endpointTitle(endpoint);
@@ -1109,8 +1299,8 @@ function endpointPurpose(endpoint: AdminEndpoint): string {
   const parameters = endpointParameterHint(endpoint);
 
   if (endpoint.path.startsWith("/api/v1/agent/")) {
-    const agentPurpose = AGENT_DOMAIN_PURPOSE_ZH[endpoint.domain];
-    return `用于${title}。这是${domain}接口，面向自主科研智能体提供${agentPurpose ?? "论文分析与科研任务编排"}能力，主要用途是${endpointPurposeVerb(endpoint)}。${parameters}${payload}`;
+    const domainPurpose = AGENT_DOMAIN_PURPOSE_ZH[endpoint.domain];
+    return `${agentPurpose || `用于${title}`}。这是${domain}接口，面向自主科研智能体提供${domainPurpose ?? "论文分析与科研任务编排"}能力。${parameters}${payload}`;
   }
 
   return `用于${title}，属于${domain}能力，主要用途是${endpointPurposeVerb(endpoint)}。${parameters}${payload}`;
@@ -1306,7 +1496,10 @@ function formatTimestamp(timestamp: string | null): string {
                 :href="`#${endpointAnchorId(endpoint)}`"
                 :class="[
                   'api-docs-toc-link',
-                  { 'api-docs-toc-link--active': endpoint.id === selectedEndpointId },
+                  {
+                    'api-docs-toc-link--active': endpoint.id === selectedEndpointId,
+                    'api-docs-toc-link--workflow': workflowEndpointIds.has(endpoint.id),
+                  },
                 ]"
                 @click="selectEndpoint(endpoint)"
               >
@@ -1322,8 +1515,74 @@ function formatTimestamp(timestamp: string | null): string {
         <main class="api-docs-document" aria-live="polite">
           <section class="api-docs-document__lead">
             <p class="api-docs-kicker">{{ uiText.selectedContract }}</p>
-            <h2>{{ uiText.catalogTitle }}</h2>
+            <h2>{{ uiText.workflowTitle }}</h2>
             <p>{{ uiText.subtitle }}</p>
+          </section>
+
+          <section class="api-docs-workflows" aria-label="Agent workflow library">
+            <header class="api-docs-workflows__header">
+              <div>
+                <p class="api-docs-kicker">{{ uiText.workflowTitle }}</p>
+                <h2>{{ uiText.workflowLead }}</h2>
+              </div>
+              <span v-if="workflows.length">{{ workflows.length }}</span>
+            </header>
+
+            <div v-if="workflows.length" class="api-docs-workflow-grid">
+              <button
+                v-for="workflow in workflows"
+                :key="workflow.id"
+                type="button"
+                :class="[
+                  'api-docs-workflow-card',
+                  { 'api-docs-workflow-card--active': workflow.id === selectedWorkflow?.id },
+                ]"
+                @click="selectWorkflow(workflow)"
+              >
+                <span>{{ workflow.title }}</span>
+                <small>{{ workflow.goal }}</small>
+              </button>
+            </div>
+            <p v-else class="api-docs-empty-line">{{ uiText.workflowEmpty }}</p>
+
+            <div v-if="selectedWorkflow" class="api-docs-workflow-detail">
+              <dl class="api-docs-facts api-docs-facts--compact">
+                <div>
+                  <dt>{{ uiText.workflowStatus }}</dt>
+                  <dd>{{ selectedWorkflow.status }}</dd>
+                </div>
+                <div>
+                  <dt>{{ uiText.workflowInputs }}</dt>
+                  <dd>{{ selectedWorkflow.entryInputs.join(", ") }}</dd>
+                </div>
+                <div>
+                  <dt>{{ uiText.workflowOutput }}</dt>
+                  <dd>{{ selectedWorkflow.finalDeliverable }}</dd>
+                </div>
+              </dl>
+
+              <div class="api-docs-workflow-steps">
+                <p class="api-docs-toc-label">{{ uiText.workflowSteps }}</p>
+                <button
+                  v-for="step in selectedWorkflowSteps"
+                  :key="`${selectedWorkflow.id}-${step.id}`"
+                  type="button"
+                  :class="[
+                    'api-docs-workflow-step',
+                    { 'api-docs-workflow-step--active': step.endpoint === selectedEndpointId },
+                  ]"
+                  @click="selectWorkflowStep(step)"
+                >
+                  <span :class="['api-docs-method', methodClass(step.method)]">
+                    {{ step.method }}
+                  </span>
+                  <span>
+                    <strong>{{ step.name }}</strong>
+                    <small>{{ step.endpoint }}</small>
+                  </span>
+                </button>
+              </div>
+            </div>
           </section>
 
           <template v-if="endpointGroups.length">
@@ -1344,7 +1603,10 @@ function formatTimestamp(timestamp: string | null): string {
                 :key="endpoint.id"
                 :class="[
                   'api-docs-doc-endpoint',
-                  { 'api-docs-doc-endpoint--active': endpoint.id === selectedEndpointId },
+                  {
+                    'api-docs-doc-endpoint--active': endpoint.id === selectedEndpointId,
+                    'api-docs-doc-endpoint--workflow': workflowEndpointIds.has(endpoint.id),
+                  },
                 ]"
                 @click="selectEndpoint(endpoint)"
               >
@@ -1363,6 +1625,43 @@ function formatTimestamp(timestamp: string | null): string {
                 </p>
 
                 <code class="api-docs-doc-path">{{ endpoint.path }}</code>
+
+                <section
+                  v-if="endpoint.agentProfile"
+                  class="api-docs-agent-contract"
+                >
+                  <div class="api-docs-section__heading">
+                    <h3>{{ uiText.agentContract }}</h3>
+                    <span>{{ endpointAgentStatus(endpoint) }}</span>
+                  </div>
+
+                  <dl class="api-docs-facts api-docs-facts--compact">
+                    <div>
+                      <dt>{{ uiText.responseMode }}</dt>
+                      <dd>{{ endpointAgentResponseMode(endpoint) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ uiText.workflowSteps }}</dt>
+                      <dd>{{ endpointAgentWorkflowRefs(endpoint).join(", ") || "—" }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ uiText.fallbacks }}</dt>
+                      <dd>{{ endpointAgentFallbacks(endpoint).join(", ") || "—" }}</dd>
+                    </div>
+                  </dl>
+
+                  <div v-if="endpointAgentUseCases(endpoint).length" class="api-docs-agent-contract__uses">
+                    <p class="api-docs-toc-label">{{ uiText.whenToUse }}</p>
+                    <ul>
+                      <li
+                        v-for="useCase in endpointAgentUseCases(endpoint)"
+                        :key="`${endpoint.id}-${useCase}`"
+                      >
+                        {{ useCase }}
+                      </li>
+                    </ul>
+                  </div>
+                </section>
 
                 <dl class="api-docs-facts api-docs-facts--compact">
                   <div>
@@ -1556,6 +1855,17 @@ function formatTimestamp(timestamp: string | null): string {
               </button>
             </div>
             <pre><code>{{ curlSnippet }}</code></pre>
+          </section>
+
+          <section
+            v-if="expectedResponseText"
+            class="api-docs-live-response api-docs-live-response--expected"
+          >
+            <div class="api-docs-live-response__header">
+              <h3>{{ uiText.expectedShape }}</h3>
+              <span>{{ uiText.expectedShapeHint }}</span>
+            </div>
+            <pre class="api-docs-response-json"><code>{{ expectedResponseText }}</code></pre>
           </section>
 
           <section class="api-docs-live-response">
@@ -2060,6 +2370,143 @@ function formatTimestamp(timestamp: string | null): string {
   border-bottom: 1px solid var(--api-docs-border);
 }
 
+.api-docs-workflows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 0 28px;
+  border-bottom: 1px solid var(--api-docs-border);
+}
+
+.api-docs-workflows__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.api-docs-workflows__header h2 {
+  margin: 6px 0 0;
+  color: var(--api-docs-text-strong);
+  font-size: clamp(1.15rem, 2vw, 1.7rem);
+}
+
+.api-docs-workflows__header span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  border: 1px solid var(--api-docs-border);
+  border-radius: 999px;
+  color: var(--api-docs-cyan);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 800;
+}
+
+.api-docs-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.api-docs-workflow-card,
+.api-docs-workflow-step {
+  color: var(--api-docs-text-muted);
+  border: 1px solid var(--api-docs-border);
+  background: var(--api-docs-surface-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.api-docs-workflow-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 118px;
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.api-docs-workflow-card span {
+  color: var(--api-docs-text-strong);
+  font-weight: 800;
+}
+
+.api-docs-workflow-card small {
+  color: var(--api-docs-text-soft);
+  line-height: 1.45;
+}
+
+.api-docs-workflow-card--active,
+.api-docs-workflow-card:hover,
+.api-docs-workflow-step--active,
+.api-docs-workflow-step:hover {
+  border-color: color-mix(in srgb, var(--api-docs-cyan) 34%, transparent);
+  background: var(--api-docs-surface-tint);
+}
+
+.api-docs-workflow-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.api-docs-workflow-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.api-docs-workflow-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.api-docs-workflow-step strong,
+.api-docs-workflow-step small {
+  display: block;
+}
+
+.api-docs-workflow-step strong {
+  color: var(--api-docs-text-strong);
+  font-size: 0.86rem;
+}
+
+.api-docs-workflow-step small {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: var(--api-docs-text-soft);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+}
+
+.api-docs-agent-contract {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--api-docs-border);
+  border-radius: 18px;
+  background: var(--api-docs-surface-tint);
+}
+
+.api-docs-agent-contract__uses ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--api-docs-text-muted);
+}
+
+.api-docs-toc-link--workflow,
+.api-docs-doc-endpoint--workflow {
+  border-color: color-mix(in srgb, var(--api-docs-accent) 18%, transparent);
+}
+
 .api-docs-document__lead h2,
 .api-docs-doc-domain__header h2 {
   margin: 0;
@@ -2263,6 +2710,13 @@ function formatTimestamp(timestamp: string | null): string {
     var(--api-docs-text-strong)
   );
   font-size: 0.7rem;
+}
+
+.api-docs-live-response__header span {
+  color: var(--api-docs-text-faint);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  text-align: right;
 }
 
 .api-docs-table-wrap {

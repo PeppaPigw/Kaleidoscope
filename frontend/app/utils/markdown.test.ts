@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { renderPaperMarkdown } from "./markdown";
+
 const markdownRuntimeMockState = vi.hoisted(() => ({
   failFirstMathjaxExecution: false,
   mathjaxExecutionCount: 0,
@@ -24,8 +26,6 @@ vi.mock("rehype-mathjax", async (importOriginal) => {
     },
   };
 });
-
-import { renderPaperMarkdown } from "./markdown";
 
 function normalizeNbsp(html: string): string {
   return html.replace(/&nbsp;/g, "\u00a0").replace(/&#xa0;/gi, "\u00a0");

@@ -26,6 +26,11 @@ _SPACE_RE = re.compile(r"\s+")
 _NON_WORD_RE = re.compile(r"[^a-z0-9]+")
 _NUMBER_RE = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
 
+
+def _bind_logger(**context):
+    """Return a bound logger, tolerating test loggers that bind to None."""
+    return logger.bind(**context) or logger
+
 # ─── LLM Prompt Templates ────────────────────────────────────────
 
 INNOVATION_PROMPT = """Analyze this paper and identify its key innovation points compared to prior work.
@@ -551,7 +556,7 @@ class DeepAnalysisService:
 
         Returns: {experiments: [{method, dataset, metric, value, is_main_result}]}
         """
-        log = logger.bind(paper_id=paper_id, analysis="experiments")
+        log = _bind_logger(paper_id=paper_id, analysis="experiments")
         paper, text = await self._get_paper_text(paper_id)
 
         prompt = EXPERIMENT_EXTRACTION_PROMPT.format(

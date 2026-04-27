@@ -2,6 +2,7 @@
  * useDeepXiv — composable for DeepXiv paper search, progressive reading,
  * trending papers, social impact, PMC, web search, and research agent.
  */
+import { withKaleidoscopeApiKeyHeaders } from "../utils/apiKey";
 
 // ── Types ─────────────────────────────────────────────
 
@@ -138,6 +139,10 @@ export function useDeepXiv() {
   const config = useRuntimeConfig();
   const base = `${config.public.apiUrl}/api/v1/deepxiv`;
 
+  function apiHeaders(): Record<string, string> {
+    return withKaleidoscopeApiKeyHeaders();
+  }
+
   // ─── Search ──────────────────────────────────────
 
   async function searchPapers(
@@ -159,7 +164,10 @@ export function useDeepXiv() {
       sp.min_citation = String(params.min_citation);
     if (params?.date_from) sp.date_from = params.date_from;
     if (params?.date_to) sp.date_to = params.date_to;
-    return $fetch<DeepXivSearchResponse>(searchUrl, { params: sp });
+    return $fetch<DeepXivSearchResponse>(searchUrl, {
+      params: sp,
+      headers: apiHeaders(),
+    });
   }
 
   // ─── Progressive paper reading ───────────────────
@@ -167,12 +175,14 @@ export function useDeepXiv() {
   async function getPaperHead(arxivId: string): Promise<DeepXivHeadResponse> {
     return $fetch<DeepXivHeadResponse>(
       `${base}/papers/${arxivId}/head` as string,
+      { headers: apiHeaders() },
     );
   }
 
   async function getPaperBrief(arxivId: string): Promise<DeepXivBriefResponse> {
     return $fetch<DeepXivBriefResponse>(
       `${base}/papers/${arxivId}/brief` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -184,6 +194,7 @@ export function useDeepXiv() {
       `${base}/papers/${arxivId}/section` as string,
       {
         params: { name: sectionName },
+        headers: apiHeaders(),
       },
     );
   }
@@ -193,6 +204,7 @@ export function useDeepXiv() {
   ): Promise<DeepXivPreviewResponse> {
     return $fetch<DeepXivPreviewResponse>(
       `${base}/papers/${arxivId}/preview` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -201,6 +213,7 @@ export function useDeepXiv() {
   ): Promise<{ arxiv_id: string; content: string }> {
     return $fetch<{ arxiv_id: string; content: string }>(
       `${base}/papers/${arxivId}/raw` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -209,6 +222,7 @@ export function useDeepXiv() {
   ): Promise<Record<string, unknown>> {
     return $fetch<Record<string, unknown>>(
       `${base}/papers/${arxivId}/json` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -217,6 +231,7 @@ export function useDeepXiv() {
   ): Promise<{ arxiv_id: string; url: string }> {
     return $fetch<{ arxiv_id: string; url: string }>(
       `${base}/papers/${arxivId}/markdown-url` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -225,6 +240,7 @@ export function useDeepXiv() {
   ): Promise<DeepXivSocialImpact> {
     return $fetch<DeepXivSocialImpact>(
       `${base}/papers/${arxivId}/social-impact` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -233,12 +249,14 @@ export function useDeepXiv() {
   async function getPmcHead(pmcId: string): Promise<Record<string, unknown>> {
     return $fetch<Record<string, unknown>>(
       `${base}/pmc/${pmcId}/head` as string,
+      { headers: apiHeaders() },
     );
   }
 
   async function getPmcFull(pmcId: string): Promise<Record<string, unknown>> {
     return $fetch<Record<string, unknown>>(
       `${base}/pmc/${pmcId}/full` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -250,6 +268,7 @@ export function useDeepXiv() {
   ): Promise<DeepXivTrendingResponse> {
     return $fetch<DeepXivTrendingResponse>(`${base}/trending` as string, {
       params: { days, limit },
+      headers: apiHeaders(),
     });
   }
 
@@ -258,6 +277,7 @@ export function useDeepXiv() {
   async function webSearch(query: string): Promise<Record<string, unknown>> {
     return $fetch<Record<string, unknown>>(`${base}/websearch` as string, {
       params: { q: query },
+      headers: apiHeaders(),
     });
   }
 
@@ -268,6 +288,7 @@ export function useDeepXiv() {
   ): Promise<Record<string, unknown>> {
     return $fetch<Record<string, unknown>>(
       `${base}/semantic-scholar/${s2Id}` as string,
+      { headers: apiHeaders() },
     );
   }
 
@@ -280,6 +301,7 @@ export function useDeepXiv() {
     return $fetch<DeepXivAgentResponse>(`${base}/agent/query` as string, {
       method: "POST",
       body: { question, reset_papers: resetPapers },
+      headers: apiHeaders(),
     });
   }
 

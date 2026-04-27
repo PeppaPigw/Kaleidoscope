@@ -3,6 +3,7 @@
  * Collections detail page — view and manage papers in a paper group.
  */
 import { ArrowLeft, Trash2, ExternalLink, FolderPlus } from "lucide-vue-next";
+import { withKaleidoscopeAuthHeaders } from "~/utils/apiKey";
 
 definePageMeta({ layout: "default" });
 
@@ -51,14 +52,8 @@ useHead(
   })),
 );
 
-function _authHeaders(): Record<string, string> | undefined {
-  const token = import.meta.client
-    ? localStorage.getItem("ks_access_token")
-    : null;
-  if (token && token !== "single-user-mode") {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return undefined;
+function _authHeaders(): Record<string, string> {
+  return withKaleidoscopeAuthHeaders();
 }
 
 onMounted(async () => {

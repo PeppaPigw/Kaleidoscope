@@ -129,7 +129,7 @@ function probeStatusLabel(endpoint: AdminEndpoint) {
         type="search"
         placeholder="Filter by path, summary, tag, or operation id"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
-      />
+      >
 
       <select
         :value="domain"

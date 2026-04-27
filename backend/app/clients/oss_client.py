@@ -92,14 +92,14 @@ class OssClient:
         tasks = [self.upload_bytes(data, key) for data, key in items]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         mapping: dict[str, str] = {}
-        for (_, key), result in zip(items, results):
+        for (_, key), result in zip(items, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning("oss_upload_failed", key=key, error=str(result))
             else:
                 mapping[key] = result  # type: ignore[assignment]
         return mapping
 
-    async def __aenter__(self) -> "OssClient":
+    async def __aenter__(self) -> OssClient:
         return self
 
     async def __aexit__(self, *_) -> None:

@@ -108,7 +108,7 @@ function positionLabel(pos: number) {
           placeholder="Search title, keyword…"
           class="ks-pub-list__search"
           :aria-label="'Filter publications'"
-        />
+        >
         <select
           v-model="sortKey"
           class="ks-pub-list__sort"

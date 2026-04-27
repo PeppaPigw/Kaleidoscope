@@ -1,10 +1,10 @@
 """API integration tests for papers endpoints."""
 
 import asyncio
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
 
@@ -122,8 +122,8 @@ def test_get_paper_includes_venue_and_raw_metadata():
         authors=[],
         venue=SimpleNamespace(name="ICML 2025"),
         raw_metadata={"pdf_url": "https://example.com/paper.pdf"},
-        created_at=datetime(2025, 1, 15, tzinfo=timezone.utc),
-        updated_at=datetime(2025, 1, 16, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 15, tzinfo=UTC),
+        updated_at=datetime(2025, 1, 16, tzinfo=UTC),
     )
 
     async def mock_db():
@@ -156,13 +156,14 @@ def test_get_paper_includes_venue_and_raw_metadata():
 def test_intelligence_summarize_not_found():
     """Test that summarize returns 404 for missing paper."""
     import asyncio
-    from httpx import AsyncClient, ASGITransport
     from unittest.mock import AsyncMock, MagicMock
     from uuid import uuid4
 
+    from httpx import ASGITransport, AsyncClient
+
     async def run():
-        from app.main import app
         from app.dependencies import get_db
+        from app.main import app
 
         async def mock_db():
             db = MagicMock()

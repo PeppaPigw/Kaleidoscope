@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-
 if "structlog" not in sys.modules:
     _logger = SimpleNamespace(
         info=lambda *args, **kwargs: None,

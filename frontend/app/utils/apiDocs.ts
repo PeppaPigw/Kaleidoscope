@@ -12,6 +12,24 @@ export interface CurlCommandInput extends ApiRequestPathInput {
   body?: unknown;
 }
 
+export interface ApiRunnerSeed extends ApiRequestPathInput {
+  body?: unknown;
+  pathParamsText: string;
+  queryText: string;
+  bodyText: string;
+}
+
+export interface ApiExampleRunnerProfile extends ApiRequestPathInput {
+  body?: unknown;
+}
+
+export interface ApiRunnerSeedInput {
+  seed: ApiRunnerSeed;
+  profile?: ApiExampleRunnerProfile | null;
+  generatedBody?: unknown;
+  hasRequestBody: boolean;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -153,6 +171,28 @@ export function formatJsonPreview(value: unknown, fallback = ""): string {
   } catch {
     return fallback;
   }
+}
+
+export function applyApiExampleProfileToRunnerSeed(
+  input: ApiRunnerSeedInput,
+): ApiRunnerSeed {
+  const { seed, profile, generatedBody, hasRequestBody } = input;
+  const seedBody =
+    seed.bodyText && seed.bodyText !== "{}" ? seed.body : generatedBody;
+
+  return {
+    pathParams: profile?.pathParams ?? seed.pathParams ?? {},
+    query: profile?.query ?? seed.query ?? {},
+    body: hasRequestBody ? (profile?.body ?? seedBody) : null,
+    pathParamsText: formatJsonPreview(
+      profile?.pathParams ?? seed.pathParams,
+      seed.pathParamsText,
+    ),
+    queryText: formatJsonPreview(profile?.query ?? seed.query, seed.queryText),
+    bodyText: hasRequestBody
+      ? formatJsonPreview(profile?.body ?? seedBody, "{}")
+      : "",
+  };
 }
 
 function firstSchemaVariant(value: unknown): Record<string, unknown> | null {

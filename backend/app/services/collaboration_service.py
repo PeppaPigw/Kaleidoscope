@@ -1,7 +1,7 @@
 """Collaboration service — comments, tasks, screening (§8)."""
 
 import structlog
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.collaboration import (

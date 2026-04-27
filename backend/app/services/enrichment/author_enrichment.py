@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -334,7 +334,7 @@ class AuthorEnrichmentService:
                 "affiliations": affiliations,
                 "homepage": s2.get("homepage"),
                 "externalIds": s2.get("externalIds"),
-                "enriched_at": datetime.now(timezone.utc).isoformat(),
+                "enriched_at": datetime.now(UTC).isoformat(),
                 "match_reason": match_reason,
             },
         }

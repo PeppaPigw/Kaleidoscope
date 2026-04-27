@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import func, select
@@ -155,7 +155,7 @@ class AdminService:
         Returns counts, top keywords, and a list of highlights (papers with
         the highest citation count or summary content).
         """
-        since = datetime.now(tz=timezone.utc) - timedelta(weeks=weeks_back)
+        since = datetime.now(tz=UTC) - timedelta(weeks=weeks_back)
 
         stmt = (
             select(Paper)
@@ -213,7 +213,7 @@ class AdminService:
 
         return {
             "period_start": since.isoformat(),
-            "period_end": datetime.now(tz=timezone.utc).isoformat(),
+            "period_end": datetime.now(tz=UTC).isoformat(),
             "paper_count": len(papers),
             "open_access_count": oa_count,
             "highlights": highlights,

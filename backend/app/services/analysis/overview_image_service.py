@@ -14,37 +14,28 @@ from __future__ import annotations
 
 import asyncio
 import json
-import mimetypes
-import re
 import subprocess
-import urllib.parse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
 import structlog
 
 from app.config import settings
-
-logger = structlog.get_logger(__name__)
-
-# ── Reuse prompts from the standalone script ──────────────────────────────────
 from app.services.analysis.generate_overall_image import (
+    DEFAULT_ASPECT_RATIO,
     DEFAULT_IMAGE_GENERATION_PROMPT,
     DEFAULT_IMAGE_SUMMARY_PROMPT,
-    DEFAULT_ASPECT_RATIO,
-    DEFAULT_TEXT_DENSITY_MODE,
     DEFAULT_MAX_CONTEXT_CHARS,
+    DEFAULT_TEXT_DENSITY_MODE,
     ImageGenerationResult,
     PipelineError,
-    decode_base64_bytes,
-    extract_text_from_chat_content,
-    iter_all_strings,
-    try_extract_image_result_from_text,
     normalize_endpoint,
     parse_image_response,
     suffix_for_mime,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 def _truncate(text: str, max_len: int = DEFAULT_MAX_CONTEXT_CHARS) -> str:
@@ -179,7 +170,7 @@ class OverviewImageService:
         from app.clients.oss_client import OssClient
 
         ext = suffix_for_mime(image_result.mime_type)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
         object_key = f"Kaleidoscope/overview-images/{ts}{ext}"
 
         async with OssClient() as oss:

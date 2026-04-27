@@ -138,8 +138,9 @@ class GovernanceService:
 
         Returns the number of successfully notified webhooks.
         """
-        import httpx
         from datetime import datetime
+
+        import httpx
 
         hooks = await self.db.execute(
             select(Webhook).where(

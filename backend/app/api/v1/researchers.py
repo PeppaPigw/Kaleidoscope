@@ -13,13 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
-from app.services.analysis.researcher_service import ResearcherService
-from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 from app.schemas.researchers import (
     AuthorProfileResponse,
     CollaborationNetworkResponse,
     EmergingAuthorsResponse,
 )
+from app.services.analysis.researcher_service import ResearcherService
+from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 
 router = APIRouter(prefix="/researchers", tags=["researchers"])
 

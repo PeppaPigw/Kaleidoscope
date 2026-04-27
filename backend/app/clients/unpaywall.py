@@ -1,7 +1,7 @@
 """Unpaywall API client — Open Access PDF discovery."""
 
-import structlog
 import httpx
+import structlog
 
 from app.exceptions import ExternalAPIError, RateLimitError
 from app.utils.rate_limiter import UNPAYWALL_LIMITER

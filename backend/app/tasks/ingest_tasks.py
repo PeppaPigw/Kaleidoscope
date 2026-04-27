@@ -7,6 +7,7 @@ ensuring the downstream task always sees the updated row.
 """
 
 import asyncio
+from datetime import UTC
 
 import structlog
 from celery.exceptions import MaxRetriesExceededError
@@ -93,20 +94,20 @@ def ingest_paper(
     task_state: dict[str, str | None] = {"paper_id": None}
 
     async def _ingest():
-        from app.dependencies import async_session_factory
-        from app.models.paper import Paper
-        from app.services.ingestion.deduplicator import DeduplicatorService
-        from app.services.ingestion.metadata_enricher import MetadataEnricherService
         from app.clients.crossref import CrossRefClient
         from app.clients.openalex import OpenAlexClient
         from app.clients.semantic_scholar import SemanticScholarClient
         from app.config import settings
+        from app.dependencies import async_session_factory
+        from app.models.paper import Paper
+        from app.services.ingestion.deduplicator import DeduplicatorService
+        from app.services.ingestion.metadata_enricher import MetadataEnricherService
         from app.utils.doi import (
-            normalize_doi,
             extract_arxiv_id,
+            extract_doi_from_url,
             extract_pmid,
             normalize_arxiv_id,
-            extract_doi_from_url,
+            normalize_doi,
         )
 
         async with async_session_factory() as session:
@@ -259,15 +260,15 @@ def acquire_fulltext(self, paper_id: str):
     log.info("acquire_fulltext_start")
 
     async def _acquire():
+        from sqlalchemy import select
+
+        from app.clients.arxiv import ArxivClient
+        from app.clients.semantic_scholar import SemanticScholarClient
+        from app.clients.unpaywall import UnpaywallClient
+        from app.config import settings
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.ingestion.pdf_downloader import PDFDownloaderService
-        from app.clients.arxiv import ArxivClient
-        from app.clients.unpaywall import UnpaywallClient
-        from app.clients.semantic_scholar import SemanticScholarClient
-        from app.config import settings
-
-        from sqlalchemy import select
 
         async with async_session_factory() as session:
             result = await session.execute(select(Paper).where(Paper.id == paper_id))
@@ -373,13 +374,13 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
     log.info("parse_fulltext_start")
 
     async def _parse():
+        from sqlalchemy import select
+
+        from app.clients.arxiv import ArxivClient
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
-        from app.services.parsing.grobid_client import GROBIDClient
         from app.services.ingestion.pdf_downloader import PDFDownloaderService
-        from app.clients.arxiv import ArxivClient
-
-        from sqlalchemy import select
+        from app.services.parsing.grobid_client import GROBIDClient
 
         async with async_session_factory() as session:
             result = await session.execute(select(Paper).where(Paper.id == paper_id))
@@ -476,8 +477,9 @@ def parse_fulltext_task(self, paper_id: str, content_type: str = "pdf"):
 
                 # ── Materialize PaperReference rows from parsed data ──
                 # Idempotent: delete existing refs before re-inserting
-                from app.models.paper import PaperReference
                 from sqlalchemy import delete as sa_delete
+
+                from app.models.paper import PaperReference
 
                 await session.execute(
                     sa_delete(PaperReference).where(
@@ -602,12 +604,12 @@ def index_paper_task(self, paper_id: str):
     log.info("index_paper_start")
 
     async def _index():
+        from sqlalchemy import select
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.search.keyword_search import KeywordSearchService
         from app.services.search.vector_search import VectorSearchService
-
-        from sqlalchemy import select
 
         async with async_session_factory() as session:
             result = await session.execute(select(Paper).where(Paper.id == paper_id))
@@ -682,8 +684,8 @@ def index_paper_task(self, paper_id: str):
             # ── Evaluate alert rules for newly indexed paper ──────
             if paper.ingestion_status == "indexed":
                 try:
-                    from app.models.collection import DEFAULT_USER_ID
                     from app.api.v1.sse import broadcast_event as _broadcast
+                    from app.models.collection import DEFAULT_USER_ID
                     from app.services.monitoring.alert_service import AlertService
 
                     alert_svc = AlertService(session, user_id=DEFAULT_USER_ID)
@@ -788,15 +790,16 @@ def index_paper_task(self, paper_id: str):
                 # ── Auto generate 一图速览 after deep analysis ──────
                 if _analysis_ok:
                     try:
+                        from datetime import datetime
+
                         from app.services.analysis.overview_image_service import (
                             OverviewImageService,
                         )
-                        from datetime import datetime, timezone
 
                         analysis_text = (paper.deep_analysis or {}).get("analysis", "")
                         if analysis_text:
                             paper.overview_image = {"status": "generating"}
-                            paper.overview_image_at = datetime.now(timezone.utc)
+                            paper.overview_image_at = datetime.now(UTC)
                             await session.commit()
 
                             img_svc = OverviewImageService()
@@ -806,7 +809,7 @@ def index_paper_task(self, paper_id: str):
                                     "status": "ok",
                                     "url": url,
                                     "generated_at": datetime.now(
-                                        timezone.utc
+                                        UTC
                                     ).isoformat(),
                                 }
                             except Exception as img_e:
@@ -821,7 +824,7 @@ def index_paper_task(self, paper_id: str):
                             finally:
                                 await img_svc.close()
 
-                            paper.overview_image_at = datetime.now(timezone.utc)
+                            paper.overview_image_at = datetime.now(UTC)
                             await session.commit()
                             log.info(
                                 "overview_image_on_index_done",
@@ -912,11 +915,13 @@ def fetch_paper_links_task(self, paper_id: str):
     log.info("fetch_paper_links_start")
 
     async def _fetch():
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.analysis.links_service import LinksService
-        from datetime import datetime, timezone
 
         async with async_session_factory() as session:
             result = await session.execute(select(Paper).where(Paper.id == paper_id))
@@ -928,7 +933,7 @@ def fetch_paper_links_task(self, paper_id: str):
             if (paper.paper_links or {}).get("status") in ("ok", "fetching"):
                 return {"status": "skip", "message": "Already done"}
             paper.paper_links = {"status": "fetching"}
-            paper.paper_links_at = datetime.now(timezone.utc)
+            paper.paper_links_at = datetime.now(UTC)
             await session.commit()
             title = paper.title
             arxiv_id = paper.arxiv_id
@@ -939,7 +944,7 @@ def fetch_paper_links_task(self, paper_id: str):
                 links = await svc.fetch_links(title, arxiv_id=arxiv_id, doi=doi)
             links_data = {
                 "status": "ok",
-                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "fetched_at": datetime.now(UTC).isoformat(),
                 **links,
             }
             log.info("fetch_paper_links_done", title=title[:60])
@@ -952,7 +957,7 @@ def fetch_paper_links_task(self, paper_id: str):
             paper = result.scalar_one_or_none()
             if paper:
                 paper.paper_links = links_data
-                paper.paper_links_at = datetime.now(timezone.utc)
+                paper.paper_links_at = datetime.now(UTC)
                 await session.commit()
 
         return links_data
@@ -983,10 +988,11 @@ def auto_discover_papers(self):
     log.info("auto_discover_start")
 
     async def _discover():
+        from sqlalchemy import select
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.deepxiv_service import get_deepxiv_service
-        from sqlalchemy import select
 
         deepxiv = get_deepxiv_service()
         total_queued = 0
@@ -1105,10 +1111,12 @@ def refresh_trending_keywords(self):
         import re
         from collections import Counter
         from datetime import datetime, timedelta
+
+        from sqlalchemy import desc, select
+
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.services.cache_service import get_cache_service
-        from sqlalchemy import select, desc
 
         cache = get_cache_service()
 
@@ -1136,49 +1144,6 @@ def refresh_trending_keywords(self):
 
             # Extract multi-word phrases and technical terms
             keyword_freq: Counter = Counter()
-
-            # Stop words - generic terms to exclude
-            stop_words = {
-                "model",
-                "models",
-                "method",
-                "methods",
-                "approach",
-                "approaches",
-                "paper",
-                "study",
-                "research",
-                "analysis",
-                "system",
-                "systems",
-                "performance",
-                "results",
-                "evaluation",
-                "experiments",
-                "data",
-                "using",
-                "based",
-                "novel",
-                "improved",
-                "efficient",
-                "effective",
-                "propose",
-                "proposed",
-                "present",
-                "presented",
-                "show",
-                "demonstrate",
-                "across",
-                "while",
-                "through",
-                "within",
-                "between",
-                "among",
-                "framework",
-                "frameworks",
-                "technique",
-                "techniques",
-            }
 
             # Multi-word patterns to extract (research methods, architectures, concepts)
             bigram_patterns = [

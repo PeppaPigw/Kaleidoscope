@@ -178,7 +178,7 @@ async function createGroup() {
                 autofocus
                 @keydown.enter="createGroup"
                 @keydown.esc="showNewGroupForm = false"
-              />
+              >
               <button
                 type="button"
                 class="ks-gpm-new-save"

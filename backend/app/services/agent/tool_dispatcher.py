@@ -6,7 +6,6 @@ When real MCP transport (stdio/SSE) is added in P2, it will
 reuse the same TOOLS and ToolDispatcher without changes.
 """
 
-import json
 from typing import Any
 
 import structlog

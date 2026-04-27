@@ -1,6 +1,7 @@
 """Paper API routes — CRUD, import, and retrieval."""
 
 import uuid
+from datetime import UTC
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -269,7 +270,7 @@ async def delete_paper(
     db: AsyncSession = Depends(get_db),
 ):
     """Soft-delete a paper."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     result = await db.execute(
         select(Paper).where(Paper.id == paper_id, Paper.deleted_at.is_(None))
@@ -284,7 +285,7 @@ async def delete_paper(
             },
         )
 
-    paper.deleted_at = datetime.now(timezone.utc)
+    paper.deleted_at = datetime.now(UTC)
     return {"status": "deleted", "paper_id": str(paper_id)}
 
 

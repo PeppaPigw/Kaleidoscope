@@ -23,8 +23,9 @@ FORCE = False
 
 async def enrich_authors() -> None:
     from sqlalchemy import select
-    from app.models.author import Author
+
     from app.dependencies import async_session_factory
+    from app.models.author import Author
     from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 
     print("=" * 60)

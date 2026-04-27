@@ -3,8 +3,8 @@
 P2 WS-1: §4 (#25-32) from FeasibilityAnalysis.md
 """
 
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db

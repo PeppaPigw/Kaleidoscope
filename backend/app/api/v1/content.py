@@ -8,6 +8,7 @@ Provides:
 
 import asyncio
 import uuid
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -23,7 +24,7 @@ def _fire_analysis_bg(paper_id: str) -> None:
     """Fire-and-forget: deep-analyse a single paper, then auto-generate overview image."""
 
     async def _run():
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from sqlalchemy.orm import selectinload
 
@@ -88,7 +89,7 @@ def _fire_analysis_bg(paper_id: str) -> None:
                 paper = r.scalar_one_or_none()
                 if paper:
                     paper.overview_image = {"status": "ok", "url": url}
-                    paper.overview_image_at = datetime.now(timezone.utc)
+                    paper.overview_image_at = datetime.now(UTC)
                     await db.commit()
         except Exception as exc:
             try:
@@ -563,7 +564,7 @@ def _fire_overview_image_only_bg(
     """Fire-and-forget: generate overview image only (analysis already done)."""
 
     async def _run():
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
@@ -586,7 +587,7 @@ def _fire_overview_image_only_bg(
                 paper = r.scalar_one_or_none()
                 if paper:
                     paper.overview_image = {"status": "ok", "url": url}
-                    paper.overview_image_at = datetime.now(timezone.utc)
+                    paper.overview_image_at = datetime.now(UTC)
                     await db.commit()
         except Exception as exc:
             try:
@@ -686,7 +687,7 @@ def _fire_links_bg(
     """Fire-and-forget: fetch AI paper links for a newly imported paper."""
 
     async def _run():
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
@@ -703,7 +704,7 @@ def _fire_links_bg(
                 if (paper.paper_links or {}).get("status") in ("ok", "fetching"):
                     return
                 paper.paper_links = {"status": "fetching"}
-                paper.paper_links_at = datetime.now(timezone.utc)
+                paper.paper_links_at = datetime.now(UTC)
                 await db.commit()
 
             async with LinksService() as svc:
@@ -711,7 +712,7 @@ def _fire_links_bg(
 
             links_data = {
                 "status": "ok",
-                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "fetched_at": datetime.now(UTC).isoformat(),
                 **links,
             }
         except Exception as exc:
@@ -723,7 +724,7 @@ def _fire_links_bg(
                 paper = r.scalar_one_or_none()
                 if paper:
                     paper.paper_links = links_data
-                    paper.paper_links_at = datetime.now(timezone.utc)
+                    paper.paper_links_at = datetime.now(UTC)
                     await db.commit()
         except Exception:
             pass

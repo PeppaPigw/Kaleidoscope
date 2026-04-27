@@ -147,7 +147,7 @@ onMounted(loadPage);
               v-model="form.name"
               type="text"
               placeholder="Transformer monitoring"
-            />
+            >
           </label>
           <label style="display: grid; gap: 8px">
             <span>Keywords</span>
@@ -155,7 +155,7 @@ onMounted(loadPage);
               v-model="form.keywords"
               type="text"
               placeholder="transformer, retrieval, benchmark"
-            />
+            >
           </label>
           <button
             type="button"

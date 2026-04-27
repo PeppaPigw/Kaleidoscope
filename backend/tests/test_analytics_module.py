@@ -9,11 +9,10 @@ Tests:
 
 from __future__ import annotations
 
-import pytest
-from collections import Counter
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ─── Schema smoke tests ───────────────────────────────────────────
 
@@ -34,9 +33,9 @@ def test_keyword_trend_item_schema():
 
 def test_keyword_timeseries_response_schema():
     from app.schemas.trends import (
-        KeywordTimeseriesResponse,
-        KeywordTimeseriesItem,
         KeywordTimePoint,
+        KeywordTimeseriesItem,
+        KeywordTimeseriesResponse,
     )
 
     resp = KeywordTimeseriesResponse(
@@ -54,7 +53,7 @@ def test_keyword_timeseries_response_schema():
 
 
 def test_cooccurrence_response_schema():
-    from app.schemas.trends import KeywordCooccurrenceResponse, CooccurrenceEdge
+    from app.schemas.trends import CooccurrenceEdge, KeywordCooccurrenceResponse
 
     resp = KeywordCooccurrenceResponse(
         edges=[CooccurrenceEdge(keyword_a="NLP", keyword_b="BERT", count=5)],
@@ -64,7 +63,7 @@ def test_cooccurrence_response_schema():
 
 
 def test_sleeping_papers_response_schema():
-    from app.schemas.trends import SleepingPapersResponse, SleepingPaperItem
+    from app.schemas.trends import SleepingPaperItem, SleepingPapersResponse
 
     resp = SleepingPapersResponse(
         papers=[
@@ -97,7 +96,7 @@ def test_emerging_author_schema():
 
 
 def test_author_profile_schema():
-    from app.schemas.researchers import AuthorProfileResponse, YearlyPub, PaperSummary
+    from app.schemas.researchers import AuthorProfileResponse, PaperSummary, YearlyPub
 
     resp = AuthorProfileResponse(
         id="a1",
@@ -121,8 +120,8 @@ def test_author_profile_schema():
 def test_collaboration_network_schema():
     from app.schemas.researchers import (
         CollaborationNetworkResponse,
-        NetworkNode,
         NetworkEdge,
+        NetworkNode,
     )
 
     resp = CollaborationNetworkResponse(

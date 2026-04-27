@@ -1,11 +1,15 @@
 import asyncio
 import time
 import uuid
+from typing import TYPE_CHECKING
 
 import structlog
 from qdrant_client import QdrantClient, models
 
 from app.config import settings
+
+if TYPE_CHECKING:
+    from app.clients.llm_client import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -29,7 +33,7 @@ class VectorSearchService:
     def __init__(self) -> None:
         self.client = QdrantClient(url=settings.qdrant_url)
         self._encoder = None  # lazy local model (fallback only)
-        self._llm: "LLMClient | None" = None  # API embedder
+        self._llm: LLMClient | None = None  # API embedder
         self._use_local = False  # set USE_LOCAL_EMBEDDER=true to prefer local
         self._collections_initialized = False
         # Check env flag

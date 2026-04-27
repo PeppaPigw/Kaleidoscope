@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 from app.config import settings
+from app.services.agent.tool_dispatcher import TOOLS
 from app.services.agent_endpoint_profiles import (
     DEFAULT_ARXIV_ID,
     DEFAULT_PAPER_ID,
@@ -16,7 +17,6 @@ from app.services.agent_workflow_profiles import (
     iter_agent_workflow_profiles,
     workflow_refs_for_endpoint,
 )
-from app.services.agent.tool_dispatcher import TOOLS
 
 MANIFEST_VERSION = "1.0.0"
 MANIFEST_UPDATED_AT = "2026-04-26"

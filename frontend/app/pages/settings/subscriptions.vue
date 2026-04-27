@@ -345,7 +345,7 @@ function scheduleSave() {
           class="ks-sub__input"
           placeholder="Filter facets, e.g. controlled generation, chemistry, ablation…"
           :disabled="isLoading || researchFacetCatalog.length === 0"
-        />
+        >
         <span class="ks-sub__facet-count"
           >{{ selectedResearchFacetCount }} selected</span
         >
@@ -436,7 +436,7 @@ function scheduleSave() {
           placeholder="e.g. diffusion models, retrieval-augmented generation…"
           :disabled="isLoading"
           @keydown="handleKeywordKeydown"
-        />
+        >
         <button
           type="button"
           class="ks-sub__add-btn"
@@ -482,7 +482,7 @@ function scheduleSave() {
           placeholder="e.g. Yann LeCun, Andrej Karpathy…"
           :disabled="isLoading"
           @keydown.enter.prevent="addAuthor"
-        />
+        >
         <button
           type="button"
           class="ks-sub__add-btn"

@@ -16,6 +16,7 @@ def sync_paper_to_graph(self, paper_id: str) -> dict:
     or triggered manually via the graph API.
     """
     import asyncio
+
     from sqlalchemy import select
 
     async def _sync():

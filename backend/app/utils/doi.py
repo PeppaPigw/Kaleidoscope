@@ -3,7 +3,6 @@
 import re
 from urllib.parse import urlparse
 
-
 _DOI_REGEX = re.compile(r"10\.\d{4,9}/[^\s]+")
 _DOI_URL_PREFIXES = [
     "https://doi.org/",

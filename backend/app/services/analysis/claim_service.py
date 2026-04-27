@@ -12,14 +12,13 @@ Deferred to V2: cross-paper alignment, consensus/divergence detection.
 """
 
 import json
-from typing import Any
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.paper import Paper
 from app.models.claim import Claim, EvidenceLink
+from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
 

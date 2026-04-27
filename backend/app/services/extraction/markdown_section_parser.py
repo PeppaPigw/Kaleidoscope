@@ -261,13 +261,10 @@ def _apply_heading_corrections(
         return markdown
 
     lines = markdown.split("\n")
-    raw_iter = iter(raw)
-    corr_iter = iter(corrected)
-
     # Build mapping: (original heading text) → corrected level
     # Walk lines and replace heading markers
     out_lines: list[str] = []
-    raw_q = list(zip(raw, corrected))
+    raw_q = list(zip(raw, corrected, strict=False))
     rq_idx = 0
 
     for line in lines:

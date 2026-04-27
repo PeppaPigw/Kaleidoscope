@@ -1,7 +1,7 @@
 """CrossRef API client — metadata retrieval for DOIs."""
 
-import structlog
 import httpx
+import structlog
 
 from app.exceptions import ExternalAPIError, RateLimitError
 from app.utils.rate_limiter import CROSSREF_LIMITER

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_current_user_id
+from app.dependencies import get_current_user_id, get_db
 from app.models.paper import Paper
 from app.services.ingestion.pdf_batch_importer import PDFBatchImporter
 

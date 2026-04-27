@@ -140,7 +140,7 @@ function typeLabel(type: Note["type"]) {
         type="search"
         placeholder="Search notes…"
         aria-label="Search notes"
-      />
+      >
     </div>
 
     <!-- Manual note form -->

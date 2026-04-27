@@ -17,8 +17,8 @@ from app.services.agent_endpoint_profiles import (
     implementation_status_for_response,
     profile_for_spec,
 )
-from app.services.agent_workflow_profiles import workflow_refs_for_endpoint
 from app.services.agent_research_runtime import AgentResearchRuntime
+from app.services.agent_workflow_profiles import workflow_refs_for_endpoint
 
 router = APIRouter(prefix="/agent")
 

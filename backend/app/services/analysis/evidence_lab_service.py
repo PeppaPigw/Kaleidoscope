@@ -36,7 +36,7 @@ class EvidenceLabService:
     PAPER_QA_PROMPT = (
         "Extract the main method, datasets, evaluation metrics, baselines, "
         "and strongest quantitative results from this paper. Focus on the "
-        f"research question: {{research_question}}"
+        "research question: {research_question}"
     )
     VECTOR_PROMPT_SUFFIX = (
         "Focus on the method, datasets, evaluation metrics, baselines, and "

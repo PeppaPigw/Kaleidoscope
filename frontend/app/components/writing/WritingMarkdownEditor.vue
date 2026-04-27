@@ -42,7 +42,7 @@ type HeadingElement = HTMLElement & { dataset: DOMStringMap };
 const WRITING_HEADING_PREFIX = "user-content-";
 
 export interface WritingMarkdownEditorProps {
-  modelValue: string;
+  modelValue?: string;
   disabled?: boolean;
   saveLabel?: string;
   uploadImage?: UploadImageHandler;
@@ -589,7 +589,7 @@ defineExpose({
       type="file"
       accept="image/*"
       @change="handleFileInputChange"
-    />
+    >
 
     <div ref="editorSurfaceRef" class="ks-writing-editor__surface">
       <EditorContent

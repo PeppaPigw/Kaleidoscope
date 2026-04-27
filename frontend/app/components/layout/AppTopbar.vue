@@ -375,7 +375,7 @@ watch(showSearch, (open) => {
                 placeholder="Search anything…"
                 @keydown="handleSearchKeydown"
                 @keydown.enter="handleSearchSubmit"
-              />
+              >
             </div>
             <div class="ks-topbar__search-hint">
               <span class="ks-type-data"

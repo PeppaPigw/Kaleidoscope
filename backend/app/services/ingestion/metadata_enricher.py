@@ -1,6 +1,6 @@
 """Metadata enrichment — cascade through APIs to fill missing metadata."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import httpx
 import structlog
@@ -10,7 +10,7 @@ from app.clients.crossref import CrossRefClient
 from app.clients.openalex import OpenAlexClient
 from app.clients.semantic_scholar import SemanticScholarClient
 from app.models.paper import Paper
-from app.utils.doi import normalize_doi, normalize_arxiv_id
+from app.utils.doi import normalize_arxiv_id, normalize_doi
 
 logger = structlog.get_logger(__name__)
 
@@ -400,4 +400,4 @@ class MetadataEnricherService:
             if ext_ids.get("PubMed"):
                 paper.pmid = ext_ids["PubMed"]
 
-        paper.citation_count_updated_at = datetime.now(timezone.utc)
+        paper.citation_count_updated_at = datetime.now(UTC)

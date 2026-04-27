@@ -36,7 +36,7 @@ const uid = useId();
         :src="imageUrl"
         :alt="`Photo of ${name}`"
         class="ks-researcher-hero__avatar-img"
-      />
+      >
       <div
         v-else
         class="ks-researcher-hero__avatar-placeholder"

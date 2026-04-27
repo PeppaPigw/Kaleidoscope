@@ -21,15 +21,14 @@ import mimetypes
 import os
 import re
 import subprocess
-import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 DEFAULT_PAPER_PATH = "paper.md"
 DEFAULT_OUTPUT_DIR = "image_output"
@@ -647,9 +646,7 @@ def extract_text_from_chat_content(content: Any) -> str:
         for part in content:
             if not isinstance(part, dict):
                 continue
-            if part.get("type") == "text" and isinstance(part.get("text"), str):
-                texts.append(part["text"])
-            elif part.get("type") == "output_text" and isinstance(
+            if part.get("type") == "text" and isinstance(part.get("text"), str) or part.get("type") == "output_text" and isinstance(
                 part.get("text"), str
             ):
                 texts.append(part["text"])
@@ -966,7 +963,7 @@ def build_manifest(
     image_result: ImageGenerationResult,
 ) -> dict[str, Any]:
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "paper_path": str(Path(args.paper).resolve()),
         "title": article.title,
         "llm_base_url": args.llm_base_url,
@@ -1042,9 +1039,6 @@ def main(argv: list[str] | None = None) -> int:
         # log_step("2/5", "生成视觉摘要提示词")
         visual_summary_prompt = build_visual_summary_prompt(article)
 
-        summary_path = output_dir / "visual_summary.md"
-        prompt_path = output_dir / "image_prompt.txt"
-        manifest_path = output_dir / "manifest.json"
         requested_image_path = output_dir / "poster.png"
 
         # log_step("3/5", "调用 LLM 生成视觉摘要")

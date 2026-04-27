@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-
 
 if "structlog" not in sys.modules:
     _logger = SimpleNamespace(
@@ -74,7 +73,7 @@ def test_governance_service_saved_search_and_webhook_flows():
     """GovernanceService creates, lists, and deletes saved searches/webhooks."""
     from app.services.governance_service import GovernanceService
 
-    created_at = datetime(2026, 3, 27, 12, 0, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 27, 12, 0, tzinfo=UTC)
     saved_search = SimpleNamespace(
         id=uuid4(),
         name="Recent AI",
@@ -154,7 +153,7 @@ def test_governance_service_audit_corrections_and_reproductions():
     """GovernanceService serializes audit, correction, and reproduction rows."""
     from app.services.governance_service import GovernanceService
 
-    created_at = datetime(2026, 3, 27, 13, 0, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 27, 13, 0, tzinfo=UTC)
     audit = SimpleNamespace(
         id=uuid4(),
         user_id=uuid4(),
@@ -318,7 +317,7 @@ def test_quality_service_reports_metadata_and_reproducibility():
             corrected_value="Reproducible Science",
             note="Fixed typo",
             status="approved",
-            created_at=datetime(2026, 3, 26, 9, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 26, 9, 0, tzinfo=UTC),
         )
     ]
 

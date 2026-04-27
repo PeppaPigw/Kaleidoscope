@@ -1,15 +1,14 @@
 """Citation export service — BibTeX, RIS, and CSL-JSON generation."""
 
 import json
-from datetime import date
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.author import PaperAuthor
 from app.models.paper import Paper
-from app.models.author import PaperAuthor, Author
 
 logger = structlog.get_logger(__name__)
 

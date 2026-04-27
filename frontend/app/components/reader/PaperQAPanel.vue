@@ -346,11 +346,12 @@ watch(
 
           <div v-else-if="item.answer" class="pqa-answer-card">
             <div class="pqa-answer-body">
-              <!-- eslint-disable-next-line vue/no-v-html -->
+              <!-- eslint-disable vue/no-v-html -->
               <div
                 class="pqa-answer-rich ks-prose"
                 v-html="renderedAnswers[item.id] || item.answer"
               />
+              <!-- eslint-enable vue/no-v-html -->
             </div>
 
             <div v-if="item.sources.length" class="pqa-sources">
@@ -480,7 +481,7 @@ watch(
             @focus="inputFocused = true"
             @blur="inputFocused = false"
             @keydown.enter.prevent="handleSubmit"
-          />
+          >
           <button
             type="submit"
             class="pqa-submit"

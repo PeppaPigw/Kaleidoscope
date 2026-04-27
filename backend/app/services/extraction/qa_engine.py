@@ -8,10 +8,10 @@ from app.clients.llm_client import LLMClient
 from app.models.paper import Paper
 from app.services.extraction.chunker import TextChunker
 from app.services.extraction.prompts import (
-    QA_SYSTEM,
-    QA_PROMPT,
-    QA_MULTI_DOC_SYSTEM,
     QA_MULTI_DOC_PROMPT,
+    QA_MULTI_DOC_SYSTEM,
+    QA_PROMPT,
+    QA_SYSTEM,
 )
 
 logger = structlog.get_logger(__name__)

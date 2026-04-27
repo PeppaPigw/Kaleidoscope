@@ -99,6 +99,7 @@ async def sync_paper_to_graph(
 ):
     """Trigger sync of a specific paper to Neo4j."""
     from sqlalchemy import select
+
     from app.models.paper import Paper
 
     result = await db.execute(select(Paper).where(Paper.id == paper_id))

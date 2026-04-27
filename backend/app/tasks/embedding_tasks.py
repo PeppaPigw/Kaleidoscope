@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -49,12 +49,12 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
     7. Store vectors
     8. Mark job completed
     """
-    from sqlalchemy import select, delete
+    from sqlalchemy import delete, select
 
-    from app.dependencies import async_session_factory
     from app.clients.llm_client import LLMClient
-    from app.models.paper_qa import PaperChunk, PaperEmbeddingJob
+    from app.dependencies import async_session_factory
     from app.models.paper import Paper
+    from app.models.paper_qa import PaperChunk, PaperEmbeddingJob
     from app.services.extraction.markdown_section_parser import parse_markdown_sections
 
     paper_uuid = uuid.UUID(paper_id)
@@ -76,7 +76,7 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
             session.add(job)
         else:
             job.status = "running"
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
             job.error_message = None
 
         await session.flush()
@@ -141,13 +141,13 @@ async def embed_paper_async(paper_id: str, priority: int = 0) -> dict:
         await llm.close()
 
         # ── 7. Store vectors ──────────────────────────────────────
-        for chunk, embedding in zip(chunk_objs, all_embeddings):
+        for chunk, embedding in zip(chunk_objs, all_embeddings, strict=False):
             chunk.embedding = embedding
 
         # ── 8. Complete ───────────────────────────────────────────
         job.status = "completed"
         job.chunk_count = len(chunk_objs)
-        job.finished_at = datetime.now(timezone.utc)
+        job.finished_at = datetime.now(UTC)
         await session.commit()
 
         logger.info(
@@ -167,10 +167,12 @@ def process_paper_embedding(self, paper_id: str, priority: int = 0):
     try:
         return _run_async(embed_paper_async(paper_id, priority=priority))
     except Exception as exc:
-        logger.error("paper_embedding_failed", paper_id=paper_id, error=str(exc))
+        error_message = str(exc)
+        logger.error("paper_embedding_failed", paper_id=paper_id, error=error_message)
 
         async def _mark_failed():
             from sqlalchemy import select
+
             from app.dependencies import async_session_factory
             from app.models.paper_qa import PaperEmbeddingJob
 
@@ -184,7 +186,7 @@ def process_paper_embedding(self, paper_id: str, priority: int = 0):
                 job = result.scalar_one_or_none()
                 if job:
                     job.status = "failed"
-                    job.error_message = str(exc)[:500]
+                    job.error_message = error_message[:500]
                     await session.commit()
 
         _run_async(_mark_failed())
@@ -240,12 +242,12 @@ def sweep_unembedded_papers(self):
     """
 
     async def _sweep():
-        from sqlalchemy import select, not_, exists
+        from sqlalchemy import exists, not_, select
 
+        from app.config import settings
         from app.dependencies import async_session_factory
         from app.models.paper import Paper
         from app.models.paper_qa import PaperEmbeddingJob
-        from app.config import settings
 
         batch_size = settings.paper_qa_sweep_batch_size
 

@@ -13,12 +13,12 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 import structlog
-from sqlalchemy import func, select, extract
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.paper import Paper
 from app.models.author import Author, PaperAuthor
-from app.models.topic import Topic, PaperTopic
+from app.models.paper import Paper
+from app.models.topic import PaperTopic, Topic
 
 logger = structlog.get_logger(__name__)
 
@@ -169,7 +169,7 @@ class TopicService:
             topic_map[bt_id] = topic
 
         # 5. Create paper-topic assignments
-        for i, (pid, bt_topic) in enumerate(zip(paper_ids, topics_assigned)):
+        for i, (pid, bt_topic) in enumerate(zip(paper_ids, topics_assigned, strict=False)):
             if bt_topic == -1 or bt_topic not in topic_map:
                 continue
             prob = float(probs[i]) if probs is not None and i < len(probs) else 1.0

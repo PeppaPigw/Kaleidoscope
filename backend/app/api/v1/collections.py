@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_current_user_id
+from app.dependencies import get_current_user_id, get_db
 from app.schemas.collection import (
     CollectionChatMessageAsk,
     CollectionChatMessageResponse,
@@ -337,8 +337,8 @@ async def ask_collection_thread(
     )
 
     # Use local RAG service (primary) with RAGFlow fallback
-    from app.services.local_rag_service import LocalRAGService
     from app.config import settings
+    from app.services.local_rag_service import LocalRAGService
 
     if settings.ragflow_sync_enabled:
         # Use RAGFlow if explicitly enabled

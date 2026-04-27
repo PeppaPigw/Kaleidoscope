@@ -51,7 +51,7 @@
           :disabled="loading"
           @focus="inputFocused = true"
           @blur="inputFocused = false"
-        />
+        >
         <button
           type="submit"
           class="qa-submit"

@@ -13,12 +13,11 @@ import math
 from datetime import date
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.paper import Paper
-from app.models.venue import Venue
 
 logger = structlog.get_logger(__name__)
 

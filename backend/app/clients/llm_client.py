@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-import structlog
+
 import httpx
+import structlog
 
 from app.config import settings
 

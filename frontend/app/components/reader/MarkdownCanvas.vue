@@ -380,12 +380,13 @@ onBeforeUnmount(() => {
       @mouseup="handleContentMouseup"
     >
       <article class="ks-mc__article">
-        <!-- eslint-disable-next-line vue/no-v-html -->
+        <!-- eslint-disable vue/no-v-html -->
         <div
           ref="renderedRef"
           class="ks-mc__rendered ks-prose"
           v-html="renderedHtml"
         />
+        <!-- eslint-enable vue/no-v-html -->
       </article>
     </div>
   </div>

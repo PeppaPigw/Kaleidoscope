@@ -9,10 +9,10 @@
 export type SearchMode = "keyword" | "semantic" | "claim";
 
 export interface QueryRibbonProps {
-  modelValue: string;
-  mode: SearchMode;
-  resultCount: number;
-  searchTimeMs: number;
+  modelValue?: string;
+  mode?: SearchMode;
+  resultCount?: number;
+  searchTimeMs?: number;
 }
 
 const props = withDefaults(defineProps<QueryRibbonProps>(), {
@@ -72,7 +72,7 @@ function handleSubmit() {
           :value="modelValue"
           placeholder="Search papers, claims, authors..."
           @input="handleInput"
-        />
+        >
       </div>
       <div
         class="ks-query-ribbon__modes"

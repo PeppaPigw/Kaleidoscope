@@ -52,7 +52,6 @@ class RetrievalBenchmark:
         for item in self._corpus:
             question = item["question"]
             gold_paper_ids = set(item.get("gold_paper_ids", []))
-            gold_chunks = set(item.get("gold_chunk_ids", []))
 
             started = time.perf_counter()
             try:

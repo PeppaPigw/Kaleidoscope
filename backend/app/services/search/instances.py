@@ -7,9 +7,9 @@ Usage:
     from app.services.search.instances import vector_service, keyword_service, hybrid_service
 """
 
+from app.services.search.hybrid_search import HybridSearchService
 from app.services.search.keyword_search import KeywordSearchService
 from app.services.search.vector_search import VectorSearchService
-from app.services.search.hybrid_search import HybridSearchService
 
 # Process-level singletons — created once, reused across all requests
 keyword_service = KeywordSearchService()

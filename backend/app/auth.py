@@ -12,7 +12,7 @@ DEFAULT_USER_ID sentinel so existing behaviour is preserved.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.models.collection import DEFAULT_USER_ID
 
@@ -34,7 +34,7 @@ def create_access_token(user_id: str) -> str:
     """Create a signed JWT for ``user_id`` or return an empty string."""
     if not _JWT_AVAILABLE or not JWT_SECRET:
         return ""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     return jwt.encode(
         {"sub": user_id, "exp": expire},
         JWT_SECRET,

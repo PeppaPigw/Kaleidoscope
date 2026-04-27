@@ -1,9 +1,9 @@
 """API integration tests for content endpoints."""
 
 import asyncio
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
 
@@ -40,8 +40,8 @@ def test_get_import_status_returns_current_paper_state():
     paper.title = "Imported paper"
     paper.ingestion_status = "parsed"
     paper.has_full_text = True
-    paper.created_at = datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc)
-    paper.updated_at = datetime(2026, 3, 30, 12, 5, tzinfo=timezone.utc)
+    paper.created_at = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+    paper.updated_at = datetime(2026, 3, 30, 12, 5, tzinfo=UTC)
     paper.raw_metadata = {"import_error": "MinerU timeout"}
 
     mock_result = MagicMock()
@@ -151,7 +151,7 @@ def test_get_paper_labels_rejects_stale_empty_payloads():
             "resource_constraint": [],
         },
     }
-    paper.paper_labels_at = datetime(2026, 4, 19, 12, 0, tzinfo=timezone.utc)
+    paper.paper_labels_at = datetime(2026, 4, 19, 12, 0, tzinfo=UTC)
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = paper

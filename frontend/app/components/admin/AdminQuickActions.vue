@@ -87,7 +87,7 @@ watch(syncMode, (mode) => {
             type="number"
             min="1"
             max="500"
-          />
+          >
         </label>
         <label class="admin-actions__field">
           <span class="ks-type-data">Parser version lower than</span>
@@ -96,7 +96,7 @@ watch(syncMode, (mode) => {
             class="admin-actions__input"
             type="text"
             placeholder="Optional version string"
-          />
+          >
         </label>
         <KsButton
           variant="primary"
@@ -133,7 +133,7 @@ watch(syncMode, (mode) => {
             :placeholder="
               syncMode === 'collection' ? 'Collection UUID' : 'Paper UUID'
             "
-          />
+          >
         </label>
         <p class="ks-type-data admin-actions__hint">
           Sample:
@@ -165,7 +165,7 @@ watch(syncMode, (mode) => {
             class="admin-actions__input"
             type="text"
             placeholder="Paper UUID"
-          />
+          >
         </label>
         <p class="ks-type-data admin-actions__hint">
           Sample: {{ samplePaperId ?? "none loaded" }}

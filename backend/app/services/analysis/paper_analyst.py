@@ -7,7 +7,7 @@ Stores the complete analysis in Paper.deep_analysis (JSONB).
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -72,7 +72,7 @@ def _extract_year(paper: Any) -> str:
             m = re.search(r"\b(19|20)\d{2}\b", str(val))
             if m:
                 return m.group()
-    return str(datetime.now(timezone.utc).year)
+    return str(datetime.now(UTC).year)
 
 
 class PaperAnalystService:
@@ -174,7 +174,7 @@ class PaperAnalystService:
             return {
                 "status": "error",
                 "error": str(exc)[:300],
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
         result = {
@@ -184,7 +184,7 @@ class PaperAnalystService:
             "authors": authors_str,
             "year": year,
             "fulltext_chars": len(fulltext),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
         log.info("paper_analysis_done", chars=len(raw_text))
@@ -199,7 +199,7 @@ class PaperAnalystService:
         """
         result = await self.analyse(paper)
         paper.deep_analysis = result
-        paper.deep_analysis_at = datetime.now(timezone.utc)
+        paper.deep_analysis_at = datetime.now(UTC)
         return result
 
     async def close(self) -> None:

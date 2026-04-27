@@ -267,7 +267,7 @@ onUnmounted(() => {
               placeholder="Ask about papers, methods, findings..."
               :disabled="isLoading"
               @keydown="handleKeydown"
-            />
+            >
             <button
               class="ks-ai-drawer__send-btn"
               :disabled="!canSend"

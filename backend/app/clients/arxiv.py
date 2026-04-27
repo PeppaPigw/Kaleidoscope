@@ -1,13 +1,13 @@
 """arXiv API client — preprint metadata, PDF, LaTeX source, and HTML retrieval."""
 
+import io
 import re
 import tarfile
-import io
 
-import structlog
 import httpx
+import structlog
 
-from app.exceptions import ExternalAPIError, RateLimitError
+from app.exceptions import ExternalAPIError
 from app.utils.rate_limiter import ARXIV_LIMITER
 
 logger = structlog.get_logger(__name__)
@@ -185,7 +185,7 @@ class ArxivClient:
 
                 # Find main .tex file: prefer one with \begin{document} or the largest
                 main_tex = None
-                for name, content in tex_files:
+                for _name, content in tex_files:
                     if r"\begin{document}" in content:
                         main_tex = content
                         break
@@ -221,12 +221,6 @@ class ArxivClient:
         text = re.sub(r"\\section\*?\{([^}]+)\}", r"\n## \1\n", text)
         text = re.sub(r"\\subsection\*?\{([^}]+)\}", r"\n### \1\n", text)
         text = re.sub(r"\\subsubsection\*?\{([^}]+)\}", r"\n#### \1\n", text)
-
-        # Extract title and abstract
-        title_match = re.search(r"\\title\{([^}]+)\}", text)
-        abstract_match = re.search(
-            r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.DOTALL
-        )
 
         # Remove common environments we don't want
         text = re.sub(r"\\begin\{figure\}.*?\\end\{figure\}", "", text, flags=re.DOTALL)

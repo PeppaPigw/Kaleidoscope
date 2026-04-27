@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+
 import httpx
 import structlog
 
@@ -156,7 +157,7 @@ class TranslateClient:
             await self._client.aclose()
             self._client = None
 
-    async def __aenter__(self) -> "TranslateClient":
+    async def __aenter__(self) -> TranslateClient:
         return self
 
     async def __aexit__(self, *_) -> None:

@@ -12,8 +12,10 @@ COMPOSE_FILE := $(DOCKER_DIR)/docker-compose.yml
 COMPOSE_PROJECT_NAME := kaleidoscope
 COMPOSE := docker compose -p $(COMPOSE_PROJECT_NAME) -f $(COMPOSE_FILE)
 DEV_INFRA_SERVICES := postgres redis meilisearch qdrant neo4j minio grobid
-DEV_CORE_SERVICES := postgres redis
 DEV_INFRA_WAIT_TIMEOUT ?= 90
+API_BASE_URL ?= http://127.0.0.1:8000
+API_KEY ?= sk-kaleidoscope
+UV_CACHE_DIR ?= /tmp/kaleidoscope-uv-cache
 EXPECTED_POSTGRES_VOLUME := kaleidoscope_postgres_data
 CELERY_QUEUES := celery,ingestion,parsing,indexing,embedding,ragflow
 
@@ -38,13 +40,13 @@ infra: ## Start all infrastructure services (Docker)
 	@$(MAKE) check-postgres-target
 	$(COMPOSE) up -d
 
-infra-dev: ## Start infra needed by make dev and wait for core services
+infra-dev: ## Start infra needed by make dev and wait for all dev services
 	@$(MAKE) check-docker
 	@$(MAKE) check-postgres-target
 	@echo "🐳 Ensuring Docker infrastructure is running..."
 	@$(COMPOSE) up -d $(DEV_INFRA_SERVICES)
-	@echo "⏳ Waiting for PostgreSQL and Redis..."
-	@$(COMPOSE) up -d --wait --wait-timeout $(DEV_INFRA_WAIT_TIMEOUT) $(DEV_CORE_SERVICES)
+	@echo "⏳ Waiting for development infrastructure..."
+	@$(COMPOSE) up -d --wait --wait-timeout $(DEV_INFRA_WAIT_TIMEOUT) $(DEV_INFRA_SERVICES)
 
 infra-down: ## Stop all infrastructure services
 	$(COMPOSE) down
@@ -109,7 +111,7 @@ setup: infra backend-install frontend-install migrate ## Full project setup
 	@echo "✅ Kaleidoscope is ready! Run 'make dev' to start."
 
 # ── Quality ───────────────────────────────────────────
-.PHONY: lint lint-backend lint-frontend type-check test test-backend test-frontend
+.PHONY: lint lint-backend lint-frontend type-check test test-backend test-frontend api-runtime-verify
 lint: lint-backend lint-frontend ## Lint all code
 
 lint-backend: ## Lint backend (ruff)
@@ -129,6 +131,11 @@ test-backend: ## Run backend tests
 
 test-frontend: ## Run frontend tests
 	cd $(FRONTEND_DIR) && pnpm test
+
+api-runtime-verify: ## Run functional HTTP API verification against API_BASE_URL
+	cd $(BACKEND_DIR) && UV_CACHE_DIR=$(UV_CACHE_DIR) uv run python app/scripts/verify_all_api_runtime.py \
+		--base-url $(API_BASE_URL) \
+		--api-key $(API_KEY)
 
 # ── Cleanup ───────────────────────────────────────────
 .PHONY: clean clean-deep

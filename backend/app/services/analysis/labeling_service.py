@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -316,7 +316,7 @@ class LabelingService:
             raise ValueError("Labeling produced no taxonomy labels")
 
         paper.paper_labels = labels
-        paper.paper_labels_at = datetime.now(timezone.utc)
+        paper.paper_labels_at = datetime.now(UTC)
         await self.db.flush()
 
         log.info(

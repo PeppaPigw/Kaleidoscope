@@ -490,7 +490,7 @@ onMounted(async () => {
             class="rc-search-input"
             placeholder="Filter collections…"
             readonly
-          />
+          >
           <svg
             width="16"
             height="16"
@@ -533,7 +533,7 @@ onMounted(async () => {
                 type="text"
                 class="rc-form__input"
                 placeholder="Clinical reasoning review"
-              />
+              >
               <textarea
                 v-model="workspaceDescription"
                 rows="2"
@@ -601,7 +601,7 @@ onMounted(async () => {
                 type="text"
                 class="rc-form__input"
                 placeholder="AI safety signals"
-              />
+              >
               <textarea
                 v-model="subscriptionDescription"
                 rows="2"
@@ -618,7 +618,7 @@ onMounted(async () => {
                     v-model="selectedFeedIds"
                     type="checkbox"
                     :value="feed.id"
-                  />
+                  >
                   <span>{{ feed.name }}</span>
                 </label>
                 <p v-if="!feedCatalog.length" class="rc-muted">
@@ -687,7 +687,7 @@ onMounted(async () => {
                 type="text"
                 class="rc-form__input"
                 placeholder="Week 3 screening set"
-              />
+              >
               <p class="rc-muted">
                 Parent:
                 <strong>{{
@@ -825,7 +825,7 @@ onMounted(async () => {
                 <p class="rc-eyebrow rc-eyebrow--teal">Start a Conversation</p>
               </div>
               <h3 class="rc-empty__heading">
-                What do you want to know about<br /><em>{{
+                What do you want to know about<br ><em>{{
                   activeCollection.name
                 }}</em
                 >?
@@ -869,12 +869,13 @@ onMounted(async () => {
                   }}</time>
                 </div>
                 <!-- Rendered answer -->
-                <!-- eslint-disable-next-line vue/no-v-html -->
+                <!-- eslint-disable vue/no-v-html -->
                 <div
                   v-if="renderedMessages[msg.id]"
                   class="rc-msg__body ks-prose"
                   v-html="renderedMessages[msg.id]"
                 />
+                <!-- eslint-enable vue/no-v-html -->
                 <div
                   v-else-if="msg.content"
                   class="rc-msg__body rc-msg__body--plain"
@@ -965,7 +966,7 @@ onMounted(async () => {
                 @focus="inputFocused = true"
                 @blur="inputFocused = false"
                 @keydown.enter.prevent="sendMessage"
-              />
+              >
               <button
                 type="submit"
                 class="rc-composer__send"
@@ -1008,7 +1009,7 @@ onMounted(async () => {
             <p class="rc-eyebrow rc-eyebrow--teal">Research Chat</p>
           </div>
           <h3 class="rc-empty__heading">
-            Select a research space<br />to start the conversation.
+            Select a research space<br >to start the conversation.
           </h3>
           <p class="rc-muted">
             Create a workspace, subscription collection, or paper group from the
@@ -1094,7 +1095,7 @@ onMounted(async () => {
                 v-model="selectedParentPaperIds"
                 type="checkbox"
                 :value="paper.id"
-              />
+              >
               <span>{{ paper.title }}</span>
             </label>
             <p v-if="!parentCollectionPapers.length" class="rc-muted">

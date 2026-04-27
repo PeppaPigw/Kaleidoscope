@@ -1,11 +1,9 @@
 """Topic model — BERTopic cluster assignments and topic metadata."""
 
-from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, func
+from sqlalchemy import Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 

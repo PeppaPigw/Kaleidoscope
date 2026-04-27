@@ -71,7 +71,7 @@ async function handleSubmit() {
             src="/brand/kaleidoscope-icon-rounded.png"
             alt=""
             class="ks-login__brand-icon"
-          />
+          >
           <span class="ks-login__brand-name">Kaleidoscope</span>
         </div>
 
@@ -122,7 +122,7 @@ async function handleSubmit() {
               :disabled="loading"
               placeholder="Enter your username"
               @keydown.enter="handleSubmit"
-            />
+            >
           </div>
 
           <div class="ks-login__field">
@@ -137,7 +137,7 @@ async function handleSubmit() {
                 :disabled="loading"
                 placeholder="Enter your password"
                 @keydown.enter="handleSubmit"
-              />
+              >
               <button
                 type="button"
                 class="ks-login__password-toggle"

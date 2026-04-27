@@ -112,7 +112,7 @@ function emitMethodQuery() {
           class="ks-evidence-filters__search-input"
           placeholder="Search methods…"
           @input="emitMethodQuery"
-        />
+        >
         <button
           v-if="localMethodQuery"
           type="button"

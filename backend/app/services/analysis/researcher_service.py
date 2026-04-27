@@ -15,8 +15,8 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.paper import Paper
 from app.models.author import Author, PaperAuthor
+from app.models.paper import Paper
 
 logger = structlog.get_logger(__name__)
 

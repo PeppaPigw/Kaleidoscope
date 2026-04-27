@@ -17,7 +17,7 @@ Concurrency capped by settings.mineru_concurrency.
 
 import argparse
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -55,8 +55,9 @@ async def _reparse_one(
     stagger_index: int = 0,
 ) -> None:
     from sqlalchemy import select
-    from app.models.paper import Paper
+
     from app.clients.mineru_client import MinerUClient, MinerUModel
+    from app.models.paper import Paper
     from app.services.parsing.mineru_service import sanitize_mineru_markdown
 
     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
@@ -110,7 +111,7 @@ async def _reparse_one(
                 p_obj.markdown_provenance = {
                     "source": "mineru",
                     "model_version": "vlm",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "markdown_length": len(markdown),
                     "input_url": pdf_url,
                     "images_uploaded": len(result.image_urls),
@@ -127,8 +128,9 @@ async def _reparse_one(
 
 async def reparse_papers(dry_run: bool = False, limit: int = 200) -> None:
     from sqlalchemy import and_, not_, or_, select
-    from app.models.paper import Paper
+
     from app.clients.oss_client import OssClient
+    from app.models.paper import Paper
 
     mineru_ready = and_(
         or_(

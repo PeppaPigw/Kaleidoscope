@@ -7,11 +7,11 @@ from app.clients.llm_client import LLMClient
 from app.models.paper import Paper
 from app.services.extraction.chunker import TextChunker
 from app.services.extraction.prompts import (
+    SUMMARIZE_ABSTRACT,
+    SUMMARIZE_DETAILED,
+    SUMMARIZE_EXECUTIVE,
     SUMMARIZE_SYSTEM,
     SUMMARIZE_TWEET,
-    SUMMARIZE_ABSTRACT,
-    SUMMARIZE_EXECUTIVE,
-    SUMMARIZE_DETAILED,
 )
 
 logger = structlog.get_logger(__name__)

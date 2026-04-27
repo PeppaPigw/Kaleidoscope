@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
                 class="ks-writing-studio__title-input"
                 type="text"
                 placeholder="Untitled"
-              />
+              >
             </label>
 
             <div class="ks-writing-studio__lead-meta">

@@ -1,7 +1,7 @@
 """Neo4j async driver wrapper — connection management and query execution."""
 
 import structlog
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from app.config import settings
 

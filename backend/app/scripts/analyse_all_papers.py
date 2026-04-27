@@ -3,18 +3,16 @@ Backfill deep_analysis for all papers missing it.
 Usage: python -m app.scripts.analyse_all_papers [--force] [--concurrency N]
 """
 
-import asyncio
 import argparse
-import sys
+import asyncio
 import time
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import async_session_factory
-from app.models.paper import Paper
 from app.models.author import PaperAuthor
+from app.models.paper import Paper
 from app.services.analysis.paper_analyst import PaperAnalystService
 
 
@@ -22,7 +20,6 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
     start = time.monotonic()
 
     from sqlalchemy import or_
-    from sqlalchemy.dialects.postgresql import JSONB
 
     async with async_session_factory() as session:
         q = select(Paper.id, Paper.title).where(Paper.deleted_at.is_(None))
@@ -77,7 +74,6 @@ async def main(force: bool = False, concurrency: int = 5) -> None:
                     await svc.close()
 
                 status = result.get("status", "?")
-                chars = result.get("fulltext_chars", 0)
                 out_chars = len(result.get("analysis", ""))
                 if status == "ok":
                     done += 1

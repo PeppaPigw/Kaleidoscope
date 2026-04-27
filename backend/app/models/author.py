@@ -1,10 +1,17 @@
 """Author and Institution models."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.paper import Paper
 
 
 class Author(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -28,7 +35,7 @@ class Author(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     institution_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("institutions.id"), nullable=True
     )
-    institution: Mapped["Institution | None"] = relationship(
+    institution: Mapped[Institution | None] = relationship(
         "Institution", back_populates="members"
     )
 
@@ -36,7 +43,7 @@ class Author(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     raw_metadata: Mapped[dict | None] = mapped_column(JSONB)
 
     # --- Relationships ---
-    papers: Mapped[list["PaperAuthor"]] = relationship(
+    papers: Mapped[list[PaperAuthor]] = relationship(
         "PaperAuthor", back_populates="author"
     )
 
@@ -61,8 +68,8 @@ class PaperAuthor(Base):
     is_corresponding: Mapped[bool] = mapped_column(default=False)
     raw_affiliation: Mapped[str | None] = mapped_column(Text)
 
-    paper: Mapped["Paper"] = relationship("Paper", back_populates="authors")
-    author: Mapped["Author"] = relationship("Author", back_populates="papers")
+    paper: Mapped[Paper] = relationship("Paper", back_populates="authors")
+    author: Mapped[Author] = relationship("Author", back_populates="papers")
 
 
 class Institution(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -80,9 +87,7 @@ class Institution(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     raw_metadata: Mapped[dict | None] = mapped_column(JSONB)
 
-    members: Mapped[list["Author"]] = relationship(
-        "Author", back_populates="institution"
-    )
+    members: Mapped[list[Author]] = relationship("Author", back_populates="institution")
 
     def __repr__(self) -> str:
         return f"<Institution(id={self.id}, name={self.name})>"

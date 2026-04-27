@@ -201,7 +201,7 @@ onMounted(() => {
                 :checked="task.completed"
                 type="checkbox"
                 @change="handleTaskToggle(task)"
-              />
+              >
               <span>{{ task.title }}</span>
             </label>
           </li>

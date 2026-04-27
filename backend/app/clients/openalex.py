@@ -1,7 +1,7 @@
 """OpenAlex API client — comprehensive scholarly metadata."""
 
-import structlog
 import httpx
+import structlog
 
 from app.exceptions import ExternalAPIError, RateLimitError
 from app.utils.rate_limiter import OPENALEX_LIMITER

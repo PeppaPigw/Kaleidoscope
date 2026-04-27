@@ -30,6 +30,7 @@ import {
   buildApiRequestPath,
   buildCurlCommand,
   createJsonExample,
+  applyApiExampleProfileToRunnerSeed,
   formatJsonPreview,
   maskApiKeyForDisplay,
   parseJsonBodyInput,
@@ -853,19 +854,16 @@ function resetRunnerSeed(endpoint = selectedEndpoint.value) {
   const generatedBody = endpoint.requestBody
     ? createJsonExample(endpoint.requestBody.schema)
     : null;
+  const runnerSeed = applyApiExampleProfileToRunnerSeed({
+    seed,
+    profile,
+    generatedBody,
+    hasRequestBody: Boolean(endpoint.requestBody),
+  });
 
-  pathParamsText.value = formatJsonPreview(
-    profile?.pathParams ?? seed.pathParams,
-    seed.pathParamsText,
-  );
-  queryText.value = formatJsonPreview(profile?.query ?? seed.query, seed.queryText);
-  bodyText.value = endpoint.requestBody
-    ? formatJsonPreview(
-        profile?.body ??
-          (seed.bodyText && seed.bodyText !== "{}" ? seed.body : generatedBody),
-        "{}",
-      )
-    : "";
+  pathParamsText.value = runnerSeed.pathParamsText;
+  queryText.value = runnerSeed.queryText;
+  bodyText.value = runnerSeed.bodyText;
 }
 
 function selectEndpoint(endpoint: AdminEndpoint) {

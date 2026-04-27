@@ -1,6 +1,5 @@
 """Structured extraction service — highlights, methods, limitations using LLM."""
 
-import json
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +8,9 @@ from app.clients.llm_client import LLMClient
 from app.models.paper import Paper
 from app.services.extraction.chunker import TextChunker
 from app.services.extraction.prompts import (
-    EXTRACT_SYSTEM,
     EXTRACT_HIGHLIGHTS,
     EXTRACT_METHODS,
+    EXTRACT_SYSTEM,
 )
 
 logger = structlog.get_logger(__name__)

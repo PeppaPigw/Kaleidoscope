@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import func, select
@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.oss_client import OssClient
 from app.models.writing import WritingDocument
-
 
 _MARKDOWN_CODE_FENCE_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
 _MARKDOWN_INLINE_CODE_RE = re.compile(r"`([^`]+)`")
@@ -56,7 +55,7 @@ class WritingDocumentService:
             markdown_content="",
             plain_text_excerpt="",
             word_count=0,
-            last_opened_at=datetime.now(timezone.utc),
+            last_opened_at=datetime.now(UTC),
         )
         self.db.add(document)
         await self.db.flush()
@@ -77,7 +76,7 @@ class WritingDocumentService:
         )
         document = result.scalar_one_or_none()
         if document is not None:
-            document.last_opened_at = datetime.now(timezone.utc)
+            document.last_opened_at = datetime.now(UTC)
             await self.db.flush()
             await self.db.refresh(document)
         return document
@@ -109,7 +108,7 @@ class WritingDocumentService:
         document = await self._get_owned_document(document_id, user_id)
         if document is None:
             return False
-        document.deleted_at = datetime.now(timezone.utc)
+        document.deleted_at = datetime.now(UTC)
         await self.db.flush()
         return True
 

@@ -10,29 +10,29 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Iterable
-from uuid import uuid4
+from typing import Any
 
 import httpx
 from fastapi import HTTPException, Request
-from sqlalchemy import String, cast, desc, func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.governance import SavedSearch
 from app.models.paper import MetadataProvenance, Paper, PaperReference
-from app.services.agent_api_catalog import AgentApiSpec, load_agent_api_specs
+from app.services.agent_api_catalog import AgentApiSpec
 from app.services.agent_endpoint_profiles import (
     AgentEndpointProfile,
     iter_agent_endpoint_profiles,
     profile_for_spec,
 )
+from app.services.agent_information_service import AgentInformationService
 from app.services.agent_workflow_profiles import (
     iter_agent_workflow_profiles,
     workflow_refs_for_endpoint,
 )
-from app.services.agent_information_service import AgentInformationService
 
 
 @dataclass
@@ -382,9 +382,9 @@ class AgentResearchRuntime:
         ctx: AgentRuntimeContext,
         data: dict[str, Any],
     ) -> dict[str, Any]:
-        for field in ctx.spec.response_highlights:
-            key = field.removesuffix("[]")
-            wants_list = field.endswith("[]") or key.endswith("s") or key in {
+        for highlight in ctx.spec.response_highlights:
+            key = highlight.removesuffix("[]")
+            wants_list = highlight.endswith("[]") or key.endswith("s") or key in {
                 "nodes",
                 "edges",
                 "rows",

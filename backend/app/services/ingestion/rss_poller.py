@@ -1,6 +1,6 @@
 """RSS feed poller — discovers new papers from subscribed RSS feeds."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import feedparser
 import structlog
@@ -77,14 +77,14 @@ class RSSPollerService:
             status = parsed.get("status", 200)
             if status == 304:
                 log.info("feed_not_modified")
-                feed.last_polled_at = datetime.now(timezone.utc)
+                feed.last_polled_at = datetime.now(UTC)
                 return []
 
             if status >= 400:
                 log.warning("feed_http_error", status=status)
                 feed.poll_error_count += 1
                 feed.last_error = f"HTTP {status}"
-                feed.last_polled_at = datetime.now(timezone.utc)
+                feed.last_polled_at = datetime.now(UTC)
                 return []
 
             # Update conditional request headers
@@ -101,7 +101,7 @@ class RSSPollerService:
                     papers.append(paper)
 
             # Update feed stats
-            feed.last_polled_at = datetime.now(timezone.utc)
+            feed.last_polled_at = datetime.now(UTC)
             feed.last_item_count = len(parsed.entries)
             feed.total_items_discovered += len(papers)
             feed.poll_error_count = 0
@@ -118,7 +118,7 @@ class RSSPollerService:
             log.error("polling_feed_error", error=str(e))
             feed.poll_error_count += 1
             feed.last_error = str(e)[:500]
-            feed.last_polled_at = datetime.now(timezone.utc)
+            feed.last_polled_at = datetime.now(UTC)
             return []
 
     def _parse_entry(self, entry: dict, feed: RSSFeed) -> DiscoveredPaper | None:

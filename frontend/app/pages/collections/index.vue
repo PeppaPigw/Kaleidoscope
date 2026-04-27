@@ -201,7 +201,7 @@ function formatDate(dt: string) {
                 :disabled="creating"
                 autofocus
                 @keydown.enter="createGroup"
-              />
+              >
             </div>
             <div class="ks-col-modal-field">
               <label class="ks-col-modal-label">Description (optional)</label>
@@ -211,7 +211,7 @@ function formatDate(dt: string) {
                 class="ks-col-modal-input"
                 placeholder="Brief description…"
                 :disabled="creating"
-              />
+              >
             </div>
           </div>
           <div class="ks-col-modal-actions">

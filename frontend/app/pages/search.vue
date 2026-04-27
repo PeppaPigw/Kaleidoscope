@@ -396,7 +396,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
             src="/brand/kaleidoscope-icon-mark.png"
             alt=""
             class="kss-spotlight__logo"
-          />
+          >
           <h1 class="kss-spotlight__brand">Kaleidoscope</h1>
           <p class="kss-spotlight__sub">Relation Network Explorer</p>
 
@@ -422,7 +422,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
               placeholder="Search papers, topics, authors…"
               :disabled="isSearching"
               @keydown.enter="handleSpotlightSubmit"
-            />
+            >
             <span v-if="isSearching" class="kss-spotlight__spinner" />
             <kbd v-else class="kss-spotlight__kbd">↵</kbd>
           </div>
@@ -494,7 +494,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
                   class="kss-search-input"
                   placeholder="New search…"
                   @keydown.enter="handleSearchSubmit"
-                />
+                >
               </div>
             </div>
 
@@ -634,7 +634,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
                   </div>
                   <h4 class="kss-card-list__title">{{ n.title }}</h4>
                   <p class="kss-card-list__venue">{{ venueDisplay(n) }}</p>
-                  <hr class="kss-card-list__divider" />
+                  <hr class="kss-card-list__divider" >
                   <p class="kss-card-list__abstract">
                     {{ n.abstract ?? "No abstract available." }}
                   </p>
@@ -829,7 +829,7 @@ const graphDisplayNodes = computed<GraphNode[]>(() =>
                 />
               </svg>
               <p class="kss-center-placeholder__text">
-                Select papers on the left,<br />then click
+                Select papers on the left,<br >then click
                 <strong>Build Graph</strong>
               </p>
             </div>

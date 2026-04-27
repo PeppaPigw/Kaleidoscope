@@ -12,12 +12,12 @@ Supports:
 """
 
 import structlog
-from sqlalchemy import func, select, case, and_, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.author import PaperAuthor
 from app.models.paper import Paper
 from app.models.venue import Venue
-from app.models.author import Author, PaperAuthor
 
 logger = structlog.get_logger(__name__)
 

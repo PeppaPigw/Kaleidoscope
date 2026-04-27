@@ -14,7 +14,7 @@ Strategy:
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -57,6 +57,7 @@ async def fetch_arxiv_papers(category: str, max_results: int) -> list[dict]:
 def _parse_arxiv_feed(xml_text: str) -> list[dict]:
     """Parse arXiv Atom XML feed into list of paper dicts."""
     import re
+
     from lxml import etree
 
     ns = {
@@ -186,8 +187,9 @@ async def convert_via_mineru(
 
 async def clear_existing_papers():
     """Delete all existing papers and authors from the database."""
-    from app.dependencies import async_session_factory
     from sqlalchemy import text
+
+    from app.dependencies import async_session_factory
 
     print("\n🗑️  Clearing existing data...")
     async with async_session_factory() as session:
@@ -226,9 +228,10 @@ async def clear_existing_papers():
 
 async def _insert_paper(session, paper_data: dict):
     """Insert one paper + authors. Returns Paper ORM object, or None if skipped."""
-    from app.models.paper import Paper
-    from app.models.author import Author, PaperAuthor
     from sqlalchemy import select
+
+    from app.models.author import Author, PaperAuthor
+    from app.models.paper import Paper
 
     arxiv_id = paper_data["arxiv_id"]
     doi = paper_data.get("doi")
@@ -315,9 +318,10 @@ async def _process_paper(
     stagger_index: small sleep before submit to spread load (2s × index).
     Entire body is wrapped in try/except so one failure never cancels siblings.
     """
+    from sqlalchemy import select
+
     from app.dependencies import async_session_factory
     from app.models.paper import Paper
-    from sqlalchemy import select
 
     arxiv_id = paper_data["arxiv_id"]
 
@@ -340,7 +344,7 @@ async def _process_paper(
                 "markdown_provenance": {
                     "source": "mineru",
                     "model_version": "vlm",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "markdown_length": len(markdown),
                     "input_url": paper_data["pdf_url"],
                     "images_uploaded": len(mineru_result.image_urls),
@@ -357,7 +361,7 @@ async def _process_paper(
             try:
                 analysis = await analyst.analyse(paper)
                 update_kw["deep_analysis"] = analysis
-                update_kw["deep_analysis_at"] = datetime.now(timezone.utc)
+                update_kw["deep_analysis_at"] = datetime.now(UTC)
                 if analysis.get("status") == "ok":
                     async with lock:
                         counters["analysed"] += 1
@@ -376,14 +380,13 @@ async def _process_paper(
 
         # Persist — DB write semaphore prevents pool exhaustion
         if update_kw:
-            async with _db_write_sem():
-                async with async_session_factory() as upd:
-                    res = await upd.execute(select(Paper).where(Paper.id == paper.id))
-                    p_obj = res.scalar_one_or_none()
-                    if p_obj:
-                        for k, v in update_kw.items():
-                            setattr(p_obj, k, v)
-                        await upd.commit()
+            async with _db_write_sem(), async_session_factory() as upd:
+                res = await upd.execute(select(Paper).where(Paper.id == paper.id))
+                p_obj = res.scalar_one_or_none()
+                if p_obj:
+                    for k, v in update_kw.items():
+                        setattr(p_obj, k, v)
+                    await upd.commit()
 
     except Exception as exc:
         print(f"  ✗ [{arxiv_id}] unhandled: {type(exc).__name__}: {exc}")
@@ -391,9 +394,9 @@ async def _process_paper(
 
 async def seed_papers():
     """Main seeding function — concurrent MinerU + LLM processing."""
+    from app.clients.oss_client import OssClient
     from app.dependencies import async_session_factory
     from app.services.analysis.paper_analyst import PaperAnalystService
-    from app.clients.oss_client import OssClient
 
     print("=" * 60)
     print("  Kaleidoscope — ArXiv Paper Seeder (concurrent)")
@@ -483,8 +486,9 @@ async def _enrich_all_authors(batch_size: int = 5) -> None:
     (100 req / 5 min on the free tier — each author uses 1–3 requests).
     """
     from sqlalchemy import select
-    from app.models.author import Author
+
     from app.dependencies import async_session_factory
+    from app.models.author import Author
     from app.services.enrichment.author_enrichment import AuthorEnrichmentService
 
     print("\n🔬 Phase 4 — Enriching authors from Semantic Scholar...")

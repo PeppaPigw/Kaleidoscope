@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncGenerator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
@@ -37,7 +37,7 @@ def broadcast_event(event_type: str, payload: dict) -> None:
     message = {
         "type": event_type,
         "data": payload,
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
     }
     dead: list[asyncio.Queue] = []
     for queue in _subscribers:
@@ -70,7 +70,7 @@ async def _event_stream(
                 )
                 payload = json.dumps(message, default=str)
                 yield f"data: {payload}\n\n"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send heartbeat ping to keep connection alive
                 yield ": heartbeat\n\n"
     finally:

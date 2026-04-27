@@ -1,5 +1,11 @@
 """Schemas package."""
 
+from app.schemas.feed import (
+    PollResult,
+    RSSFeedCreate,
+    RSSFeedListResponse,
+    RSSFeedResponse,
+)
 from app.schemas.paper import (
     BatchImportResult,
     ImportResult,
@@ -10,12 +16,6 @@ from app.schemas.paper import (
     PaperResponse,
 )
 from app.schemas.search import SearchHit, SearchRequest, SearchResponse
-from app.schemas.feed import (
-    RSSFeedCreate,
-    RSSFeedListResponse,
-    RSSFeedResponse,
-    PollResult,
-)
 
 __all__ = [
     "PaperImportRequest",

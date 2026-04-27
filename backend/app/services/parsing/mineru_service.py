@@ -6,10 +6,11 @@ PaperReference rows for citation graph consistency.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -132,7 +133,7 @@ class MinerUParsingService:
                 MinerUModel.HTML.value if is_html else MinerUModel.PDF_VLM.value
             ),
             "task_id": extraction.task_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "markdown_length": len(markdown),
         }
 

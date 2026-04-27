@@ -11,7 +11,7 @@ import hashlib
 import io
 import os
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -76,7 +76,7 @@ class PDFBatchImporter:
                 "source": "local_upload",
                 "original_filename": filename,
                 "content_hash": content_hash,
-                "upload_timestamp": datetime.now(timezone.utc).isoformat(),
+                "upload_timestamp": datetime.now(UTC).isoformat(),
                 "uploaded_by_user": user_id or "anonymous",
             },
         )

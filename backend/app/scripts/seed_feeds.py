@@ -1,6 +1,7 @@
 """Seed script — populate the database with the 65 RSS sources from source.md."""
 
 import asyncio
+
 from app.dependencies import async_session_factory
 from app.models.feed import RSSFeed
 

@@ -18,8 +18,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
-from app.models.paper import Paper, PaperReference
 from app.models.author import Author, PaperAuthor
+from app.models.paper import Paper, PaperReference
 from app.models.venue import Venue
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -550,7 +550,6 @@ async def get_data_coverage(
     ).scalar() or 0
 
     # Institution coverage: papers with ≥1 author having institution
-    from app.models.author import Institution
 
     with_inst = (
         await db.execute(

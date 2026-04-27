@@ -81,7 +81,7 @@ class LinksService:
             await self._client.aclose()
             self._client = None
 
-    async def __aenter__(self) -> "LinksService":
+    async def __aenter__(self) -> LinksService:
         return self
 
     async def __aexit__(self, *_) -> None:

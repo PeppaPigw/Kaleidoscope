@@ -17,10 +17,9 @@ import httpx
 import structlog
 
 from app.clients.arxiv import ArxivClient
-from app.clients.unpaywall import UnpaywallClient
 from app.clients.semantic_scholar import SemanticScholarClient
+from app.clients.unpaywall import UnpaywallClient
 from app.config import settings
-from app.exceptions import PDFAcquisitionError
 from app.models.paper import Paper
 from app.utils.rate_limiter import PUBLISHER_LIMITER
 
@@ -342,55 +341,54 @@ class PDFDownloaderService:
         doi_hash = hashlib.sha256(paper.doi.encode()).hexdigest()[:16]
         base_url = f"https://api.elsevier.com/content/article/doi/{paper.doi}"
 
-        async with PUBLISHER_LIMITER:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Try 1: Full-text XML (structured, ideal for NLP)
-                resp = await client.get(
-                    base_url,
-                    headers={
-                        "X-ELS-APIKey": settings.elsevier_tdm_api_key,
-                        "Accept": "text/xml",
-                    },
-                )
-                if resp.status_code == 200 and "xml" in resp.headers.get(
-                    "content-type", ""
-                ):
-                    object_key = f"papers/{doi_hash}/elsevier_fulltext.xml"
-                    self._persist_content(object_key, resp.content)
-                    return AcquisitionResult(
-                        success=True,
-                        content_type="xml",
-                        storage_path=object_key,
-                        source="elsevier_tdm",
-                        url=base_url,
-                        content_bytes=resp.content,
-                    )
-
-                # Try 2: PDF
-                resp = await client.get(
-                    base_url,
-                    headers={
-                        "X-ELS-APIKey": settings.elsevier_tdm_api_key,
-                        "Accept": "application/pdf",
-                    },
-                )
-                if resp.status_code == 200:
-                    object_key = f"papers/{doi_hash}/elsevier.pdf"
-                    self._persist_content(object_key, resp.content)
-                    return AcquisitionResult(
-                        success=True,
-                        content_type="pdf",
-                        storage_path=object_key,
-                        source="elsevier_tdm",
-                        url=base_url,
-                        content_bytes=resp.content,
-                    )
-
+        async with PUBLISHER_LIMITER, httpx.AsyncClient(timeout=30.0) as client:
+            # Try 1: Full-text XML (structured, ideal for NLP)
+            resp = await client.get(
+                base_url,
+                headers={
+                    "X-ELS-APIKey": settings.elsevier_tdm_api_key,
+                    "Accept": "text/xml",
+                },
+            )
+            if resp.status_code == 200 and "xml" in resp.headers.get(
+                "content-type", ""
+            ):
+                object_key = f"papers/{doi_hash}/elsevier_fulltext.xml"
+                self._persist_content(object_key, resp.content)
                 return AcquisitionResult(
-                    success=False,
+                    success=True,
+                    content_type="xml",
+                    storage_path=object_key,
                     source="elsevier_tdm",
-                    error=f"HTTP {resp.status_code}",
+                    url=base_url,
+                    content_bytes=resp.content,
                 )
+
+            # Try 2: PDF
+            resp = await client.get(
+                base_url,
+                headers={
+                    "X-ELS-APIKey": settings.elsevier_tdm_api_key,
+                    "Accept": "application/pdf",
+                },
+            )
+            if resp.status_code == 200:
+                object_key = f"papers/{doi_hash}/elsevier.pdf"
+                self._persist_content(object_key, resp.content)
+                return AcquisitionResult(
+                    success=True,
+                    content_type="pdf",
+                    storage_path=object_key,
+                    source="elsevier_tdm",
+                    url=base_url,
+                    content_bytes=resp.content,
+                )
+
+            return AcquisitionResult(
+                success=False,
+                source="elsevier_tdm",
+                error=f"HTTP {resp.status_code}",
+            )
 
     # ─── Private: Wiley TDM ──────────────────────────────────────────
 
@@ -405,34 +403,33 @@ class PDFDownloaderService:
         doi_hash = hashlib.sha256(paper.doi.encode()).hexdigest()[:16]
         url = f"https://api.wiley.com/onlinelibrary/tdm/v1/articles/{paper.doi}"
 
-        async with PUBLISHER_LIMITER:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    url,
-                    headers={
-                        "Wiley-TDM-Client-Token": settings.wiley_token,
-                        "Accept": "application/pdf",
-                    },
-                )
-                if resp.status_code == 200:
-                    content_type = resp.headers.get("content-type", "")
-                    if "pdf" in content_type:
-                        object_key = f"papers/{doi_hash}/wiley.pdf"
-                        self._persist_content(object_key, resp.content)
-                        return AcquisitionResult(
-                            success=True,
-                            content_type="pdf",
-                            storage_path=object_key,
-                            source="wiley_tdm",
-                            url=url,
-                            content_bytes=resp.content,
-                        )
+        async with PUBLISHER_LIMITER, httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "Wiley-TDM-Client-Token": settings.wiley_token,
+                    "Accept": "application/pdf",
+                },
+            )
+            if resp.status_code == 200:
+                content_type = resp.headers.get("content-type", "")
+                if "pdf" in content_type:
+                    object_key = f"papers/{doi_hash}/wiley.pdf"
+                    self._persist_content(object_key, resp.content)
+                    return AcquisitionResult(
+                        success=True,
+                        content_type="pdf",
+                        storage_path=object_key,
+                        source="wiley_tdm",
+                        url=url,
+                        content_bytes=resp.content,
+                    )
 
-                return AcquisitionResult(
-                    success=False,
-                    source="wiley_tdm",
-                    error=f"HTTP {resp.status_code}",
-                )
+            return AcquisitionResult(
+                success=False,
+                source="wiley_tdm",
+                error=f"HTTP {resp.status_code}",
+            )
 
     # ─── Private: Springer Nature ────────────────────────────────────
 
@@ -447,27 +444,26 @@ class PDFDownloaderService:
         doi_hash = hashlib.sha256(paper.doi.encode()).hexdigest()[:16]
         url = f"https://api.springernature.com/openaccess/jats/doi/{paper.doi}"
 
-        async with PUBLISHER_LIMITER:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    url,
-                    params={"api_key": settings.springer_api_key},
-                    headers={"Accept": "application/xml"},
-                )
-                if resp.status_code == 200 and len(resp.content) > 200:
-                    object_key = f"papers/{doi_hash}/springer_fulltext.xml"
-                    self._persist_content(object_key, resp.content)
-                    return AcquisitionResult(
-                        success=True,
-                        content_type="xml",
-                        storage_path=object_key,
-                        source="springer_tdm",
-                        url=url,
-                        content_bytes=resp.content,
-                    )
-
+        async with PUBLISHER_LIMITER, httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                url,
+                params={"api_key": settings.springer_api_key},
+                headers={"Accept": "application/xml"},
+            )
+            if resp.status_code == 200 and len(resp.content) > 200:
+                object_key = f"papers/{doi_hash}/springer_fulltext.xml"
+                self._persist_content(object_key, resp.content)
                 return AcquisitionResult(
-                    success=False,
+                    success=True,
+                    content_type="xml",
+                    storage_path=object_key,
                     source="springer_tdm",
-                    error=f"HTTP {resp.status_code}",
+                    url=url,
+                    content_bytes=resp.content,
                 )
+
+            return AcquisitionResult(
+                success=False,
+                source="springer_tdm",
+                error=f"HTTP {resp.status_code}",
+            )

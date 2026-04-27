@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.collection import (
+    DEFAULT_USER_ID,
+    Collection,
     CollectionChatMessage,
     CollectionChatThread,
     CollectionFeedSubscription,
-    DEFAULT_USER_ID,
-    Collection,
     CollectionPaper,
     PaperTag,
     Tag,
@@ -455,7 +455,6 @@ class CollectionService:
 
         # venue: substring in raw_metadata->>'crossref_venue'
         if filt.get("venue"):
-            from sqlalchemy import cast as sa_cast, String
 
             venue_expr = Paper.raw_metadata["crossref_venue"].as_string()
             query = query.where(venue_expr.ilike(f"%{filt['venue']}%"))
@@ -523,7 +522,6 @@ class CollectionService:
     @staticmethod
     def _paper_matches_smart_filter(paper: Paper, filt: dict) -> bool:
         """Evaluate whether a paper matches a smart_filter dict (in-process check)."""
-        from datetime import date
 
         # year_gte / year_lte
         if paper.published_at:

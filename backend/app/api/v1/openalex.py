@@ -362,13 +362,13 @@ async def build_citation_graph(body: GraphRequest, db: AsyncSession = Depends(ge
     all_node_ids = origin_ids | set(ref_papers.keys())
     nodes: list[dict] = []
 
-    for oid, w in origin_raw.items():
+    for _oid, w in origin_raw.items():
         p = _extract_paper(w)
         p["is_origin"] = True
         p.pop("_referenced_works", None)
         nodes.append(p)
 
-    for rid, p in ref_papers.items():
+    for _rid, p in ref_papers.items():
         p_clean = {k: v for k, v in p.items() if k != "_referenced_works"}
         p_clean["is_origin"] = False
         nodes.append(p_clean)

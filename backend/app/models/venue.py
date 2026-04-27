@@ -1,9 +1,16 @@
 """Venue model — journals, conferences, and preprint servers."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.paper import Paper
 
 
 class Venue(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -30,7 +37,7 @@ class Venue(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     openalex_id: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
 
     # --- Relationships ---
-    papers: Mapped[list["Paper"]] = relationship("Paper", back_populates="venue")
+    papers: Mapped[list[Paper]] = relationship("Paper", back_populates="venue")
 
     def __repr__(self) -> str:
         return f"<Venue(id={self.id}, name={self.name})>"

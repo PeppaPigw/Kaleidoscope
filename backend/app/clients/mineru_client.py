@@ -246,7 +246,7 @@ class MinerUClient:
         # Re-key by original relative path
         return {
             rel_path: url_map[f"Kaleidoscope/{paper_slug}/{rel_path}"]
-            for rel_path, _ in zip(images.keys(), items)
+            for rel_path, _ in zip(images.keys(), items, strict=False)
             if f"Kaleidoscope/{paper_slug}/{rel_path}" in url_map
         }
 

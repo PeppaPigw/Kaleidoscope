@@ -178,7 +178,7 @@ async function handleFinish() {
               class="ks-interests-input"
               placeholder="e.g. diffusion models, RAG, LLM safety…"
               @keydown="handleKeywordKeydown"
-            />
+            >
             <button
               type="button"
               class="ks-interests-add-btn"

@@ -4,7 +4,7 @@
 
 <h1 align="center">Kaleidoscope</h1>
 <p align="center">
-  <em>学术论文智能分析平台</em>
+  <em>学术论文智能分析平台 · 认知偏差检测引擎</em>
 </p>
 
 <p align="center">
@@ -15,6 +15,8 @@
   <img src="https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white" alt="Python 3.12" />
   <img src="https://img.shields.io/badge/nuxt-3.19-00DC82?logo=nuxt.js&logoColor=white" alt="Nuxt 3" />
   <img src="https://img.shields.io/badge/fastapi-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/工具数-2075+-purple" alt="2075+ Tools" />
+  <img src="https://img.shields.io/badge/MCP-兼容-blueviolet" alt="MCP Compatible" />
   <img src="https://img.shields.io/badge/license-KNCL%20v1.0-orange" alt="KNCL v1.0 License" />
 </p>
 
@@ -22,7 +24,7 @@
 
 ## 概述
 
-Kaleidoscope 是一个**全栈学术研究平台**，用于发现、抓取、阅读和分析学术论文。采用 **Markdown 优先** 的存储策略——通过 MinerU 将论文从 HTML/PDF 转换为 Markdown，无需存储 PDF 即可实现丰富的浏览器内阅读体验。
+Kaleidoscope 是一个**全栈学术研究平台**，用于发现、抓取、阅读和分析学术论文。它将 **Markdown 优先**的存储策略与强大的**认知分析引擎**相结合——超过 2,075 个专业 AI 工具，可检测学术论述中的认知偏差、逻辑谬误、修辞扭曲和推理缺陷。
 
 ### 核心功能
 
@@ -30,29 +32,65 @@ Kaleidoscope 是一个**全栈学术研究平台**，用于发现、抓取、阅
 - 📖 **Markdown 阅读器** — 在浏览器中阅读论文，支持目录导航、字体调节、章节跳转
 - 📊 **数据分析仪表盘** — 文库洞察：时间线、分类分布、活跃作者、关键词云、引用网络
 - 🔍 **多模态搜索** — 关键词搜索、语义搜索、声明优先搜索
-- 🧠 **AI 深度分析** — 证据实验室、跨论文比较、矛盾检测
+- 🧠 **认知分析引擎** — 2,075+ AI 驱动的深度推理分析工具
+- 🤖 **自主研究代理** — 多步骤研究工作流与工具编排
+- 🔌 **MCP 服务器** — Model Context Protocol 集成，支持外部 AI 代理访问
+- 📦 **Python SDK** — 编程式访问所有平台能力
 - 🌐 **中英双语界面** — 完整的国际化支持
 - 🔗 **原文链接** — 一键跳转 arXiv 摘要页、PDF、ar5iv HTML
+
+---
+
+## 认知分析引擎
+
+核心差异化能力 — 2,075+ 检测工具，按领域组织的完整认知分析分类体系：
+
+| 领域 | 示例 | 数量 |
+|------|------|------|
+| 认知偏差 | 锚定效应、可得性启发、确认偏差、达克效应 | 200+ |
+| 逻辑谬误 | 人身攻击、稻草人、虚假两难、滑坡谬误 | 150+ |
+| 因果推理 | 事后归因、反向因果、虚假相关、单因谬误 | 100+ |
+| 认知尺度 | 生态谬误、合成/分割谬误、范围忽视 | 80+ |
+| 社会动力学 | 群体思维、多元无知、声誉级联、从众压力 | 100+ |
+| 制度性 | 引用卡特尔、唯证书论、监管俘获、同行评审剧场 | 80+ |
+| 沟通 | 海狮式提问、语气管控、术语门槛、战略模糊 | 80+ |
+| 叙事 | 起源神话、幸存者偏差、目的论思维、后见之明 | 80+ |
+| 决策 | 过早闭合、分析瘫痪、承诺升级 | 80+ |
+| 方法论 | P值操纵、德州神枪手、路灯效应、物化谬误 | 80+ |
+| 时间性 | 现在主义、基线漂移、近因错觉、历史终结幻觉 | 60+ |
+| 情绪 | 情感注入、道德愤怒替代、共情鸿沟 | 60+ |
+| 权力与身份 | 认知不公、制造同意、部落认识论 | 100+ |
+| 技术 | 算法不透明、过滤气泡、自动化偏差、数字遗忘 | 60+ |
+| 元认知 | 盲点偏差、解释深度错觉、校准忽视 | 60+ |
+| + 更多 | 生态、美德、注意力、测量、集体… | 600+ |
+
+每个工具接受领域特定参数，返回结构化 JSON，包含检测结果、严重程度评级和可操作建议。
 
 ---
 
 ## 系统架构
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   前端 (Nuxt 3)                          │
-│  Vue 3 · TypeScript · Lucide Icons · GSAP 动画           │
-└─────────────────────┬───────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      前端 (Nuxt 3)                           │
+│   Vue 3 · TypeScript · Lucide Icons · GSAP 动画             │
+└─────────────────────┬───────────────────────────────────────┘
                       │ REST API
-┌─────────────────────▼───────────────────────────────────┐
-│                   后端 (FastAPI)                          │
-│  SQLAlchemy · Celery · Pydantic · Structlog              │
-├─────────────┬───────────┬───────────┬───────────────────┤
-│ PostgreSQL  │   Redis   │ Meilisearch│    Qdrant         │
-│  (主数据库)  │  (缓存)    │ (全文搜索)  │  (向量嵌入)       │
-├─────────────┴───────────┴───────────┴───────────────────┤
-│  Neo4j (图数据库)  ·  MinIO (对象存储)  ·  GROBID (PDF)    │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────▼───────────────────────────────────────┐
+│                    后端 (FastAPI)                             │
+│   SQLAlchemy · Celery · Pydantic · Structlog                 │
+├──────────────────────────────────────────────────────────────┤
+│  代理层                                                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │ 工具调度器    │  │ 研究运行时    │  │ MCP 服务器       │   │
+│  │ (2075 工具)  │  │ (自主执行)    │  │ (2075+ 工具)    │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+├─────────────┬───────────┬───────────┬───────────────────────┤
+│ PostgreSQL  │   Redis   │ Meilisearch│    Qdrant            │
+│  (主数据库)  │  (缓存)    │ (全文搜索)  │  (向量嵌入)        │
+├─────────────┴───────────┴───────────┴───────────────────────┤
+│  Neo4j (图数据库)  ·  MinIO (对象存储)  ·  GROBID (PDF)      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -61,39 +99,32 @@ Kaleidoscope 是一个**全栈学术研究平台**，用于发现、抓取、阅
 
 ```
 Kaleidoscope/
-├── backend/                    # Python FastAPI 后端
+├── backend/
 │   ├── app/
 │   │   ├── api/v1/             # REST 接口 (20+ 路由)
-│   │   ├── clients/            # 外部 API 客户端 (arXiv, MinerU, OpenAlex…)
+│   │   ├── clients/            # 外部 API 客户端 (arXiv, MinerU, OpenAlex, LLM)
 │   │   ├── models/             # SQLAlchemy ORM 模型
 │   │   ├── schemas/            # Pydantic 请求/响应模式
-│   │   ├── services/           # 业务逻辑 (解析、搜索、分析…)
+│   │   ├── services/           # 2075+ 认知分析服务
+│   │   │   ├── agent/          # 工具调度器 & 代理编排
+│   │   │   ├── extraction/     # QA 引擎、摘要器
+│   │   │   ├── search/         # 向量 & 混合搜索
+│   │   │   └── graph/          # 引用图谱分析
 │   │   ├── tasks/              # Celery 异步任务
-│   │   ├── scripts/            # CLI 脚本 (数据种子)
-│   │   ├── graph_db/           # Neo4j 驱动 & 查询
-│   │   └── utils/              # 通用工具函数
+│   │   ├── mcp_server.py       # MCP 协议服务器
+│   │   └── graph_db/           # Neo4j 驱动 & 查询
+│   ├── kaleidoscope_sdk/       # Python SDK 客户端
 │   ├── alembic/                # 数据库迁移
-│   ├── docker/                 # Docker Compose 基础设施
-│   ├── tests/                  # Pytest 测试套件
 │   └── pyproject.toml          # Python 依赖 & 工具配置
 │
 ├── frontend/                   # Nuxt 3 前端
-│   ├── app/
-│   │   ├── pages/              # 路由页面 (仪表盘、阅读器、分析…)
-│   │   ├── components/         # Vue 组件 (14 个功能域)
-│   │   ├── composables/        # 共享组合式函数 (useApi, useTranslation)
-│   │   ├── layouts/            # 应用布局
-│   │   └── assets/             # CSS 设计系统
-│   ├── nuxt.config.ts
-│   └── package.json
+│   ├── components/             # Vue 组件
+│   ├── pages/                  # 路由页面
+│   ├── composables/            # 组合式函数
+│   ├── i18n/                   # 国际化 (en/zh)
+│   └── nuxt.config.ts
 │
-├── docs/                       # 项目文档
-│   ├── design/                 # UI/UX 设计规格 (5 轮迭代)
-│   └── memo/                   # 可行性分析、功能规格
-│
-├── docker-compose.yml          # → backend/docker/docker-compose.yml
-├── Makefile                    # 开发快捷命令
-└── README.md
+└── docker-compose.yml          # 一键启动全部服务
 ```
 
 ---
@@ -102,121 +133,69 @@ Kaleidoscope/
 
 ### 环境要求
 
-- **Python 3.12+** 和 **pip**
-- **Node.js 20+** 和 **pnpm**
-- **Docker** 和 **Docker Compose**
+- Python 3.12+, Node.js 20+, Docker & Docker Compose
+- PostgreSQL 16, Redis 7, Qdrant, Meilisearch, Neo4j 5, MinIO
 
-### 1. 克隆项目
+### 安装
 
 ```bash
-git clone <repo-url> Kaleidoscope
+# 克隆仓库
+git clone https://github.com/PeppaPigw/Kaleidoscope.git
 cd Kaleidoscope
-```
 
-### 2. 启动基础设施
-
-```bash
+# 启动基础设施
 docker compose up -d
-# 启动: PostgreSQL · Redis · Meilisearch · Qdrant · Neo4j · MinIO · GROBID
-```
 
-该 compose 栈现在固定使用 `kaleidoscope` project 和命名卷。如果你本机还留着旧的 `docker-postgres-1` 栈，请先停掉它，确保 `localhost:5432` 指向预期数据库。
-
-### 3. 配置后端环境变量
-
-```bash
+# 后端
 cd backend
-cp .env.example .env
-```
-
-在 `.env` 中填写以下最低配置（与 Docker 默认值对应）：
-
-```env
-DATABASE_URL=postgresql+asyncpg://kaleidoscope:kaleidoscope@localhost:5432/kaleidoscope
-REDIS_URL=redis://localhost:6379/0
-MEILI_URL=http://localhost:7700
-MEILI_MASTER_KEY=kaleidoscope-meili-key
-QDRANT_URL=http://localhost:6333
-
-# AI 功能所需
-LLM_API_KEY=your-api-key
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-```
-
-### 4. 启动后端
-
-```bash
-# 安装依赖（首次运行）
+cp .env.example .env        # 编辑配置
 pip install -e ".[dev]"
-
-# 执行数据库迁移
 alembic upgrade head
+uvicorn app.main:app --reload
 
-# 启动开发服务器  →  http://localhost:8000
-uvicorn app.main:create_app --factory --reload --port 8000
-```
-
-### 5. 启动前端
-
-```bash
+# 前端
 cd ../frontend
-pnpm install        # 首次运行
-pnpm dev            # http://localhost:3000
+npm install
+npm run dev
 ```
 
-### 6.（快捷方式）并行启动前后端
-
-完成首次依赖安装后，日常开发只需一条命令：
+### MCP 服务器
 
 ```bash
-make dev            # 自动拉起基础设施、等待 Postgres/Redis、执行迁移，再启动前后端
-```
-
-如果 `make dev` 因 PostgreSQL 卷不匹配而中止，说明还有旧的 Docker Compose 栈占着 `5432`。先执行 `docker compose -p docker -f backend/docker/docker-compose.yml down`，再重试。
-
-### 7. 初始数据填充（可选）
-
-```bash
+# 启动 MCP 服务器供外部 AI 代理使用
 cd backend
-python -m app.scripts.seed_arxiv     # 通过 MinerU 抓取 50 篇 arXiv 论文
-python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
+python -m app.mcp_server
+```
+
+### Python SDK
+
+```python
+from kaleidoscope_sdk import KaleidoscopeClient
+
+client = KaleidoscopeClient(base_url="http://localhost:8000")
+
+# 使用认知分析工具
+result = client.tool("anchoring_effect_detect", {
+    "claim": "初始估计严重影响了最终判断",
+    "domain": "behavioral_economics"
+})
 ```
 
 ---
 
-## Makefile 命令
+## API 概览
 
-| 命令           | 说明                                    |
-| -------------- | --------------------------------------- |
-| `make dev`     | 自动准备基础设施和迁移后，再启动前后端  |
-| `make infra`   | 启动全部 Docker 基础设施服务            |
-| `make setup`   | 完整项目初始化 (基础设施 + 依赖 + 迁移) |
-| `make seed`    | 运行 arXiv 种子脚本 (50 篇论文)         |
-| `make migrate` | 执行 Alembic 数据库迁移                 |
-| `make lint`    | 代码检查: 后端 (ruff) + 前端 (eslint)   |
-| `make test`    | 运行所有测试                            |
-| `make clean`   | 清理缓存和构建产物                      |
-
-运行 `make help` 查看所有可用命令。
-
----
-
-## API 接口
-
-所有接口挂载在 `/api/v1/` 下，主要分组：
-
-| 分组     | 前缀                   | 说明                          |
+| 模块     | 路径                   | 说明                          |
 | -------- | ---------------------- | ----------------------------- |
-| 论文     | `/papers`              | 增删改查、搜索、内容获取      |
-| 内容     | `/papers/{id}/content` | Markdown 阅读器数据           |
-| 数据分析 | `/analytics`           | 文库统计与洞察                |
-| 合集     | `/collections`         | 论文组织管理                  |
+| 论文     | `/papers`              | CRUD、批量导入、Markdown 阅读 |
+| 分析     | `/analysis`            | AI 摘要、QA、证据评估         |
+| 代理     | `/agent`               | 自主研究代理 (2075+ 工具)     |
 | 搜索     | `/search`              | 多模态搜索                    |
-| OpenAlex | `/openalex`            | 外部论文搜索 + 引用关系图构建 |
+| OpenAlex | `/openalex`            | 外部论文搜索 + 引用关系图     |
 | 知识     | `/knowledge`           | 笔记图谱                      |
 | 订阅源   | `/feeds`               | RSS 管理                      |
 | 智能分析 | `/intelligence`        | AI 驱动的深度洞察             |
+| MCP      | `stdio / SSE`          | Model Context Protocol 接口   |
 
 后端运行后，访问 `http://localhost:8000/docs` 查看交互式 API 文档。
 
@@ -233,7 +212,8 @@ python -m app.scripts.seed_feeds     # 加载 65 个 RSS 订阅源
 | 图数据库 | Neo4j 5                                       |
 | 对象存储 | MinIO (S3 兼容)                               |
 | PDF 解析 | GROBID, MinerU API                            |
-| AI       | LLM 集成 (可配置端点)                         |
+| AI       | LLM 集成 (可配置端点), MCP 协议               |
+| SDK      | kaleidoscope_sdk (Python)                     |
 
 ---
 

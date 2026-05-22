@@ -4,7 +4,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.llm_client import LLMClient
+from app.clients.llm_client import DEFAULT_CHAT_MODEL, LLMClient
 from app.models.paper import Paper
 from app.services.extraction.chunker import TextChunker
 from app.services.extraction.prompts import (
@@ -114,7 +114,7 @@ class PaperQAEngine:
         answer = await self.llm.complete(
             prompt=prompt,
             system=QA_SYSTEM,
-            model="gpt-4o-mini",
+            model=DEFAULT_CHAT_MODEL,
             max_tokens=1000,
         )
 
@@ -133,7 +133,7 @@ class PaperQAEngine:
         return QAResult(
             answer=answer,
             sources=sources,
-            model="gpt-4o-mini",
+            model=DEFAULT_CHAT_MODEL,
             paper_id=paper_id,
         )
 
@@ -197,7 +197,7 @@ class PaperQAEngine:
         answer = await self.llm.complete(
             prompt=prompt,
             system=QA_MULTI_DOC_SYSTEM,
-            model="gpt-4o-mini",
+            model=DEFAULT_CHAT_MODEL,
             max_tokens=1500,
         )
 
@@ -209,7 +209,7 @@ class PaperQAEngine:
         return QAResult(
             answer=answer,
             sources=all_sources,
-            model="gpt-4o-mini",
+            model=DEFAULT_CHAT_MODEL,
             paper_id="",
         )
 

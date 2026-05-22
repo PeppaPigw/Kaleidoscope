@@ -16,9 +16,9 @@ logger = structlog.get_logger(__name__)
 # Collection configurations following database-guidelines.md
 PAPER_COLLECTION = "paper_embeddings"
 # The actual dim is confirmed on first embed call; Qdrant collection is created lazily.
-PAPER_VECTOR_DIM = 2048
+PAPER_VECTOR_DIM = 1024
 CHUNK_COLLECTION = "chunk_embeddings"
-CHUNK_VECTOR_DIM = 2048  # same model for chunks
+CHUNK_VECTOR_DIM = 1024
 
 
 class VectorSearchService:
@@ -197,9 +197,9 @@ class VectorSearchService:
             if conditions:
                 qdrant_filter = models.Filter(must=conditions)
 
-        results = self.client.search(
+        results = self.client.query_points(
             collection_name=collection,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=qdrant_filter,
         )
@@ -208,7 +208,7 @@ class VectorSearchService:
         logger.debug(
             "vector_search_complete",
             query=query[:50],
-            results=len(results),
+            results=len(results.points),
             time_ms=f"{elapsed:.1f}",
         )
 
@@ -218,7 +218,7 @@ class VectorSearchService:
                 "score": hit.score,
                 "payload": hit.payload,
             }
-            for hit in results
+            for hit in results.points
         ]
 
     def index_paper(

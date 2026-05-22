@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kaleidoscope": {
+      "command": "python",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "backend",
+      "env": {
+        "KALEIDOSCOPE_URL": "http://127.0.0.1:8000",
+        "KALEIDOSCOPE_API_KEY": "sk-kaleidoscope"
+      }
+    }
+  }
+}

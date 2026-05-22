@@ -136,6 +136,7 @@ class CitationGraphService:
             direction: "forward" (papers citing this), "backward" (references), or "both"
         """
         result = {"paper_id": paper_id}
+        neo4j_available = True
 
         if direction in ("forward", "both"):
             try:
@@ -143,6 +144,7 @@ class CitationGraphService:
                     Q.GET_FORWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
                 )
             except Exception as exc:
+                neo4j_available = False
                 logger.warning("graph_forward_citations_unavailable", error=str(exc))
                 result["forward_citations"] = []
 
@@ -152,8 +154,75 @@ class CitationGraphService:
                     Q.GET_BACKWARD_CITATIONS, {"paper_id": paper_id, "limit": limit}
                 )
             except Exception as exc:
+                neo4j_available = False
                 logger.warning("graph_backward_citations_unavailable", error=str(exc))
                 result["backward_citations"] = []
+
+        # PostgreSQL fallback when Neo4j is unavailable
+        if not neo4j_available and self.db:
+            from sqlalchemy import text as sa_text
+            if direction in ("backward", "both"):
+                rows = await self.db.execute(sa_text("""
+                    SELECT pr.cited_paper_id, pr.raw_title, pr.raw_doi, pr.raw_year,
+                           p.title as resolved_title, p.doi as resolved_doi,
+                           LEFT(pr.raw_string, 200) as raw_string
+                    FROM paper_references pr
+                    LEFT JOIN papers p ON p.id = pr.cited_paper_id
+                    WHERE pr.citing_paper_id = :pid
+                    ORDER BY pr.position
+                    LIMIT :lim
+                """), {"pid": paper_id, "lim": limit})
+                backward = []
+                for row in rows.all():
+                    title = row[4] or row[1] or (row[6][:150] if row[6] else None)
+                    doi = row[5] or row[2]
+                    if not title:
+                        title = f"DOI: {doi}" if doi else "Unknown reference"
+                    entry = {
+                        "cited_paper_id": str(row[0]) if row[0] else None,
+                        "title": title,
+                        "doi": doi,
+                        "year": row[3],
+                        "resolved": row[0] is not None,
+                    }
+                    backward.append(entry)
+                result["backward_citations"] = backward
+
+            if direction in ("forward", "both"):
+                rows = await self.db.execute(sa_text("""
+                    SELECT pr.citing_paper_id, p.title, p.doi,
+                           EXTRACT(YEAR FROM p.published_at)::int as year
+                    FROM paper_references pr
+                    JOIN papers p ON p.id = pr.citing_paper_id
+                    WHERE pr.cited_paper_id = :pid
+                    LIMIT :lim
+                """), {"pid": paper_id, "lim": limit})
+                forward = []
+                for row in rows.all():
+                    forward.append({
+                        "citing_paper_id": str(row[0]),
+                        "title": row[1],
+                        "doi": row[2],
+                        "year": row[3],
+                        "resolved": True,
+                    })
+                result["forward_citations"] = forward
+
+            result["source"] = "postgresql_fallback"
+
+            # Add summary stats
+            try:
+                stats_row = await self.db.execute(sa_text("""
+                    SELECT COUNT(*) as total,
+                           COUNT(cited_paper_id) as resolved
+                    FROM paper_references
+                    WHERE citing_paper_id = :pid
+                """), {"pid": paper_id})
+                stats = stats_row.one()
+                result["total_references"] = stats[0]
+                result["resolved_references"] = stats[1]
+            except Exception:
+                pass
 
         return result
 
@@ -169,7 +238,31 @@ class CitationGraphService:
             )
         except Exception as exc:
             logger.warning("graph_co_citation_unavailable", error=str(exc))
-            return []
+
+        # PostgreSQL fallback
+        if self.db:
+            from sqlalchemy import text as sa_text
+            try:
+                rows = await self.db.execute(sa_text("""
+                    SELECT pr2.cited_paper_id, p.title, COUNT(*) as co_citation_count
+                    FROM paper_references pr1
+                    JOIN paper_references pr2
+                        ON pr1.citing_paper_id = pr2.citing_paper_id
+                        AND pr2.cited_paper_id != :pid
+                        AND pr2.cited_paper_id IS NOT NULL
+                    JOIN papers p ON p.id = pr2.cited_paper_id
+                    WHERE pr1.cited_paper_id = :pid
+                    GROUP BY pr2.cited_paper_id, p.title
+                    ORDER BY co_citation_count DESC
+                    LIMIT :lim
+                """), {"pid": paper_id, "lim": limit})
+                return [
+                    {"paper_id": str(row[0]), "title": row[1], "co_citation_count": row[2]}
+                    for row in rows.all()
+                ]
+            except Exception:
+                pass
+        return []
 
     async def bibliographic_coupling(
         self, paper_id: str, limit: int = 20
@@ -185,7 +278,31 @@ class CitationGraphService:
             )
         except Exception as exc:
             logger.warning("graph_bibliographic_coupling_unavailable", error=str(exc))
-            return []
+
+        # PostgreSQL fallback
+        if self.db:
+            from sqlalchemy import text as sa_text
+            try:
+                rows = await self.db.execute(sa_text("""
+                    SELECT pr2.citing_paper_id, p.title, COUNT(*) as shared_refs
+                    FROM paper_references pr1
+                    JOIN paper_references pr2
+                        ON pr1.cited_paper_id = pr2.cited_paper_id
+                        AND pr2.citing_paper_id != :pid
+                        AND pr1.cited_paper_id IS NOT NULL
+                    JOIN papers p ON p.id = pr2.citing_paper_id
+                    WHERE pr1.citing_paper_id = :pid
+                    GROUP BY pr2.citing_paper_id, p.title
+                    ORDER BY shared_refs DESC
+                    LIMIT :lim
+                """), {"pid": paper_id, "lim": limit})
+                return [
+                    {"paper_id": str(row[0]), "title": row[1], "shared_references": row[2]}
+                    for row in rows.all()
+                ]
+            except Exception:
+                pass
+        return []
 
     async def get_neighborhood(
         self, paper_id: str, depth: int = 1, limit: int = 100
@@ -211,6 +328,20 @@ class CitationGraphService:
             result = await neo4j_driver.run_query(Q.GRAPH_STATS)
         except Exception as exc:
             logger.warning("graph_stats_unavailable", error=str(exc))
+            # PostgreSQL fallback
+            if self.db:
+                from sqlalchemy import text as sa_text
+                try:
+                    r = await self.db.execute(sa_text("""
+                        SELECT
+                            (SELECT COUNT(*) FROM papers WHERE deleted_at IS NULL) as paper_count,
+                            (SELECT COUNT(*) FROM paper_references) as citation_count,
+                            (SELECT COUNT(DISTINCT author_name_normalized) FROM author_papers) as author_count
+                    """))
+                    row = r.one()
+                    return {"paper_count": row[0], "citation_count": row[1], "author_count": row[2], "source": "postgresql"}
+                except Exception:
+                    pass
             return {"paper_count": 0, "citation_count": 0, "author_count": 0}
         return (
             result[0]
@@ -244,7 +375,9 @@ class RecommendationService:
         except Exception:
             coupling = []
         coupling_ranked = {
-            r["id"]: 1.0 / (i + 1) for i, r in enumerate(coupling) if r.get("id")
+            r.get("id") or r.get("paper_id"): 1.0 / (i + 1)
+            for i, r in enumerate(coupling)
+            if r.get("id") or r.get("paper_id")
         }
 
         # Signal 2: Co-citation
@@ -253,11 +386,14 @@ class RecommendationService:
         except Exception:
             co_cite = []
         co_cite_ranked = {
-            r["id"]: 1.0 / (i + 1) for i, r in enumerate(co_cite) if r.get("id")
+            r.get("id") or r.get("paper_id"): 1.0 / (i + 1)
+            for i, r in enumerate(co_cite)
+            if r.get("id") or r.get("paper_id")
         }
 
         # Signal 3: SPECTER2 vector similarity via Qdrant
         vector_ranked: dict[str, float] = {}
+        vector_raw_scores: dict[str, float] = {}
         try:
             paper_result = await self.db.execute(
                 select(Paper.title, Paper.abstract).where(Paper.id == paper_id)
@@ -274,6 +410,7 @@ class RecommendationService:
                     pid = hit.get("paper_id", "")
                     if pid and pid != paper_id:  # Exclude self
                         vector_ranked[pid] = 1.0 / (i + 1)
+                        vector_raw_scores[pid] = hit.get("score", 0.0)
         except Exception as e:
             log.debug("vector_similarity_skipped", error=str(e))
 
@@ -297,7 +434,8 @@ class RecommendationService:
             if pid in vector_ranked:
                 score += 1.0 / (k + (1.0 / vector_ranked[pid]))
                 reasons.append("embedding_similarity")
-            fused.append({"id": pid, "score": score, "reasons": reasons})
+            similarity = vector_raw_scores.get(pid, 0.0)
+            fused.append({"id": pid, "score": round(similarity, 4) if similarity else round(score, 6), "reasons": reasons})
 
         fused.sort(key=lambda x: x["score"], reverse=True)
 

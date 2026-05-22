@@ -5,6 +5,9 @@ from app.models.api_key import APIKey
 from app.models.author import Author, Institution, PaperAuthor
 from app.models.base import Base
 from app.models.claim import Claim, EvidenceLink
+from app.models.claim_ledger import ClaimConfidenceEvent, ClaimMention, ClaimRelation, GlobalClaim
+from app.models.dossier import ResearchDossier
+from app.models.research_run import ResearchRun, ResearchRunStep
 from app.models.collaboration import PaperComment, ReviewTask, ScreeningDecision
 from app.models.collection import (
     Collection,
@@ -30,6 +33,7 @@ from app.models.knowledge_graph import ReadingPathCache
 from app.models.paper import MetadataProvenance, Paper, PaperReference, PaperVersion
 from app.models.paper_qa import PaperChunk, PaperEmbeddingJob, QAMessage
 from app.models.topic import PaperTopic, Topic
+from app.models.topic_monitor import TopicMonitor, TopicMonitorRun
 from app.models.user import User, UserRole
 from app.models.venue import Venue
 from app.models.writing import WritingDocument

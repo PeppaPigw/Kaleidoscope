@@ -923,12 +923,18 @@ class AgentInformationService:
             if isinstance(field, list):
                 parts.extend(str(item) for item in field)
         if paper.parsed_sections:
-            for section in paper.parsed_sections[:20]:
-                if isinstance(section, dict):
-                    parts.append(str(section.get("title") or ""))
-                    paragraphs = section.get("paragraphs") or []
-                    if isinstance(paragraphs, list):
-                        parts.extend(str(item) for item in paragraphs[:4])
+            if isinstance(paper.parsed_sections, dict):
+                for key, val in list(paper.parsed_sections.items())[:20]:
+                    parts.append(key)
+                    if isinstance(val, str):
+                        parts.append(val[:2000])
+            elif isinstance(paper.parsed_sections, list):
+                for section in paper.parsed_sections[:20]:
+                    if isinstance(section, dict):
+                        parts.append(str(section.get("title") or ""))
+                        paragraphs = section.get("paragraphs") or []
+                        if isinstance(paragraphs, list):
+                            parts.extend(str(item) for item in paragraphs[:4])
         if paper.full_text_markdown:
             parts.append(paper.full_text_markdown[:max_chars])
         return "\n".join(part for part in parts if part)[:max_chars]

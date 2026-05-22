@@ -3,7 +3,7 @@
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.llm_client import LLMClient
+from app.clients.llm_client import DEFAULT_CHAT_MODEL, LLMClient
 from app.models.paper import Paper
 from app.services.extraction.chunker import TextChunker
 from app.services.extraction.prompts import (
@@ -18,18 +18,18 @@ logger = structlog.get_logger(__name__)
 
 
 LEVEL_CONFIG = {
-    "tweet": {"template": SUMMARIZE_TWEET, "max_tokens": 200, "model": "gpt-4o-mini"},
+    "tweet": {"template": SUMMARIZE_TWEET, "max_tokens": 200, "model": DEFAULT_CHAT_MODEL},
     "abstract": {
         "template": SUMMARIZE_ABSTRACT,
         "max_tokens": 600,
-        "model": "gpt-4o-mini",
+        "model": DEFAULT_CHAT_MODEL,
     },
     "executive": {
         "template": SUMMARIZE_EXECUTIVE,
         "max_tokens": 1500,
-        "model": "gpt-4o-mini",
+        "model": DEFAULT_CHAT_MODEL,
     },
-    "detailed": {"template": SUMMARIZE_DETAILED, "max_tokens": 4000, "model": "gpt-4o"},
+    "detailed": {"template": SUMMARIZE_DETAILED, "max_tokens": 4000, "model": DEFAULT_CHAT_MODEL},
 }
 
 

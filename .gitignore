@@ -39,6 +39,11 @@ dist/
 backend/.env
 !backend/.env.example
 
+# ── Database / runtime artifacts ─────────────────────
+*.db
+*.sqlite3
+celerybeat-schedule*
+
 # ── Docker volumes (local dev) ───────────────────────
 docker-data/
 

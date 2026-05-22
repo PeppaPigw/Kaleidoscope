@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +45,7 @@ class SearchHit(BaseModel):
     authors: list[str] = []
     venue: str | None = None
     score: float  # Relevance score
-    highlights: dict[str, list[str]] | None = None  # {field: [highlighted_snippet]}
+    highlights: dict[str, Any] | None = None  # {field: highlighted_content}
 
     model_config = {"from_attributes": True}
 

@@ -94,31 +94,49 @@ class LLMClient:
         if enable_thinking:
             body["enable_thinking"] = True
 
-        try:
-            resp = await client.post("chat/completions", json=body)
-            resp.raise_for_status()
-            data = resp.json()
-            choice = data["choices"][0]["message"]
+        import asyncio
 
-            # we return the final answer only.
-            content: str = choice.get("content") or ""
-            logger.info(
-                "llm_completion",
-                model=model,
-                input_tokens=data.get("usage", {}).get("prompt_tokens"),
-                output_tokens=data.get("usage", {}).get("completion_tokens"),
-            )
-            return content
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                "llm_api_error",
-                status=e.response.status_code,
-                body=e.response.text[:500],
-            )
-            raise
-        except Exception as e:
-            logger.error("llm_error", error=str(e))
-            raise
+        last_error = None
+        for attempt in range(3):
+            try:
+                resp = await client.post("chat/completions", json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                choice = data["choices"][0]["message"]
+
+                content: str = choice.get("content") or ""
+                logger.info(
+                    "llm_completion",
+                    model=model,
+                    input_tokens=data.get("usage", {}).get("prompt_tokens"),
+                    output_tokens=data.get("usage", {}).get("completion_tokens"),
+                )
+                return content
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in (429, 502, 503, 504):
+                    last_error = e
+                    wait = 2 ** attempt
+                    logger.warning("llm_retry", attempt=attempt + 1, status=e.response.status_code, wait=wait)
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error(
+                    "llm_api_error",
+                    status=e.response.status_code,
+                    body=e.response.text[:500],
+                )
+                raise
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as e:
+                last_error = e
+                wait = 2 ** attempt
+                logger.warning("llm_timeout_retry", attempt=attempt + 1, wait=wait, error=str(e)[:100])
+                await asyncio.sleep(wait)
+                continue
+            except Exception as e:
+                logger.error("llm_error", error=str(e))
+                raise
+
+        logger.error("llm_all_retries_exhausted", attempts=3, error=str(last_error))
+        raise last_error
 
     async def complete_json(
         self,
@@ -146,30 +164,51 @@ class LLMClient:
         model: str = DEFAULT_EMBED_MODEL,
     ) -> list[list[float]]:
 
+        import asyncio
+
         client = await self._get_client()
 
-        try:
-            resp = await client.post(
-                "embeddings",
-                json={
-                    "model": model,
-                    "input": texts,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Standard OpenAI embedding response: data[].embedding
-            embeddings = [item["embedding"] for item in data["data"]]
-            logger.info(
-                "llm_embed",
-                model=model,
-                count=len(texts),
-                dimensions=len(embeddings[0]) if embeddings else 0,
-            )
-            return embeddings
-        except Exception as e:
-            logger.error("llm_embed_error", error=str(e))
-            raise
+        last_error = None
+        for attempt in range(3):
+            try:
+                resp = await client.post(
+                    "embeddings",
+                    json={
+                        "model": model,
+                        "input": texts,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                embeddings = [item["embedding"] for item in data["data"]]
+                logger.info(
+                    "llm_embed",
+                    model=model,
+                    count=len(texts),
+                    dimensions=len(embeddings[0]) if embeddings else 0,
+                )
+                return embeddings
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as e:
+                last_error = e
+                wait = 2 ** attempt
+                logger.warning("embed_timeout_retry", attempt=attempt + 1, wait=wait)
+                await asyncio.sleep(wait)
+                continue
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in (429, 502, 503, 504):
+                    last_error = e
+                    wait = 2 ** attempt
+                    logger.warning("embed_retry", attempt=attempt + 1, status=e.response.status_code)
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error("llm_embed_error", error=str(e))
+                raise
+            except Exception as e:
+                logger.error("llm_embed_error", error=str(e))
+                raise
+
+        logger.error("embed_all_retries_exhausted", attempts=3)
+        raise last_error
 
     async def rerank(
         self,
